@@ -25,3 +25,5 @@ find_package(LAPACK REQUIRED)
 
 add_subdirectory(PORD)
 add_subdirectory(src)
+
+add_subdirectory(tests)

@@ -11,16 +11,19 @@ get_directory_property(hasParent PARENT_DIRECTORY)
 if(NOT hasParent)
   list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules/)
   include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/compilers.cmake)
+
+  if(NOT DEFINED MUMPS_ROOT)
+    set(MUMPS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../)
+  endif()
+  find_package(MUMPS REQUIRED COMPONENTS d)
+else()  # testing what we just built
+  set(MUMPS_LIBRARIES dmumps mumps_common pord)
+  set(MUMPS_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/include)
 endif()
 
 find_package(MPI REQUIRED COMPONENTS Fortran)
 find_package(LAPACK REQUIRED)
 find_package(SCALAPACK REQUIRED)
-
-if(NOT DEFINED MUMPS_ROOT)
-  set(MUMPS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../)
-endif()
-find_package(MUMPS REQUIRED COMPONENTS d)
 
 add_executable(mumpscfg test_mumps.f90)
 target_link_libraries(mumpscfg PRIVATE ${MUMPS_LIBRARIES} ${SCALAPACK_LIBRARIES} ${LAPACK_LIBRARIES} MPI::MPI_Fortran)
@@ -28,4 +31,4 @@ target_include_directories(mumpscfg PRIVATE ${MUMPS_INCLUDE_DIRS})
 
 add_test(NAME MumpsCfg
   COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS} $<TARGET_FILE:mumpscfg>)
-set_tests_properties(MumpsCfg PROPERTIES TIMEOUT 5)
+set_tests_properties(MumpsCfg PROPERTIES TIMEOUT 10)
