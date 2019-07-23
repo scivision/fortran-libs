@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/scivision/mumps.svg?branch=master)](https://travis-ci.org/scivision/mumps)
+[![Build Status](https://dev.azure.com/mhirsch0512/scalapack/_apis/build/status/scivision.mumps?branchName=master)](https://dev.azure.com/mhirsch0512/scalapack/_build/latest?definitionId=6&branchName=master)
 [![Build status](https://ci.appveyor.com/api/projects/status/dyonair98wk9u5gv?svg=true)](https://ci.appveyor.com/project/scivision/mumps)
 ---
 
@@ -8,47 +8,10 @@ http://mumps.enseeiht.fr/
 
 ## Build
 
-We have provided `build.py` for this project, that works like:
-
 ```sh
-python build.py gcc
-```
+cmake -B build
 
-For Intel, load the compiler environment (set MKLROOT) first, like:
-
-```sh
-. ~/intel.sh
-
-python build.py intel
-```
-
-Likewise, to build for GCC with MKL:
-
-
-```sh
-. ~/intel.sh
-
-python build.py gcc
-```
-
-
-
-### Manual build
-
-Meson &ge; 0.50 or CMake &ge; 3.13 can build MUMPS
-
-```sh
-meson build
-ninja -C build
-
-meson test -C build
-```
-
-or
-
-```sh
-cmake -B build -S .
-cmake --build build -j
+cmake --build build --parallel
 ```
 
 To fully specify libraries, do like:

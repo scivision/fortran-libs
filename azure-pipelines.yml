@@ -1,28 +1,5 @@
 jobs:
-- job: UbuntuCMake
-  pool:
-    vmImage: 'ubuntu-latest'
-
-  steps:
-  - script: |
-      sudo apt update -q > /dev/null
-      sudo apt install -yq --no-install-recommends gfortran liblapack-dev libscalapack-mpi-dev libopenmpi-dev
-    displayName: 'Install Linux prereqs'
-  - script: |
-      cmake --version
-      cd $BUILD_DIR
-      cmake $SRC_DIR
-      cmake --build $BUILD_DIR --parallel
-    env:
-      SRC_DIR: $(Build.SourcesDirectory)
-      BUILD_DIR: $(Build.BinariesDirectory)
-      FC: gfortran
-    displayName: 'CMake: Configure and Build'
-  - script: ctest --parallel --output-on-failure
-    workingDirectory: $(Build.BinariesDirectory)
-    displayName: 'CTest'
-
-- job: UbuntuMeson
+- job: Ubuntu_CMake
   pool:
     vmImage: 'ubuntu-latest'
 
@@ -32,27 +9,57 @@ jobs:
       versionSpec: '3.6'
       addToPath: true
   - script: |
-      sudo apt update -q
+      sudo apt update -q > /dev/null
       sudo apt install -yq --no-install-recommends gfortran liblapack-dev libscalapack-mpi-dev libopenmpi-dev
     displayName: 'Install Linux prereqs'
   - script: |
-      python -m pip install meson
-      curl -Ls https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-linux.zip -o ninja-linux.zip
-      sudo unzip ninja-linux.zip -d /usr/local/bin/
-    displayName: 'setup Meson'
+      python -m pip install cmakeutils
+      cmake_setup 3.15.0
+      echo '##vso[task.setvariable variable=CMAKE_PATH]$HOME/.local/cmake-3.15.0-Linux-x86_64/bin'
+    displayName: 'Install modern CMake'
   - script: |
-      meson setup $BUILD_DIR $SRC_DIR
-      meson test -C $BUILD_DIR
+      $CMAKE_PATH/cmake -B $BUILD_DIR -S $SRC_DIR
+      $CMAKE_PATH/cmake --build $BUILD_DIR --parallel
     env:
       SRC_DIR: $(Build.SourcesDirectory)
       BUILD_DIR: $(Build.BinariesDirectory)
       FC: gfortran
-    displayName: 'Build and test'
-  - publish: $(Build.BinariesDirectory)/meson-logs/testlog.txt
-    condition: succeededOrFailed()
-    artifact: TestLogUbuntuMeson
+    displayName: 'CMake: Configure and Build'
+  - script: $CMAKE_PATH/ctest --parallel --output-on-failure
+    workingDirectory: $(Build.BinariesDirectory)
+    displayName: 'CTest'
 
-- job: MacOS
+# - job: Ubuntu_Meson
+  # pool:
+    # vmImage: 'ubuntu-latest'
+
+  # steps:
+  # - task: UsePythonVersion@0
+    # inputs:
+      # versionSpec: '3.6'
+      # addToPath: true
+  # - script: |
+      # sudo apt update -q
+      # sudo apt install -yq --no-install-recommends gfortran liblapack-dev libscalapack-mpi-dev libopenmpi-dev
+    # displayName: 'Install Linux prereqs'
+  # - script: |
+      # python -m pip install meson
+      # curl -Ls https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-linux.zip -o ninja-linux.zip
+      # sudo unzip ninja-linux.zip -d /usr/local/bin/
+    # displayName: 'setup Meson'
+  # - script: |
+      # meson setup $BUILD_DIR $SRC_DIR
+      # meson test -C $BUILD_DIR
+    # env:
+      # SRC_DIR: $(Build.SourcesDirectory)
+      # BUILD_DIR: $(Build.BinariesDirectory)
+      # FC: gfortran
+    # displayName: 'Build and test'
+  # - publish: $(Build.BinariesDirectory)/meson-logs/testlog.txt
+    # condition: succeededOrFailed()
+    # artifact: TestLogUbuntuMeson
+
+- job: MacOS_CMake
   pool:
     vmImage: macOS-10.14
 
@@ -62,17 +69,17 @@ jobs:
       versionSpec: '3.6'
       addToPath: true
   - script: |
-      brew install gcc lapack ninja open-mpi scalapack
-      python -m pip install meson
+      brew install gcc lapack cmake open-mpi scalapack
     displayName: 'Install Prereqs'
   - script: |
-      meson setup $BUILD_DIR $SRC_DIR
-      meson test -C $BUILD_DIR
+      cmake --version
+      cmake -B $BUILD_DIR -S $SRC_DIR
+      cmake --build $BUILD_DIR --parallel
     env:
       SRC_DIR: $(Build.SourcesDirectory)
       BUILD_DIR: $(Build.BinariesDirectory)
       FC: gfortran
-    displayName: 'Build and test'
-  - publish: $(Build.BinariesDirectory)/meson-logs/testlog.txt
-    condition: succeededOrFailed()
-    artifact: TestLogMacOS
+    displayName: 'CMake: Configure and Build'
+  - script: ctest --parallel --output-on-failure
+    workingDirectory: $(Build.BinariesDirectory)
+    displayName: 'CTest'
