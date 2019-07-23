@@ -24,10 +24,18 @@ endif()
 find_package(MPI REQUIRED COMPONENTS Fortran)
 find_package(LAPACK REQUIRED)
 find_package(SCALAPACK REQUIRED)
-find_package(BLACS REQUIRED)
+find_package(BLACS)
+
+# some systems (Ubuntu 16.04) need BLACS explicitly, when it isn't statically compiled into libscalapack
+# other systems (homebrew, Ubuntu 18.04) link BLACS into libscalapack, and don't need BLACS as a separately linked library.
+set(MUMPS_PREREQ_LIBS ${MUMPS_LIBRARIES} ${SCALAPACK_LIBRARIES})
+if(BLACS_FOUND)
+  list(APPEND MUMPS_PREREQ_LIBS ${BLACS_LIBRARIES})
+endif()
+list(APPEND MUMPS_PREREQ_LIBS ${LAPACK_LIBRARIES} MPI::MPI_Fortran)
 
 add_executable(mumpscfg test_mumps.f90)
-target_link_libraries(mumpscfg PRIVATE ${MUMPS_LIBRARIES} ${SCALAPACK_LIBRARIES} ${BLACS_LIBRARIES} ${LAPACK_LIBRARIES} MPI::MPI_Fortran)
+target_link_libraries(mumpscfg PRIVATE ${MUMPS_PREREQ_LIBS})
 target_include_directories(mumpscfg PRIVATE ${MUMPS_INCLUDE_DIRS})
 
 add_test(NAME MumpsCfg
