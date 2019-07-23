@@ -10,7 +10,7 @@ jobs:
       addToPath: true
   - script: |
       sudo apt update -q > /dev/null
-      sudo apt install -yq --no-install-recommends gfortran liblapack-dev libscalapack-mpi-dev libopenmpi-dev
+      sudo apt install -yq --no-install-recommends gfortran liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libopenmpi-dev
     displayName: 'Install Linux prereqs'
   - script: |
       python -m pip install cmakeutils
@@ -40,7 +40,7 @@ jobs:
       # addToPath: true
   # - script: |
       # sudo apt update -q
-      # sudo apt install -yq --no-install-recommends gfortran liblapack-dev libscalapack-mpi-dev libopenmpi-dev
+      # sudo apt install -yq --no-install-recommends gfortran liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libopenmpi-dev
     # displayName: 'Install Linux prereqs'
   # - script: |
       # python -m pip install meson

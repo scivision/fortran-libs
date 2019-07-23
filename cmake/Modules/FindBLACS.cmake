@@ -5,7 +5,9 @@
 FindBLACS
 ---------
 
-Finds the BLACSS library
+Finds the OpenMPI BLACS library.
+If you want this via MKL, just use ``find_package(SCALAPACK)``
+
 
 
 Result Variables
@@ -21,6 +23,8 @@ BLACS_INCLUDE_DIRS
 
 #]=======================================================================]
 
+cmake_policy(VERSION 3.3)
+
 function(getlibs)
 
 if(MPICH IN_LIST BLACS_FIND_COMPONENTS)
@@ -34,54 +38,63 @@ elseif(PVM IN_LIST BLACS_FIND_COMPONENTS)
                NAMES blacs-pvm)
 elseif(OpenMPI IN_LIST BLACS_FIND_COMPONENTS)
 
-find_library(BLACS_INIT
-  NAMES blacsF77init blacsF77init-openmpi
-  PATHS ${SCALAPACK_ROOT})
+  find_library(BLACS_INIT
+    NAMES blacsF77init blacsF77init-openmpi
+    PATHS ${SCALAPACK_ROOT})
 
-find_library(BLACS_CINIT
-  NAMES blacsCinit blacsCinit-openmpi
-  PATHS ${SCALAPACK_ROOT})
+  # this is the only lib that scalapack/blacs/src provides
+  find_library(BLACS_CINIT
+    NAMES blacsCinit blacsCinit-openmpi
+    PATHS ${SCALAPACK_ROOT})
 
-find_library(BLACS_LIB
-  NAMES blacs blacs-mpi blacs-openmpi
-  PATHS ${SCALAPACK_ROOT})
+  find_library(BLACS_LIB
+    NAMES blacs blacs-mpi blacs-openmpi
+    PATHS ${SCALAPACK_ROOT})
 
-if(BLACS_LIB)
-  list(APPEND BLACS_LIBRARY ${BLACS_LIB})
+  if(BLACS_LIB)
+    list(APPEND BLACS_LIBRARY ${BLACS_LIB})
+  endif()
+
+  if(BLACS_CINIT)
+    list(APPEND BLACS_LIBRARY ${BLACS_CINIT})
+  endif()
+
+  if(BLACS_INIT)
+    list(APPEND BLACS_LIBRARY ${BLACS_INIT})
+  endif()
+
+  if(BLACS_LIBRARY)
+    set(BLACS_OpenMPI_FOUND true PARENT_SCOPE)
+  endif()
+else()
+  message(FATAL_ERROR "Must specify desired COMPONENTS for find_package(BLACS)")
 endif()
 
-if(BLACS_CINIT)
-  list(APPEND BLACS_LIBRARY ${BLACS_CINIT})
-endif()
 
-if(BLACS_INIT)
-  list(APPEND BLACS_LIBRARY ${BLACS_INIT})
-endif()
-
-endif()
+set(BLACS_LIBRARY ${BLACS_LIBRARY} PARENT_SCOPE)
 
 endfunction(getlibs)
 
+# == main
 
-if(NOT DEFINED BLACS_FIND_COMPONENTS)
+if(NOT BLACS_FIND_COMPONENTS)
   set(BLACS_FIND_COMPONENTS OpenMPI)
 endif()
 
 getlibs()
 
-if(BLACS_LIBRARY AND BLACS_LIB)
-  find_package(MPI REQUIRED COMPONENTS Fortran)
-  include(CheckFortranFunctionExists)
-  set(CMAKE_REQUIRED_LIBRARIES ${BLACS_LIBRARY} MPI::MPI_Fortran)
-  check_fortran_function_exists(blacs_gridmap BLACS_OK)
+
+if(BLACS_LIBRARY)
+  include(CheckFortranSourceCompiles)
+  set(CMAKE_REQUIRED_LIBRARIES ${BLACS_LIBRARY})
+  check_fortran_source_compiles("integer contxt; CALL BLACS_GET(0, 0, CONTXT); end" BLACS_OK SRC_EXT f90)
 endif()
 
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(BLACS
-  REQUIRED_VARS BLACS_LIBRARY BLACS_OK
+  REQUIRED_VARS BLACS_LIBRARY
   HANDLE_COMPONENTS)
-
 
 if(BLACS_FOUND)
   set(BLACS_LIBRARIES ${BLACS_LIBRARY})

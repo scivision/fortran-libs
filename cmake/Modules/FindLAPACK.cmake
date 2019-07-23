@@ -334,7 +334,9 @@ if(NOT (OpenBLAS IN_LIST LAPACK_FIND_COMPONENTS
 endif()
 
 if(NOT LAPACK_OK)
-message(STATUS "Finding LAPACK components: ${LAPACK_FIND_COMPONENTS}")
+  message(STATUS "Finding LAPACK components: ${LAPACK_FIND_COMPONENTS}")
+else()
+  return()
 endif()
 
 get_property(project_languages GLOBAL PROPERTY ENABLED_LANGUAGES)
@@ -440,7 +442,7 @@ set(CMAKE_REQUIRED_INCLUDES ${LAPACK_INCLUDE_DIR})
 set(CMAKE_REQUIRED_LIBRARIES ${LAPACK_LIBRARY})
 
 if(CMAKE_Fortran_COMPILER AND LAPACK_LIBRARY)
-  check_fortran_function_exists(sgemm BLAS_OK)
+  check_fortran_function_exists(dgemm BLAS_OK)
   check_fortran_function_exists(sgemv LAPACK_OK)
 
   if(NOT (BLAS_OK AND LAPACK_OK))

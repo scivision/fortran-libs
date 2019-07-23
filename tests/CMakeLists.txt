@@ -24,9 +24,10 @@ endif()
 find_package(MPI REQUIRED COMPONENTS Fortran)
 find_package(LAPACK REQUIRED)
 find_package(SCALAPACK REQUIRED)
+find_package(BLACS REQUIRED)
 
 add_executable(mumpscfg test_mumps.f90)
-target_link_libraries(mumpscfg PRIVATE ${MUMPS_LIBRARIES} ${SCALAPACK_LIBRARIES} ${LAPACK_LIBRARIES} MPI::MPI_Fortran)
+target_link_libraries(mumpscfg PRIVATE ${MUMPS_LIBRARIES} ${SCALAPACK_LIBRARIES} ${BLACS_LIBRARIES} ${LAPACK_LIBRARIES} MPI::MPI_Fortran)
 target_include_directories(mumpscfg PRIVATE ${MUMPS_INCLUDE_DIRS})
 
 add_test(NAME MumpsCfg
