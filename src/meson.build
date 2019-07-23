@@ -42,8 +42,7 @@ src = files(arith+'ana_aux_par.F', arith+'ana_lr.F', arith+'fac_asm_master_m.F',
 
 cint_src = files('mumps_c.c')
 
-
-ARITH_lib = library( arith + 'mumps', cint_src, src,
+mumps_lib = library(arith + 'mumps', cint_src, src,
   dependencies : [mpif, mpic, scalapack],
   link_with : mumps_common,
   fortran_args : [cargs, '-DMUMPS_ARITH=MUMPS_ARITH_'+arith],

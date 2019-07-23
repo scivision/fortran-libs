@@ -61,7 +61,9 @@ jobs:
     inputs:
       versionSpec: '3.6'
       addToPath: true
-  - script: brew install gcc lapack ninja open-mpi scalapack
+  - script: |
+      brew install gcc lapack ninja open-mpi scalapack
+      python -m pip install meson
     displayName: 'Install Prereqs'
   - script: |
       meson setup $BUILD_DIR $SRC_DIR
