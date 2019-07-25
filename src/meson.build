@@ -44,8 +44,8 @@ cint_src = files('mumps_c.c')
 
 mumps_lib = library(arith + 'mumps', cint_src, src,
   dependencies : [mpif, mpic, scalapack],
-  link_with : mumps_common,
   fortran_args : [cargs, '-DMUMPS_ARITH=MUMPS_ARITH_'+arith],
   c_args :  [cargs, '-DMUMPS_ARITH=MUMPS_ARITH_'+arith],
+  link_with: mumps_common,
   include_directories : '../include')
 
