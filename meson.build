@@ -6,6 +6,9 @@ project('MUMPS', 'c', 'fortran',
 arith = get_option('ARITH')
 ordering = get_option('ordering')
 
+# under prefix.  example: --prefix ~/.local then ~/.local/mumps-5.2.1/lib{pord,common,dmumps}.a
+install_dir = 'mumps-'+meson.project_version()
+
 fc = meson.get_compiler('fortran')
 
 mpic = dependency('mpi', language : 'c')
