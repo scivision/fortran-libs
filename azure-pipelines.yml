@@ -1,7 +1,7 @@
 jobs:
 - job: Ubuntu_CMake
   pool:
-    vmImage: 'ubuntu-latest'
+    vmImage: ubuntu-latest
 
   steps:
   - task: UsePythonVersion@0
@@ -14,18 +14,16 @@ jobs:
     displayName: 'Install Linux prereqs'
   - script: |
       python -m pip install cmakeutils
-      cmake_setup 3.15.0 --prefix $(HOME)/.local
-      echo '##vso[task.prependpath]$(HOME)/.local/cmake-3.15.0-Linux-x86_64/bin'
-    displayName: 'Install modern CMake'
-  - script: |
-      cmake -B $BUILD_DIR -S $SRC_DIR
-      cmake --build $BUILD_DIR --parallel
+      cmake_setup 3.15.1 --prefix $(HOME)/.local
+      export Cmake=$(HOME)/.local/cmake-3.15.1-Linux-x86_64/bin'
+      Cmake -B $BUILD_DIR -S $SRC_DIR
+      Cmake --build $BUILD_DIR --parallel
     env:
       SRC_DIR: $(Build.SourcesDirectory)
       BUILD_DIR: $(Build.BinariesDirectory)
       FC: gfortran
     displayName: 'CMake: Configure and Build'
-  - script: ctest --parallel --output-on-failure
+  - script: $(HOME)/.local/cmake-3.15.1-Linux-x86_64/bin/ctest --parallel --output-on-failure
     workingDirectory: $(Build.BinariesDirectory)
     displayName: 'CTest'
 
@@ -61,7 +59,7 @@ jobs:
 
 - job: MacOS_CMake
   pool:
-    vmImage: macOS-10.14
+    vmImage: macOS-latest
 
   steps:
   - task: UsePythonVersion@0
