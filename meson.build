@@ -15,7 +15,7 @@ mpif = dependency('mpi', language : 'fortran')
 # scalapack = dependency('scalapack')
 scalapack_root = get_option('SCALAPACK_ROOT')
 if scalapack_root == ''  # system
-  scalapack_lib = fc.find_library('scalapack-openmpi')
+  scalapack_lib = fc.find_library('scalapack-openmpi', required: false)
   if not scalapack_lib.found()
     scalapack_lib = fc.find_library('scalapack')
   endif
