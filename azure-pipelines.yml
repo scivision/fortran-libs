@@ -16,46 +16,42 @@ jobs:
       python -m pip install cmakeutils
       cmake_setup 3.15.1 --prefix $(HOME)/.local
       export Cmake=$(HOME)/.local/cmake-3.15.1-Linux-x86_64/bin
-      Cmake -B $BUILD_DIR -S $SRC_DIR
-      Cmake --build $BUILD_DIR --parallel
+      Cmake -B build
+      Cmake --build build --parallel
     env:
-      SRC_DIR: $(Build.SourcesDirectory)
-      BUILD_DIR: $(Build.BinariesDirectory)
       FC: gfortran
     displayName: 'CMake: Configure and Build'
   - script: $(HOME)/.local/cmake-3.15.1-Linux-x86_64/bin/ctest --parallel --output-on-failure
-    workingDirectory: $(Build.BinariesDirectory)
+    workingDirectory: build
     displayName: 'CTest'
 
-# - job: Ubuntu_Meson
-  # pool:
-    # vmImage: 'ubuntu-latest'
+- job: Ubuntu_Meson
+  pool:
+    vmImage: 'ubuntu-latest'
 
-  # steps:
-  # - task: UsePythonVersion@0
-    # inputs:
-      # versionSpec: '3.6'
-      # addToPath: true
-  # - script: |
-      # sudo apt update -q
-      # sudo apt install -yq --no-install-recommends gfortran liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libopenmpi-dev
-    # displayName: 'Install Linux prereqs'
-  # - script: |
-      # python -m pip install meson
-      # curl -Ls https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-linux.zip -o ninja-linux.zip
-      # sudo unzip ninja-linux.zip -d /usr/local/bin/
-    # displayName: 'setup Meson'
-  # - script: |
-      # meson setup $BUILD_DIR $SRC_DIR
-      # meson test -C $BUILD_DIR
-    # env:
-      # SRC_DIR: $(Build.SourcesDirectory)
-      # BUILD_DIR: $(Build.BinariesDirectory)
-      # FC: gfortran
-    # displayName: 'Build and test'
-  # - publish: $(Build.BinariesDirectory)/meson-logs/testlog.txt
-    # condition: succeededOrFailed()
-    # artifact: TestLogUbuntuMeson
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.6'
+      addToPath: true
+  - script: |
+      sudo apt update -q
+      sudo apt install -yq --no-install-recommends gfortran liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libopenmpi-dev
+    displayName: 'Install Linux prereqs'
+  - script: |
+      python -m pip install meson
+      curl -Ls https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-linux.zip -o ninja-linux.zip
+      sudo unzip ninja-linux.zip -d /usr/local/bin/
+    displayName: 'install Meson'
+  - script: meson setup build
+    env:
+      FC: gfortran
+    displayName: 'Meson Configure and Generate'
+  - script: meson test -C build
+    displayName: 'Meson build and test'
+  - publish: build/meson-logs/testlog.txt
+    condition: succeededOrFailed()
+    artifact: TestLog_Ubuntu_Meson
 
 - job: MacOS_CMake
   pool:
@@ -66,18 +62,37 @@ jobs:
     inputs:
       versionSpec: '3.6'
       addToPath: true
-  - script: |
-      brew install gcc lapack cmake open-mpi scalapack
+  - script: brew install gcc lapack cmake open-mpi scalapack
     displayName: 'Install Prereqs'
-  - script: |
-      cmake --version
-      cmake -B $BUILD_DIR -S $SRC_DIR
-      cmake --build $BUILD_DIR --parallel
+  - script: cmake -B build
     env:
-      SRC_DIR: $(Build.SourcesDirectory)
-      BUILD_DIR: $(Build.BinariesDirectory)
       FC: gfortran
-    displayName: 'CMake: Configure and Build'
+    displayName: 'CMake configure and generate'
+  - script: cmake --build build --parallel
+    displayName: 'CMake build'
   - script: ctest --parallel --output-on-failure
-    workingDirectory: $(Build.BinariesDirectory)
+    workingDirectory: build
     displayName: 'CTest'
+
+- job: MacOS_Meson
+  pool:
+    vmImage: macOS-latest
+
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.6'
+      addToPath: true
+  - script: |
+      brew install gcc lapack ninja open-mpi scalapack
+      python -m pip install meson
+    displayName: 'Install Prereqs'
+  - script: meson setup build
+    env:
+      FC: gfortran
+    displayName: 'Meson Configure and Generate'
+  - script: meson test -C build
+    displayName: 'Meson build and test'
+  - publish: build/meson-logs/testlog.txt
+    condition: succeededOrFailed()
+    artifact: TestLog_Mac_Meson

@@ -25,7 +25,8 @@ else
 endif
 lapack = dependency('lapack')
 blas = dependency('blas')
-scalapack = declare_dependency(dependencies: [scalapack_lib, lapack, blas])
+threads = dependency('threads')
+scalapack = declare_dependency(dependencies: [scalapack_lib, lapack, blas, threads])
 
 
 subdir('PORD')

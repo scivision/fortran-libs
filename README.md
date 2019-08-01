@@ -8,6 +8,19 @@ http://mumps.enseeiht.fr/
 
 ## Build
 
+Meson or CMake may be used to build MUMPS.
+If the "mumpscfg" test doesn't build or pass, MUMPS is probably not built correctly.
+
+**Meson**
+
+```sh
+meson build
+
+meson test -C build
+```
+
+**CMake**
+
 ```sh
 cmake -B build
 
@@ -16,7 +29,7 @@ cmake --build build --parallel
 
 To fully specify libraries, do like:
 ```sh
-FC=gfortran cmake .. -DSCALAPACK_ROOT=~/lib_gcc/scalapack -DMUMPS_ROOT=~/lib_gcc/mumps -DMPI_ROOT=~/lib_gcc/openmpi-3.1.3 -DLAPACK_ROOT=~/lib_gcc/lapack
+FC=gfortran cmake .. -DSCALAPACK_ROOT=~/lib_gcc/scalapack -DMUMPS_ROOT=~/lib_gcc/mumps -DMPI_ROOT=~/lib_gcc/openmpi-3.1.3
 ```
 
 ## prebuilt

@@ -47,6 +47,7 @@ endif
 mumps_common = library('mumps_common',
   sources: [comm_src, comm_other_src],
   dependencies : [mpic, mpif, scalapack],
+  c_args: cargs,
   link_with : pord
 )
 
