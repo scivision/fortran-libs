@@ -17,7 +17,10 @@ scalapack_root = get_option('SCALAPACK_ROOT')
 if scalapack_root == ''  # system
   scalapack_lib = fc.find_library('scalapack-openmpi', required: false)
   if not scalapack_lib.found()
-    scalapack_lib = fc.find_library('scalapack')
+    scalapack_lib = fc.find_library('scalapack', required: false)
+  endif
+  if not scalapack_lib.found()  # Mac Homebrew
+    scalapack_lib = fc.find_library('scalapack', dirs: '/usr/local/opt/scalapack')
   endif
 else
   message('searching for SCALAPACK in ' + scalapack_root)

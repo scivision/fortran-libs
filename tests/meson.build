@@ -1,6 +1,14 @@
 
+# Ubuntu 16.04 requires explicit BLACS linking (also in CMake)
+blacs = fc.find_library('blacs-openmpi', required: false)
+if blacs.founds()
+  test_deps = [scalapack, blacs, mpif]
+else
+  test_deps = [scalapack, mpif]
+endif
+
 mumpscfg = executable('mumpscfg', 'test_mumps.f90',
-  dependencies : [scalapack, mpif],
+  dependencies : test_deps,
   link_with : [mumps_lib, mumps_common, pord],
   include_directories : '../include',
   link_language: 'fortran')
