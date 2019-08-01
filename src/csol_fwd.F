@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -31,7 +31,7 @@ C
       INTEGER(8), INTENT(IN) :: LA, LWCB
       INTEGER, INTENT(IN) :: N, LIW, LPOOL, LIWCB, LNA
       INTEGER SLAVEF, MYLEAF, COMM, MYID
-      INTEGER INFO( 40 ), KEEP(500)
+      INTEGER INFO( 80 ), KEEP(500)
       INTEGER(8) KEEP8(150)
       REAL, INTENT(INOUT) :: DKEEP(230)
       INTEGER PROCNODE_STEPS( KEEP(28) )
@@ -118,7 +118,8 @@ C
      &     PTRICB, INFO, KEEP,KEEP8, DKEEP, STEP,
      &     PROCNODE_STEPS,
      &     RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD
-     &     , FROM_PP )
+     &     , FROM_PP
+     &    )
       IF ( INFO( 1 ) .LT. 0 .OR. NBFIN .EQ. 0 ) GOTO 260
       IF (.not. FLAG) THEN
          IF (III .NE. LEAF) THEN
@@ -142,7 +143,8 @@ C
      &        RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD,
      &        ISTEP_TO_INIV2, TAB_POS_IN_PERE
      &        , RHS_BOUNDS, LRHS_BOUNDS, DO_NBSPARSE 
-     &     , FROM_PP )
+     &     , FROM_PP
+     & )
       IF ( INFO( 1 ) .LT. 0 .OR. NBFIN .EQ. 0 ) GOTO 260
       GOTO 50
   260 CONTINUE

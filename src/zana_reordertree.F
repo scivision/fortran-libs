@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -22,7 +22,7 @@ C
       INTEGER K215,K234,K55
       INTEGER DAD(LDAD)
       LOGICAL USE_DAD
-      INTEGER INFO(40)
+      INTEGER INFO(80)
       INTEGER SLAVEF,PROCNODE(NSTEPS)
       INTEGER :: SBTR_WHICH_M
       EXTERNAL MUMPS_PROCNODE
@@ -146,7 +146,7 @@ C
          COST_NODE=0.0d0
       ENDIF
       IF(NBROOT.EQ.NBLEAF)THEN
-        IF((PERM.NE.1).OR.(PERM.EQ.4).OR.(PERM.EQ.6))THEN
+         IF((PERM.NE.1).OR.(PERM.EQ.4).OR.(PERM.EQ.6))THEN
           WRITE(*,*)'Internal Error in reordertree:'
           WRITE(*,*)'  problem with perm parameter in reordertree'
           CALL MUMPS_ABORT()
@@ -741,7 +741,7 @@ C
       INTEGER K47,K81,K76,K215,K234,K55
       INTEGER DAD(LDAD)
       LOGICAL USE_DAD
-      INTEGER INFO(40)
+      INTEGER INFO(80)
       INTEGER SLAVEF,PROCNODE(NSTEPS)
       DOUBLE PRECISION, intent(out) :: MEM_SUBTREE(SIZE_MEM_SBTR,SLAVEF)
       INTEGER :: SBTR_WHICH_M
@@ -812,7 +812,7 @@ C
       MEM_SIZE=0_8
       FACT_SIZE=0_8
       IF ((PERM.GT.7).AND.
-     & (.NOT.(K47 == 4 .OR. ((K47.GE.2).AND.(K81 .GE. 1))))) THEN
+     &     (.NOT.(K47 == 4 .OR. ((K47.GE.2).AND.(K81 .GE. 1))))) THEN
          WRITE(*,*) "Internal Error in ZMUMPS_REORDER_TREE",PERM
          CALL MUMPS_ABORT()
       END IF
@@ -870,7 +870,7 @@ C
         RETURN
       ENDIF
       IF(NBROOT.EQ.NBLEAF)THEN
-        IF((PERM.NE.1).OR.(PERM.EQ.4).OR.(PERM.EQ.6))THEN
+         IF((PERM.NE.1).OR.(PERM.EQ.4).OR.(PERM.EQ.6))THEN
           WRITE(*,*)'Internal Error in reordertree:'
           WRITE(*,*)'  problem with perm parameter in reordertree'
           CALL MUMPS_ABORT()
@@ -1129,8 +1129,6 @@ C
               ID=MUMPS_PROCNODE(PROCNODE(STEP(INODE)),SLAVEF)
               DEPTH_FIRST_TRAV(STEP(INODE))=CUR_DEPTH_FIRST_RANK
               DEPTH_FIRST_SEQ(CUR_DEPTH_FIRST_RANK)=INODE
-              WRITE(*,*)ID,': INODE -> ',INODE,'DF =',
-     &             CUR_DEPTH_FIRST_RANK
               CUR_DEPTH_FIRST_RANK=CUR_DEPTH_FIRST_RANK+1
               IF(MUMPS_IN_OR_ROOT_SSARBR(PROCNODE(STEP(INODE)),
      &             SLAVEF))THEN

@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -28,19 +28,12 @@ C
       REAL(kind(1.d0))    :: D(2)
       COMPLEX(kind(1.e0)) :: C(2)
       COMPLEX(kind(1.d0)) :: Z(2)
-      INTEGER             :: SIZE
-      CALL MUMPS_SIZE_C(I (1), I (2), SIZE) 
-      ISIZE = int(SIZE,8)
-      CALL MUMPS_SIZE_C(S (1), S (2), SIZE) 
-      SSIZE = int(SIZE,8)
-      CALL MUMPS_SIZE_C(D (1), D (2), SIZE) 
-      DSIZE = int(SIZE,8)
-      CALL MUMPS_SIZE_C(C (1), C (2), SIZE) 
-      CSIZE = int(SIZE,8)
-      CALL MUMPS_SIZE_C(Z (1), Z (2), SIZE) 
-      ZSIZE = int(SIZE,8)
-      CALL MUMPS_SIZE_C(I8(1), I8(2), SIZE) 
-      I8SIZE = int(SIZE,8)
+      CALL MUMPS_SIZE_C(I (1), I (2), ISIZE) 
+      CALL MUMPS_SIZE_C(S (1), S (2), SSIZE) 
+      CALL MUMPS_SIZE_C(D (1), D (2), DSIZE) 
+      CALL MUMPS_SIZE_C(C (1), C (2), CSIZE) 
+      CALL MUMPS_SIZE_C(Z (1), Z (2), ZSIZE) 
+      CALL MUMPS_SIZE_C(I8(1), I8(2), I8SIZE) 
       RETURN
       END SUBROUTINE MUMPS_MEMORY_SET_DATA_SIZES
       SUBROUTINE MUMPS_IREALLOC(ARRAY, MINSIZE, INFO, LP, FORCE, COPY,

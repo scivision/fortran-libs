@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -170,8 +170,9 @@ C
       ALLOCATE(I_SHIFT_FIRST_HBUF(OOC_NB_FILE_TYPE),
      &     stat=allocok)
       IF (allocok > 0) THEN
-         IF (ICNTL1>0)
-     &   WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC'
+         IF (ICNTL1>0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC'
+         ENDIF
          I1 = -13
          I2 = OOC_NB_FILE_TYPE
          IERR=-1
@@ -180,8 +181,9 @@ C
       ALLOCATE(I_SHIFT_SECOND_HBUF(OOC_NB_FILE_TYPE),
      &     stat=allocok)
       IF (allocok > 0) THEN
-         IF (ICNTL1>0)
-     &   WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC'
+         IF (ICNTL1>0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC'
+         ENDIF
          I1 = -13
          I2 = OOC_NB_FILE_TYPE
          IERR=-1
@@ -190,8 +192,9 @@ C
       ALLOCATE(I_SHIFT_CUR_HBUF(OOC_NB_FILE_TYPE),
      &     stat=allocok)
       IF (allocok > 0) THEN
-         IF (ICNTL1>0)
-     &   WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC'
+         IF (ICNTL1>0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC'
+         ENDIF
          I1 = -13
          I2 = OOC_NB_FILE_TYPE
          IERR=-1
@@ -200,8 +203,9 @@ C
       ALLOCATE(I_REL_POS_CUR_HBUF(OOC_NB_FILE_TYPE),
      &     stat=allocok)
       IF (allocok > 0) THEN
-         IF (ICNTL1>0)
-     &   WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC'
+         IF (ICNTL1>0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC'
+         ENDIF
          I1 = -13
          I2 = OOC_NB_FILE_TYPE
          IERR=-1
@@ -210,8 +214,9 @@ C
       ALLOCATE(LAST_IOREQUEST(OOC_NB_FILE_TYPE),
      &     stat=allocok)
       IF (allocok > 0) THEN
-         IF (ICNTL1>0)
-     &   WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC'
+         IF (ICNTL1>0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC'
+         ENDIF
          I1 = -13
          I2 = OOC_NB_FILE_TYPE
          IERR=-1
@@ -220,18 +225,20 @@ C
       ALLOCATE(CUR_HBUF(OOC_NB_FILE_TYPE),
      &     stat=allocok)
       IF (allocok > 0) THEN
-         IF (ICNTL1>0)
-     &   WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC'
+         IF (ICNTL1>0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC'
+         ENDIF
          I1 = -13
          I2 = OOC_NB_FILE_TYPE
          IERR=-1
          RETURN
       ENDIF
       OOC_FCT_TYPE_LOC=OOC_NB_FILE_TYPE
-      ALLOCATE(BUF_IO(DIM_BUF_IO), stat=allocok)
+      ALLOCATE(BUF_IO(DIM_BUF_IO), stat=allocok)      
       IF (allocok > 0) THEN
-         IF (ICNTL1>0)
-     &   WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC'
+         IF (ICNTL1>0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC'
+         ENDIF
          I1 = -13
          CALL MUMPS_SET_IERROR(DIM_BUF_IO, I2)
          RETURN
@@ -245,8 +252,10 @@ C
          ENDIF
          ALLOCATE(AddVirtLibre(OOC_NB_FILE_TYPE), stat=allocok)
          IF (allocok > 0) THEN
-            IF (ICNTL1>0)
-     &      WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC_BUF_PANEL'
+            IF (ICNTL1>0) THEN
+               WRITE(ICNTL1,*) 'PB allocation in ',
+     &              'SMUMPS_INIT_OOC_BUF_PANEL'
+            ENDIF
             IERR=-1
             I1=-13
             I2=OOC_NB_FILE_TYPE
@@ -258,8 +267,10 @@ C
          ENDIF
          ALLOCATE(NextAddVirtBuffer(OOC_NB_FILE_TYPE), stat=allocok)
          IF (allocok > 0) THEN
-            IF (ICNTL1>0)
-     &      WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC_BUF_PANEL'
+            IF (ICNTL1>0) THEN
+               WRITE(ICNTL1,*) 'PB allocation in ',
+     &              'SMUMPS_INIT_OOC_BUF_PANEL'
+            ENDIF
             IERR=-1
             I1=-13
             I2=OOC_NB_FILE_TYPE
@@ -271,8 +282,10 @@ C
          ENDIF
          ALLOCATE(FIRST_VADDR_IN_BUF(OOC_NB_FILE_TYPE), stat=allocok)
          IF (allocok > 0) THEN
-            IF (ICNTL1>0)
-     &      WRITE(ICNTL1,*) 'PB allocation in SMUMPS_INIT_OOC_BUF_PANEL'
+            IF (ICNTL1>0) THEN
+               WRITE(ICNTL1,*) 'PB allocation in ',
+     &              'SMUMPS_INIT_OOC_BUF_PANEL'
+            ENDIF
             IERR=-1
             I1=-13
             I2=OOC_NB_FILE_TYPE

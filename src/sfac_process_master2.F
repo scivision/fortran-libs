@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -18,8 +18,8 @@ C
      &     PTRIST, PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S,
      &     COMP,
      &     IFLAG, IERROR, COMM, COMM_LOAD,
-     &     IPOOL, LPOOL, LEAF, KEEP, KEEP8, DKEEP, ND, FILS, FRERE,
-     &     ITLOC, RHS_MUMPS,
+     &     IPOOL, LPOOL, LEAF, KEEP, KEEP8, DKEEP,
+     &     ND, FILS, DAD, FRERE, ITLOC, RHS_MUMPS,
      &     ISTEP_TO_INIV2, TAB_POS_IN_PERE )
       USE SMUMPS_LOAD
       IMPLICIT NONE
@@ -47,7 +47,7 @@ C
       INTEGER IFLAG, IERROR, COMM, COMM_LOAD
       INTEGER LPOOL, LEAF
       INTEGER IPOOL( LPOOL )
-      INTEGER ND(KEEP(28)), FILS( N ), FRERE( KEEP(28) )
+      INTEGER ND(KEEP(28)), FILS( N ), DAD(KEEP(28)), FRERE(KEEP(28))
       INTEGER ISTEP_TO_INIV2(KEEP(71)), 
      &        TAB_POS_IN_PERE(SLAVEF+2,max(1,KEEP(56)))
       INTEGER POSITION, IFATH, ISON, NROW, NCOL, NELIM, 
@@ -94,7 +94,7 @@ C
         NOREAL= int(NROW,8) * int(NCOL_EFF,8)
         CALL SMUMPS_ALLOC_CB(.FALSE.,0_8,.FALSE.,.FALSE.,
      &   MYID,N,KEEP,KEEP8,DKEEP,IW,LIW,A,LA,
-     &   LRLU, IPTRLU,IWPOS,IWPOSCB,
+     &   LRLU, IPTRLU,IWPOS,IWPOSCB, SLAVEF, PROCNODE_STEPS, DAD,
      &   PTRIST,PTRAST,STEP, PIMASTER, PAMASTER,
      &   NOINT, NOREAL, ISON, S_NOTFREE, .TRUE.,
      &   COMP, LRLUS, IFLAG, IERROR

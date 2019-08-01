@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -34,9 +34,11 @@ C
      &                    FLOP_TRSM,
      &                    FLOP_DEC_ACC,
      &                    FLOP_REC_ACC,
+     &                    FLOP_FR_SWAP,
      &                    FLOP_DEMOTE,
      &                    FLOP_CB_DEMOTE,
      &                    FLOP_CB_PROMOTE,
+     &                    FLOP_PROMOTE,
      &                    LR_FLOP_GAIN 
       DOUBLE PRECISION :: ACC_LR_FLOP_GAIN
       DOUBLE PRECISION :: ACC_FLOP_FR_FACTO,
@@ -50,9 +52,11 @@ C
      &                    ACC_FLOP_DEMOTE,
      &                    ACC_FLOP_CB_DEMOTE,
      &                    ACC_FLOP_CB_PROMOTE,
+     &                    ACC_FLOP_PROMOTE,
      &                    ACC_FLOP_TRSM,
      &                    ACC_FLOP_DEC_ACC,
      &                    ACC_FLOP_REC_ACC,
+     &                    ACC_FLOP_FR_SWAP,
      &                    ACC_FLOP_PANEL,
      &                    ACC_FLOP_FRFRONTS,
      &                    ACC_FLOP_FR_SOLVE,
@@ -69,6 +73,7 @@ C
       DOUBLE PRECISION :: ACC_RMB_TIME
       DOUBLE PRECISION :: ACC_UPDT_TIME_OUT
       DOUBLE PRECISION :: ACC_PROMOTING_TIME
+      DOUBLE PRECISION :: ACC_PROMOTING_UCFS_TIME
       DOUBLE PRECISION :: ACC_DEMOTING_TIME
       DOUBLE PRECISION :: ACC_CB_DEMOTING_TIME
       DOUBLE PRECISION :: ACC_LR_MODULE_TIME
@@ -78,6 +83,13 @@ C
       DOUBLE PRECISION :: ACC_FAC_MQ_TIME
       DOUBLE PRECISION :: ACC_FAC_SQ_TIME
       DOUBLE PRECISION :: ACC_FRFRONTS_TIME
+      DOUBLE PRECISION :: ACC_DIAGCOPY_TIME
+      DOUBLE PRECISION :: ACC_FRSWAP_TIME
+      DOUBLE PRECISION :: ACC_DEC_ASM1_TIME
+      DOUBLE PRECISION :: ACC_DEC_LOCASM2_TIME
+      DOUBLE PRECISION :: ACC_DEC_MAPLIG1_TIME
+      DOUBLE PRECISION :: ACC_DEC_ASMS2S_TIME
+      DOUBLE PRECISION :: ACC_DEC_ASMS2M_TIME
       DOUBLE PRECISION :: AVG_ACC_FLOP_LR_FACTO
       DOUBLE PRECISION :: MIN_ACC_FLOP_LR_FACTO
       DOUBLE PRECISION :: MAX_ACC_FLOP_LR_FACTO
@@ -199,25 +211,41 @@ C
 !$OMP END CRITICAL(acc_cb_flop_cost_pro_cri)
         ENDIF
       END SUBROUTINE UPDATE_FLOP_STATS_CB_PROMOTE
+      SUBROUTINE UPDATE_FLOP_STATS_PROMOTE(COST, NIV)
+        DOUBLE PRECISION :: COST
+        INTEGER :: NIV
+        IF (NIV.EQ.1) THEN
+!$OMP CRITICAL(flop_cost_pro_cri)
+                  FLOP_PROMOTE = FLOP_PROMOTE + COST
+!$OMP END CRITICAL(flop_cost_pro_cri)
+        ELSE
+!$OMP CRITICAL(acc_flop_cost_pro_cri)
+          ACC_FLOP_PROMOTE = ACC_FLOP_PROMOTE + COST
+!$OMP END CRITICAL(acc_flop_cost_pro_cri)
+        ENDIF
+      END SUBROUTINE UPDATE_FLOP_STATS_PROMOTE
       SUBROUTINE UPDATE_FLOP_STATS_CB_DEMOTE(COST, NIV)
         DOUBLE PRECISION :: COST
         INTEGER :: NIV
         IF (NIV.EQ.1) THEN
 !$OMP CRITICAL(cb_flop_cost_dem_cri)
                   FLOP_CB_DEMOTE = FLOP_CB_DEMOTE + COST
+                  FLOP_DEMOTE    = FLOP_DEMOTE    + COST
 !$OMP END CRITICAL(cb_flop_cost_dem_cri)
         ELSE
 !$OMP CRITICAL(acc_cb_flop_cost_dem_cri)
           ACC_FLOP_CB_DEMOTE = ACC_FLOP_CB_DEMOTE + COST
+          ACC_FLOP_DEMOTE    = ACC_FLOP_DEMOTE    + COST
 !$OMP END CRITICAL(acc_cb_flop_cost_dem_cri)
         ENDIF
       END SUBROUTINE UPDATE_FLOP_STATS_CB_DEMOTE
-      SUBROUTINE UPDATE_FLOP_STATS_DEMOTE(LR_B, NIV, REC_ACC)
+      SUBROUTINE UPDATE_FLOP_STATS_DEMOTE(LR_B, NIV, REC_ACC, 
+     &         CB_COMPRESS, FR_SWAP)
         TYPE(LRB_TYPE),INTENT(IN) :: LR_B
         INTEGER(8) :: M,N,K
         INTEGER :: NIV
         DOUBLE PRECISION :: HR_COST,BUILDQ_COST
-        LOGICAL, OPTIONAL :: REC_ACC
+        LOGICAL, OPTIONAL :: REC_ACC, CB_COMPRESS, FR_SWAP
         M = int(LR_B%M,8)
         N = int(LR_B%N,8)
         K = int(LR_B%K,8)
@@ -235,6 +263,17 @@ C
                       FLOP_REC_ACC = FLOP_REC_ACC + HR_COST+BUILDQ_COST
                     ENDIF
                   ENDIF
+                  IF (present(CB_COMPRESS)) THEN
+                    IF (CB_COMPRESS) THEN
+                      FLOP_CB_DEMOTE = FLOP_CB_DEMOTE + HR_COST 
+     &                                                + BUILDQ_COST
+                    ENDIF
+                  ENDIF
+                  IF (present(FR_SWAP)) THEN
+                    IF (FR_SWAP) THEN
+                      FLOP_FR_SWAP = FLOP_FR_SWAP + HR_COST+BUILDQ_COST
+                    ENDIF
+                  ENDIF
 !$OMP END CRITICAL(lr_flop_gain_cri)
         ELSE
 !$OMP CRITICAL(lr_flop_gain_cri)
@@ -242,6 +281,17 @@ C
            IF (present(REC_ACC)) THEN
              IF (REC_ACC) THEN
                ACC_FLOP_REC_ACC = ACC_FLOP_REC_ACC +HR_COST+BUILDQ_COST
+             ENDIF
+           ENDIF
+           IF (present(CB_COMPRESS)) THEN
+             IF (CB_COMPRESS) THEN
+               ACC_FLOP_CB_DEMOTE = ACC_FLOP_CB_DEMOTE + HR_COST 
+     &                                                 + BUILDQ_COST
+             ENDIF
+           ENDIF
+           IF (present(FR_SWAP)) THEN
+             IF (FR_SWAP) THEN
+               ACC_FLOP_FR_SWAP = ACC_FLOP_FR_SWAP +HR_COST+BUILDQ_COST
              ENDIF
            ENDIF
 !$OMP END CRITICAL(lr_flop_gain_cri)
@@ -304,9 +354,9 @@ C
 !$OMP END CRITICAL(lr_flop_gain_cri)
           ENDIF
       END SUBROUTINE UPDATE_FLOP_STATS_PANEL
-      SUBROUTINE UPDATE_FLOP_STATS_TRSM(LRB, NIV, LorU, K470)
+      SUBROUTINE UPDATE_FLOP_STATS_TRSM(LRB, NIV, LorU)
           TYPE(LRB_TYPE),INTENT(IN) :: LRB
-          INTEGER,INTENT(IN) :: NIV, LorU, K470
+          INTEGER,INTENT(IN) :: NIV, LorU
           DOUBLE PRECISION :: LR_FLOP_COST, FR_FLOP_COST
           IF (LorU.EQ.0) THEN 
             FR_FLOP_COST = dble(LRB%M)*dble(LRB%N)*dble(LRB%N)
@@ -316,17 +366,9 @@ C
               LR_FLOP_COST = FR_FLOP_COST
             ENDIF
           ELSE 
-            IF (K470.EQ.1) THEN
-              FR_FLOP_COST = dble(LRB%M-1)*dble(LRB%N)*dble(LRB%N)
-            ELSE
-              FR_FLOP_COST = dble(LRB%M-1)*dble(LRB%M)*dble(LRB%N)
-            ENDIF
+            FR_FLOP_COST = dble(LRB%M-1)*dble(LRB%N)*dble(LRB%N)
             IF (LRB%ISLR) THEN
-              IF (K470.EQ.1) THEN
-                LR_FLOP_COST = dble(LRB%N-1)*dble(LRB%N)*dble(LRB%K)
-              ELSE
-                LR_FLOP_COST = dble(LRB%M-1)*dble(LRB%M)*dble(LRB%K)
-              ENDIF
+              LR_FLOP_COST = dble(LRB%N-1)*dble(LRB%N)*dble(LRB%K)
             ELSE
               LR_FLOP_COST = FR_FLOP_COST
             ENDIF
@@ -632,6 +674,7 @@ C
                   LR_FLOP_GAIN = 0.D0
                   FLOP_CB_DEMOTE = 0.D0
                   FLOP_CB_PROMOTE = 0.D0
+                  FLOP_PROMOTE = 0.D0
                   FLOP_FR_UPDT = 0.D0 
                   FLOP_LR_UPDT = 0.D0
                   FLOP_LR_UPDT_OUT = 0.D0
@@ -641,6 +684,7 @@ C
                   FLOP_DEMOTE = 0.D0
                   FLOP_DEC_ACC = 0.D0
                   FLOP_REC_ACC = 0.D0
+                  FLOP_FR_SWAP = 0.D0
                 FLOP_PANEL = 0.D0
                 FLOP_TRSM = 0.D0
       END SUBROUTINE INIT_STATS_FRONT
@@ -651,6 +695,7 @@ C
         ACC_MRY_CB_FR = 0.D0
         ACC_FLOP_CB_DEMOTE = 0.D0
         ACC_FLOP_CB_PROMOTE = 0.D0
+        ACC_FLOP_PROMOTE = 0.D0
         ACC_FLOP_FR_FACTO = 0.D0 
         ACC_FLOP_LR_FACTO = 0.D0
         ACC_FLOP_FR_UPDT = 0.D0 
@@ -663,6 +708,7 @@ C
         ACC_FLOP_TRSM = 0.D0
         ACC_FLOP_DEC_ACC = 0.D0
         ACC_FLOP_REC_ACC = 0.D0
+        ACC_FLOP_FR_SWAP = 0.D0
         ACC_FLOP_PANEL = 0.D0
         ACC_FLOP_FRFRONTS = 0.D0
         ACC_FLOP_FR_SOLVE = 0.D0
@@ -682,6 +728,7 @@ C
         ACC_UPDT_TIME_OUT = 0.D0
         ACC_RMB_TIME = 0.D0
         ACC_PROMOTING_TIME = 0.D0
+        ACC_PROMOTING_UCFS_TIME = 0.D0
         ACC_DEMOTING_TIME = 0.D0
         ACC_CB_DEMOTING_TIME = 0.D0
         ACC_FRPANELS_TIME = 0.0D0
@@ -689,8 +736,15 @@ C
         ACC_FAC_MQ_TIME = 0.0D0
         ACC_FAC_SQ_TIME = 0.0D0
         ACC_FRFRONTS_TIME = 0.0D0
+        ACC_DIAGCOPY_TIME = 0.0D0
+        ACC_FRSWAP_TIME = 0.0D0
         ACC_TRSM_TIME = 0.D0
         ACC_LR_MODULE_TIME = 0.D0
+        ACC_DEC_ASM1_TIME = 0.0D0
+        ACC_DEC_MAPLIG1_TIME = 0.0D0
+        ACC_DEC_LOCASM2_TIME = 0.0D0
+        ACC_DEC_ASMS2S_TIME = 0.0D0
+        ACC_DEC_ASMS2M_TIME = 0.0D0
         CNT_NODES = 0
         STEP_STATS => id%STEP
       END SUBROUTINE INIT_STATS_GLOBAL
@@ -729,40 +783,41 @@ C
      &         + 2.0D0 * dble(NASS-NELIM) * dble(NFRONT-NASS+NELIM)
         ENDIF
       END SUBROUTINE STATS_COMPUTE_MRY_FRONT_TYPE2
-      SUBROUTINE STATS_COMPUTE_MRY_FRONT_CB(NCB, NROW,
+      SUBROUTINE STATS_COMPUTE_MRY_FRONT_CB(NROWS, NCOLS,
      &                       SYM, NIV, INODE,
      &                       FRONT_CB_BLR_SAVINGS)
-        INTEGER,INTENT(IN) :: NROW, NCB, SYM, NIV, INODE,
+        INTEGER,INTENT(IN) :: NROWS, NCOLS, SYM, NIV, INODE,
      &                        FRONT_CB_BLR_SAVINGS
         DOUBLE PRECISION :: MRY_CB_FR
-        IF (SYM==0) THEN
-          MRY_CB_FR = dble(NCB)*dble(NROW)
+        IF (SYM.EQ.0) THEN
+          MRY_CB_FR = dble(NCOLS)*dble(NROWS)
         ELSE
-          MRY_CB_FR = dble(NCB-NROW)*dble(NROW) +
-     &                dble(NROW)*dble(NROW+1)/2.D0
+          MRY_CB_FR = dble(NCOLS-NROWS)*dble(NROWS) +
+     &                dble(NROWS)*dble(NROWS+1)/2.D0
         ENDIF
+!$OMP CRITICAL(lr_flop_gain_cri)
         ACC_MRY_CB_FR = ACC_MRY_CB_FR + MRY_CB_FR
-        ACC_MRY_CB_GAIN = ACC_MRY_CB_GAIN + FRONT_CB_BLR_SAVINGS
+        ACC_MRY_CB_GAIN = ACC_MRY_CB_GAIN + dble(FRONT_CB_BLR_SAVINGS)
+!$OMP END CRITICAL(lr_flop_gain_cri)
       END SUBROUTINE STATS_COMPUTE_MRY_FRONT_CB
       SUBROUTINE STATS_STORE_BLR_PANEL_MRY(BLR_PANEL, NB_INASM,
      &                NB_INCB, DIR, NIV)
         INTEGER,INTENT(IN) :: NB_INASM, NB_INCB, NIV
-        TYPE(LRB_TYPE),  INTENT(IN) :: BLR_PANEL(NB_INASM+NB_INCB)
+        TYPE(LRB_TYPE),  INTENT(IN) :: BLR_PANEL(:)
         CHARACTER(len=1) :: DIR
         INTEGER :: I
         IF (NB_INASM.GT.0.AND.DIR .EQ.'V') THEN 
           ACC_FLOP_FR_SOLVE = ACC_FLOP_FR_SOLVE + 
-     &      dble(BLR_PANEL(1)%N)*dble(BLR_PANEL(1)%N) 
+     &      dble(BLR_PANEL(1)%N)*dble(BLR_PANEL(1)%N-1)
           ACC_FLOP_LR_SOLVE = ACC_FLOP_LR_SOLVE + 
-     &      dble(BLR_PANEL(1)%N)*dble(BLR_PANEL(1)%N) 
+     &      dble(BLR_PANEL(1)%N)*dble(BLR_PANEL(1)%N-1)
         ENDIF
         DO I = 1 , NB_INASM
-            ACC_FLOP_FR_SOLVE = ACC_FLOP_FR_SOLVE + 
-     &          dble(2)*dble(BLR_PANEL(I)%M)*dble(BLR_PANEL(I)%N) 
+            IF (DIR .EQ. 'V') THEN 
+              ACC_FLOP_FR_SOLVE = ACC_FLOP_FR_SOLVE + 
+     &            2.0D0*dble(BLR_PANEL(I)%M)*dble(BLR_PANEL(I)%N) 
+            ENDIF
             IF (BLR_PANEL(I)%ISLR) THEN
-              ACC_FLOP_LR_SOLVE = ACC_FLOP_LR_SOLVE + 
-     &          dble(4)*(dble(BLR_PANEL(I)%M)+dble(BLR_PANEL(I)%N))*
-     &             dble(BLR_PANEL(I)%K)
               IF (DIR .EQ. 'H') THEN 
                  IF (NIV .EQ. 1) THEN
                     FRONT_U11_BLR_SAVINGS   = 
@@ -778,6 +833,9 @@ C
      &              dble( BLR_PANEL(I)%M + BLR_PANEL(I)%N ) 
                  ENDIF
               ELSE
+                ACC_FLOP_LR_SOLVE = ACC_FLOP_LR_SOLVE + 
+     &             2.0D0*(dble(BLR_PANEL(I)%M)+dble(BLR_PANEL(I)%N))*
+     &             dble(BLR_PANEL(I)%K)
                  IF (NIV .EQ. 1) THEN
                     FRONT_L11_BLR_SAVINGS = 
      &                FRONT_L11_BLR_SAVINGS + 
@@ -793,11 +851,17 @@ C
                  ENDIF
               ENDIF
             ELSE
-              ACC_FLOP_LR_SOLVE = ACC_FLOP_LR_SOLVE + 
-     &          dble(2)*dble(BLR_PANEL(I)%M)*dble(BLR_PANEL(I)%N) 
+              IF (DIR .EQ. 'V') THEN 
+                ACC_FLOP_LR_SOLVE = ACC_FLOP_LR_SOLVE + 
+     &          2.0D0*dble(BLR_PANEL(I)%M)*dble(BLR_PANEL(I)%N) 
+              ENDIF
             ENDIF
         END DO
         DO I = NB_INASM + 1 , NB_INASM + NB_INCB
+            IF (DIR .EQ. 'V') THEN 
+              ACC_FLOP_FR_SOLVE = ACC_FLOP_FR_SOLVE + 
+     &            2.0D0*dble(BLR_PANEL(I)%M)*dble(BLR_PANEL(I)%N) 
+            ENDIF
             IF (BLR_PANEL(I)%ISLR) THEN
               IF (DIR .EQ. 'H') THEN 
                  IF (NIV .EQ. 1) THEN
@@ -814,22 +878,30 @@ C
      &             dble( BLR_PANEL(I)%M + BLR_PANEL(I)%N ) 
                  ENDIF
               ELSE
-                 IF (NIV .EQ. 1) THEN
-                    FRONT_L21_BLR_SAVINGS = 
+                ACC_FLOP_LR_SOLVE = ACC_FLOP_LR_SOLVE + 
+     &             2.0D0*(dble(BLR_PANEL(I)%M)+dble(BLR_PANEL(I)%N))*
+     &             dble(BLR_PANEL(I)%K)
+                IF (NIV .EQ. 1) THEN
+                  FRONT_L21_BLR_SAVINGS = 
      &                FRONT_L21_BLR_SAVINGS + 
      &              dble( BLR_PANEL(I)%M ) * dble( BLR_PANEL(I)%N ) - 
      &              dble( BLR_PANEL(I)%K ) *
      &              dble( BLR_PANEL(I)%M + BLR_PANEL(I)%N ) 
-                 ELSE
-                    GLOBAL_BLR_SAVINGS = 
+                ELSE
+                  GLOBAL_BLR_SAVINGS = 
      &                GLOBAL_BLR_SAVINGS + 
      &              dble( BLR_PANEL(I)%M ) * dble ( BLR_PANEL(I)%N ) - 
      &              dble( BLR_PANEL(I)%K ) *
      &              dble( BLR_PANEL(I)%M + BLR_PANEL(I)%N ) 
-                 ENDIF
+                ENDIF
               ENDIF
-            END IF
-        END DO
+            ELSE
+              IF (DIR .EQ. 'V') THEN 
+                ACC_FLOP_LR_SOLVE = ACC_FLOP_LR_SOLVE + 
+     &          2.0D0*dble(BLR_PANEL(I)%M)*dble(BLR_PANEL(I)%N) 
+              ENDIF
+            ENDIF
+          END DO
       END SUBROUTINE STATS_STORE_BLR_PANEL_MRY
       SUBROUTINE STATS_COMPUTE_FLOP_FRONT_TYPE1( NFRONT, NASS, NPIV, 
      &                  KEEP50, INODE)
@@ -848,8 +920,10 @@ C
           ACC_FLOP_DEMOTE     = ACC_FLOP_DEMOTE     + FLOP_DEMOTE
           ACC_FLOP_CB_DEMOTE  = ACC_FLOP_CB_DEMOTE  + FLOP_CB_DEMOTE
           ACC_FLOP_CB_PROMOTE = ACC_FLOP_CB_PROMOTE + FLOP_CB_PROMOTE
+          ACC_FLOP_PROMOTE    = ACC_FLOP_PROMOTE    + FLOP_PROMOTE
           ACC_FLOP_DEC_ACC    = ACC_FLOP_DEC_ACC    + FLOP_DEC_ACC
           ACC_FLOP_REC_ACC    = ACC_FLOP_REC_ACC    + FLOP_REC_ACC
+          ACC_FLOP_FR_SWAP    = ACC_FLOP_FR_SWAP    + FLOP_FR_SWAP
           ACC_FLOP_TRSM       = ACC_FLOP_TRSM       + FLOP_TRSM
           ACC_FLOP_PANEL      = ACC_FLOP_PANEL      + FLOP_PANEL
       END SUBROUTINE STATS_COMPUTE_FLOP_FRONT_TYPE1
@@ -887,9 +961,8 @@ C
           CALL MUMPS_GET_FLOPS_COST(NFRONT, NPIV, NASS, 
      &                              SYM, NIV, FLOP_FRFRONTS)
           ACC_FLOP_FRFRONTS = ACC_FLOP_FRFRONTS + FLOP_FRFRONTS
-          FLOP_SOLVE = dble(NASS)*dble(NASS) +
-     &                 dble(NFRONT-NASS)*dble(NASS)
-          IF (SYM.EQ.0) FLOP_SOLVE = 2.0D0*FLOP_SOLVE
+          FLOP_SOLVE = dble(NPIV)*dble(NPIV-1) +
+     &                 2.0D0*dble(NFRONT-NPIV)*dble(NPIV)
           ACC_FLOP_FR_SOLVE = ACC_FLOP_FR_SOLVE + FLOP_SOLVE
           ACC_FLOP_LR_SOLVE = ACC_FLOP_LR_SOLVE + FLOP_SOLVE
       END SUBROUTINE UPDATE_FLOP_STATS_FRFRONTS
@@ -913,11 +986,14 @@ C
           ACC_FLOP_FRFRONTS = ACC_FLOP_FRFRONTS + FLOP_FRFRONTS
       END SUBROUTINE UPD_FLOP_FRFRONT_SLAVE
       SUBROUTINE COMPUTE_GLOBAL_GAINS(NB_ENTRIES_FACTOR, 
-     &                FLOP_NUMBER, NIV, PROKG, MPG)
-        INTEGER(KIND=8), INTENT(IN) :: NB_ENTRIES_FACTOR 
-        INTEGER, INTENT(IN) :: NIV, MPG
-        LOGICAL, INTENT(IN) :: PROKG
-        REAL , INTENT(IN) :: FLOP_NUMBER 
+     &                FLOP_NUMBER, NB_ENTRIES_FACTOR_withLR,
+     &                PROKG, MPG)
+        INTEGER(8), INTENT(IN) :: NB_ENTRIES_FACTOR   
+        INTEGER, INTENT(IN)    :: MPG
+        LOGICAL, INTENT(IN)    :: PROKG
+        REAL, INTENT(IN)        :: FLOP_NUMBER   
+        INTEGER(8), INTENT(OUT) :: 
+     &                  NB_ENTRIES_FACTOR_withLR 
         IF (NB_ENTRIES_FACTOR < 0) THEN
          IF (PROKG.AND.MPG.GT.0) THEN
           WRITE(MPG,*) "NEGATIVE NUMBER OF ENTRIES IN FACTOR"
@@ -933,6 +1009,8 @@ C
         IF (ACC_MRY_CB_FR .EQ. 0) THEN 
           ACC_MRY_CB_FR = 100.0D0
         END IF
+        NB_ENTRIES_FACTOR_withLR = NB_ENTRIES_FACTOR -
+     &                             int(GLOBAL_BLR_SAVINGS,8)
         IF (NB_ENTRIES_FACTOR.EQ.0) THEN
           FACTOR_PROCESSED_FRACTION = 100.0D0
           GLOBAL_MRY_LTOT_COMPR = 100.0D0
@@ -944,16 +1022,21 @@ C
         ENDIF
         TOTAL_FLOP = FLOP_NUMBER
         ACC_FLOP_LR_FACTO    = ACC_FLOP_FR_FACTO - ACC_LR_FLOP_GAIN
-     &                             + ACC_FLOP_DEMOTE
+     &                             + ACC_FLOP_DEMOTE + ACC_FLOP_PROMOTE
         RETURN
       END SUBROUTINE COMPUTE_GLOBAL_GAINS
       SUBROUTINE SAVEandWRITE_GAINS(LOCAL, K489, DKEEP, N, 
+     &         ICNTL36,
      &         DEPTH, BCKSZ, NASSMIN, NFRONTMIN, SYM, K486,
-     &         K472, K475, K478, K480, K481, K483, K484, K485, K467,
+     &         K472, K475, K478, K480, K481, K483, K484, 
+     &         K8110, K849, 
      &         NBTREENODES, NPROCS, MPG, PROKG)
-        INTEGER, INTENT(IN) :: LOCAL,K489,N,DEPTH,BCKSZ,NASSMIN,
-     &      NFRONTMIN, K486, NBTREENODES, MPG, K467,
-     &      K472, K475, K478, K480, K481, K483, K484, K485, SYM, NPROCS
+        INTEGER, INTENT(IN) :: LOCAL,K489,DEPTH, N,
+     &      ICNTL36, BCKSZ,NASSMIN,
+     &      NFRONTMIN, K486, NBTREENODES, MPG, 
+     &      K472, K475, K478, K480, K481, K483, K484, 
+     &      SYM, NPROCS
+        INTEGER(8), INTENT(IN) :: K8110, K849
         LOGICAL, INTENT(IN) :: PROKG
         REAL :: DKEEP(230)
         LOGICAL PROK
@@ -962,41 +1045,34 @@ C
         WRITE(MPG,'(/A,A)') 
      & '-------------- Beginning of BLR statistics -------------------',
      & '--------------'
-          WRITE(MPG,'(A)') 
-     &          ' Settings for Block Low-Rank (BLR) are :'
-        WRITE(MPG,'(A)')    '  BLR algorithm characteristics :'
-            WRITE(MPG,'(A,A)')    '     Variant used: FSCU ',
-     &                          '(Factor-Solve-Compress-Update)'
-        SELECT CASE (K489)
-        CASE (0)
-        CASE (1)
-          WRITE(MPG,'(A)')
-     &              '     Experimental CB compression (for stats only)'
-        CASE DEFAULT
-          WRITE(*,*)'     Internal error K489=',K489
-          CALL MUMPS_ABORT()
-        END SELECT
-        IF (K472.EQ.0) THEN       
-          WRITE(MPG,'(A,A,I4)')   '     Target BLR block size (fixed)',
-     &                          '            =',
-     &                          BCKSZ
-        ELSE
-          WRITE(MPG,'(A,A,I4,A,I4)') 
-     &                          '     Target BLR block size (variable)',
-     &                          '         =',
-     &                          128, ' -', BCKSZ
-        ENDIF
-        WRITE(MPG,'(A,A,ES8.1)')  '     RRQR precision (epsilon)     ',
-     &                          '            =',
+        WRITE(MPG,'(A,I2)') 
+     & ' ICNTL(36) BLR variant                            = ', ICNTL36
+        WRITE(MPG,'(A,ES8.1)')  
+     & ' CNTL(7)   Dropping parameter controlling accuray = ',
      &                          DKEEP(8)
         WRITE(MPG,'(A)') 
      &          ' Statistics after BLR factorization :'
         WRITE(MPG,'(A,I8)') 
-     &          '     Number of BLR fronts   =',
+     &    '     Number of BLR fronts                     = ',
      &                          CNT_NODES
         ENDIF  
+        IF (PROK) WRITE(MPG,'(A,F8.1,A)')
+     &    '     Fraction of factors in BLR fronts        =',
+     &                FACTOR_PROCESSED_FRACTION,'% ' 
+        IF (PROK) THEN
+          WRITE(MPG,'(A)') 
+     &  '     Statistics on the number of entries in factors :'
+          WRITE(MPG,'(A,ES10.3,A,F5.1,A)') 
+     &  '     INFOG(29) Theoretical nb of entries in factors      ='
+     &     ,real(K8110),' (100.0%)'
+          WRITE(MPG,'(A,ES10.3,A,F5.1,A)') 
+     &  '     INFOG(35) Effective nb of entries  (% of INFOG(29)) ='
+     &     ,real(K849),' ('
+     &     ,real(100)*(real(K849)/real(max(K8110,1_8)))
+     &     ,'%)'
+        ENDIF
         IF (PROK) WRITE(MPG,'(A)')
-     &   '     Statistics on operation counts (OPC):'
+     &  '     Statistics on operation counts (OPC):'
         TOTAL_FLOP = MAX(TOTAL_FLOP,EPSILON(1.0D0))
         DKEEP(55)=real(TOTAL_FLOP)
         DKEEP(60)=real(100)
@@ -1005,10 +1081,10 @@ C
      &       ACC_FLOP_FRFRONTS) /TOTAL_FLOP)
         IF (PROK) THEN 
         WRITE(MPG,'(A,ES10.3,A,F5.1,A)') 
-     &  '     Total theoretical full-rank OPC (i.e. FR OPC)    ='
+     &  '     RINFOG(3) Total theoretical operations counts       ='
      &     ,TOTAL_FLOP,' (',100*TOTAL_FLOP/TOTAL_FLOP,'%)'
         WRITE(MPG,'(A,ES10.3,A,F5.1,A)') 
-     &  '     Total effective OPC                   (% FR OPC) ='
+     &  '     RINFOG(14) Total effective OPC     (% of RINFOG(3)) ='
      &     ,ACC_FLOP_LR_FACTO+ACC_FLOP_FRFRONTS,' ('
      &,100*(ACC_FLOP_LR_FACTO+ACC_FLOP_FRFRONTS)/TOTAL_FLOP
      &,'%)'

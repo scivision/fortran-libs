@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -21,7 +21,7 @@ C
       INTEGER CNTXT_PAR, MASTER_ROOT, SIZE_ROOT
       INTEGER MYID, COMM
       INTEGER LPIV, IPIV( LPIV )
-      INTEGER INFO(40), LDLT
+      INTEGER INFO(80), LDLT
       DOUBLE PRECISION RHS_SEQ( SIZE_ROOT *NRHS)
       DOUBLE PRECISION A( LOCAL_M, LOCAL_N )
       INTEGER IERR, NPROW, NPCOL, MYROW, MYCOL

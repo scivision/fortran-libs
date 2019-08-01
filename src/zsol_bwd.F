@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -27,6 +27,7 @@ C
      &    )
       USE ZMUMPS_OOC
       USE ZMUMPS_BUF
+      USE ZMUMPS_SOL_LR, only : ZMUMPS_SOL_BWD_LR_SU
       IMPLICIT NONE
       INTEGER MTYPE
       INTEGER(8) :: LA
@@ -41,7 +42,7 @@ C
       INTEGER NA(LNA),NE_STEPS(KEEP(28))
       INTEGER IPOOL(LPOOL)
       INTEGER PANEL_POS(LPANEL_POS)
-      INTEGER ICNTL(40), INFO(40)
+      INTEGER ICNTL(60), INFO(80)
       INTEGER PTRIST(KEEP(28)),
      &        PTRICB(KEEP(28))
       INTEGER(8) :: PTRACB(KEEP(28))
@@ -69,6 +70,8 @@ C
       INTEGER, intent(in) :: LRHS_BOUNDS
       INTEGER, intent(in) :: RHS_BOUNDS(LRHS_BOUNDS)
       LOGICAL, intent(in) :: FROM_PP
+      LOGICAL COMPRESS_PANEL, LR_ACTIVATED
+      LOGICAL  OOCWRITE_COMPATIBLE_WITH_BLR 
       INTEGER MUMPS_PROCNODE
       EXTERNAL MUMPS_PROCNODE
       INCLUDE 'mpif.h'
@@ -105,7 +108,6 @@ C
       LOGICAL MUST_BE_PERMUTED
       LOGICAL NO_CHILDREN
       LOGICAL Exploit_Sparsity, AM1 
-      DOUBLE PRECISION :: TIME_TMP
       LOGICAL, DIMENSION(:), ALLOCATABLE :: DEJA_SEND
       INTEGER :: allocok
       INTEGER(8) :: APOSDEB, NBENTRIES_ALLPANELS
@@ -116,6 +118,7 @@ C
       INTEGER BEG_PANEL
       LOGICAL TWOBYTWO
       INTEGER NPANELS, IPANEL
+      INTEGER :: IWHDLR
       LOGICAL MUMPS_IN_OR_ROOT_SSARBR
       INTEGER MUMPS_TYPENODE
       EXTERNAL zgemv, ztrsv, ztrsm, zgemm,
@@ -190,7 +193,8 @@ C
      &     NRHS, MTYPE, 
      &     RHSCOMP, LRHSCOMP, POSINRHSCOMP_BWD
      &     , TO_PROCESS, SIZE_TO_PROCESS
-     &     , FROM_PP )
+     &     , FROM_PP
+     &     )
       IF ( INFO(1) .LT. 0 ) GOTO 340
       IF ( .NOT. FLAG ) THEN
         IF (III .NE. IIPOOL) THEN
@@ -201,7 +205,6 @@ C
       END IF                    
       IF ( NBFINF .eq. 0 ) GOTO 340
       GOTO 50
-      IF (MYID.EQ.0) write(6,*) "BWD: process INODE=", INODE
    60 CONTINUE
       IF (DO_NBSPARSE) THEN
         JBDEB= RHS_BOUNDS(2*STEP(INODE)-1)
@@ -320,7 +323,8 @@ C
      &                    NRHS, MTYPE,
      &                    RHSCOMP, LRHSCOMP, POSINRHSCOMP_BWD
      &                    , TO_PROCESS, SIZE_TO_PROCESS
-     &                    , FROM_PP )
+     &                    , FROM_PP
+     &                    )
                      IF ( INFO( 1 ) .LT. 0 ) GOTO 340
                      GOTO 600
                   ELSE IF ( IERR .EQ. -2 ) THEN
@@ -336,7 +340,9 @@ C
                   END IF
                   DEJA_SEND( PROCDEST ) = .TRUE.
                END IF
-               IF ( IERR .NE. 0 ) CALL MUMPS_ABORT()
+               IF ( IERR .NE. 0 ) THEN
+                  CALL MUMPS_ABORT()
+               ENDIF
             ENDIF
             IF = FRERE(STEP(IF))
          ENDDO
@@ -438,7 +444,7 @@ C
      &       W(PTRACB(STEP(INODE))), NCB, 1,
      &       IW, LIW, KEEP, N, POSINRHSCOMP_BWD )
              IFR = IFR + int(J2-KEEP(253)-J1+1,8)
-           ELSE
+          ELSE
              WRITE(*,*) "Internal error ZMUMPS_SOL_S"
              CALL MUMPS_ABORT()
            END IF
@@ -485,15 +491,16 @@ C
      &                NRHS, MTYPE,
      &                RHSCOMP, LRHSCOMP, POSINRHSCOMP_BWD
      &                , TO_PROCESS, SIZE_TO_PROCESS
-     &                , FROM_PP )
+     &                , FROM_PP
+     &                )
                 IF ( INFO( 1 ) .LT. 0 ) GOTO 340
                 GOTO 500
-              ELSE IF ( IERR .EQ. -2 ) THEN
+             ELSE IF ( IERR .EQ. -2 ) THEN
                 INFO( 1 ) = -17
                 INFO( 2 ) = NRHS_B * EffectiveSize * KEEP(35) +
-     &                            2 * KEEP(34)
+     &               2 * KEEP(34)
                 GOTO 330
-              ELSE IF ( IERR .EQ. -3 ) THEN
+             ELSE IF ( IERR .EQ. -3 ) THEN
                 INFO( 1 ) = -20
                 INFO( 2 ) = NRHS_B * EffectiveSize * KEEP(35) +
      &                            2 * KEEP(34)
@@ -506,6 +513,12 @@ C
      &             POSWCB,POSIWCB,PTRICB,PTRACB)
            GOTO 50
       ENDIF   
+      LR_ACTIVATED = (IW(PTRIST(STEP(INODE))+XXLR).GT.0)
+      COMPRESS_PANEL = (IW(PTRIST(STEP(INODE))+XXLR).GE.2)
+      OOCWRITE_COMPATIBLE_WITH_BLR =
+     &     (.NOT.LR_ACTIVATED.OR.(.NOT.COMPRESS_PANEL).OR.
+     &            (KEEP(485).EQ.0) 
+     &     )
       IPOS = PTRIST(STEP(INODE)) + 2 + KEEP(IXSZ)
       LIELL = IW(IPOS-2)+IW(IPOS+1)
       NELIM = IW(IPOS-1)
@@ -513,7 +526,7 @@ C
       NPIV = IW(IPOS)
       NCB   = LIELL - NPIV
       IPOS = IPOS + 1
-      IF (KEEP(201).GT.0) THEN
+      IF (KEEP(201).GT.0.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN
          CALL ZMUMPS_SOLVE_GET_OOC_NODE(
      &        INODE,PTRFAC,KEEP,A,LA,STEP,
      &        KEEP8,N,MUST_BE_PERMUTED,IERR)
@@ -526,7 +539,7 @@ C
       APOS = PTRFAC(IW(IPOS))
       NSLAVES = IW( PTRIST(STEP(INODE)) + 5 + KEEP(IXSZ) )
       IPOS = IPOS + 1 + NSLAVES
-      IF (KEEP(201).EQ.1) THEN 
+      IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN 
            LIWFAC =  IW(PTRIST(STEP(INODE))+XXI)
            IF (MTYPE.NE.1) THEN
             TYPEF = TYPEF_L
@@ -620,7 +633,7 @@ C
                 RHSCOMP(IPOSINRHSCOMP+JJ-J1,K) = ZERO
               ENDDO
             ENDIF
-          ELSE
+         ELSE
             WRITE(*,*) "Internal error ZMUMPS_SOL_BWD"
             CALL MUMPS_ABORT()
           ENDIF
@@ -655,7 +668,7 @@ C
      &       W(PTWCB), LIELL, NPIV+1,
      &       IW, LIW, KEEP, N, POSINRHSCOMP_BWD )
           IFR = IFR + int(J2-KEEP(253)-J1+1,8)
-        ELSE
+       ELSE
           WRITE(*,*) "Internal error ZMUMPS_SOL_S"
           CALL MUMPS_ABORT()
         ENDIF
@@ -674,7 +687,7 @@ C
         NCB = LIELL - NPIV
         IF (NPIV .EQ. 0) GOTO 160
       ENDIF
-      IF (KEEP(201).EQ.1) THEN 
+      IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN 
        J = NPIV / PANEL_SIZE 
        TWOBYTWO = KEEP(50).EQ.2 .AND.
      & ((TYPENODE.EQ.1.AND.KEEP(103).GT.0) .OR.
@@ -860,8 +873,19 @@ C
 #endif
             IF (.NOT. TWOBYTWO) JJ=BEG_PANEL-1 
        ENDDO 
-      ENDIF 
-      IF (KEEP(201).EQ.0.OR.KEEP(201).EQ.2)THEN 
+      ELSE
+        IF ( IW(PTRIST(STEP(INODE))+XXLR) .GE. 2
+     &        .AND. KEEP(485) .EQ. 1 ) THEN
+           IWHDLR = IW(PTRIST(STEP(INODE))+XXF)
+          CALL ZMUMPS_SOL_BWD_LR_SU (
+     &           INODE, IWHDLR, NPIV, NSLAVES, 
+     &           LIELL, W, LWC, NRHS_B, PTWCB,
+     &           RHSCOMP, LRHSCOMP, NRHS,
+     &           IPOSINRHSCOMP, JBDEB, 
+     &           MTYPE, KEEP,
+     &           INFO(1), INFO(2) )
+          IF (INFO(1).LT.0) GOTO 330
+        ELSE
        IF ( LIELL .GT. NPIV ) THEN
         IF ( MTYPE .eq. 1 ) THEN
           IST = APOS + int(NPIV,8)
@@ -1015,6 +1039,7 @@ C
          END IF
 #endif
        END IF 
+      ENDIF  
       ENDIF 
       IF ( MTYPE .EQ. 1 .AND. KEEP(50).EQ.0) THEN
         J1 = IPOS + LIELL + 1
@@ -1040,7 +1065,7 @@ C
         CALL MUMPS_ABORT()
       ENDIF
   160 CONTINUE
-      IF (KEEP(201).GT.0) THEN
+      IF (KEEP(201).GT.0.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN
          CALL ZMUMPS_FREE_FACTORS_FOR_SOLVE(INODE,PTRFAC,KEEP(28),
      &        A,LA,.TRUE.,IERR)
          IF(IERR.LT.0)THEN
@@ -1054,6 +1079,12 @@ C
       IF (IN .GT. 0) GOTO 170
       IF (IN .EQ. 0) THEN
         MYLEAFE = MYLEAFE - 1
+        IF (.NOT. IN_SUBTREE ) THEN
+          IWCB(PTRICB(STEP(INODE))+1) = IWCB(PTRICB(STEP(INODE))+1)-1
+          CALL ZMUMPS_FREETOPSO(N, KEEP(28), IWCB, LIWW, 
+     &    W, LWC,
+     &    POSWCB,POSIWCB,PTRICB,PTRACB)
+        ENDIF
         IF (MYLEAFE .EQ. 0) THEN
           CALL ZMUMPS_MCAST2( DUMMY, 1, MPI_INTEGER, MYID, COMM,
      &                     FEUILLE, SLAVEF, KEEP )
@@ -1148,14 +1179,15 @@ C
      &          NRHS, MTYPE, 
      &          RHSCOMP, LRHSCOMP, POSINRHSCOMP_BWD
      &                , TO_PROCESS, SIZE_TO_PROCESS
-     &                , FROM_PP )
+     &                , FROM_PP
+     &                )
                 IF ( INFO( 1 ) .LT. 0 ) GOTO 340
                 GOTO 400
-              ELSE IF ( IERR .EQ. -2 ) THEN
+             ELSE IF ( IERR .EQ. -2 ) THEN
                 INFO( 1 ) = -17
                 INFO( 2 ) = NRHS_B * LIELL * KEEP(35) + 4 * KEEP(34)
                 GOTO 330
-              ELSE IF ( IERR .EQ. -3 ) THEN
+             ELSE IF ( IERR .EQ. -3 ) THEN
                 INFO( 1 ) = -20
                 INFO( 2 ) = NRHS_B * LIELL * KEEP(35) + 4 * KEEP(34)
                 GOTO 330

@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -16,20 +16,27 @@ C
      &            LISTVAR_SCHUR, SIZE_SCHUR,
      &            ICNTL, INFO, KEEP,KEEP8,
      &            NSLAVES, 
-     &            XNODEL, NODEL)
+     &            XNODEL, NODEL
+#if defined(metis) || defined(parmetis) || defined(metis4) || defined(parmetis3)         
+     &            , METIS_OPTIONS
+#endif      
+     &            )
       USE MUMPS_ANA_ORD_WRAPPERS
       IMPLICIT NONE
       INTEGER, INTENT(IN)    :: N,  NELT, SIZE_SCHUR, NSLAVES, LIW
       INTEGER, INTENT(IN)    :: ELTPTR(NELT+1) 
       INTEGER, INTENT(IN)    :: ELTVAR(ELTPTR(NELT+1)-1)
       INTEGER, INTENT(IN)    :: LISTVAR_SCHUR(SIZE_SCHUR)
-      INTEGER, INTENT(IN)    :: ICNTL(40)
+      INTEGER, INTENT(IN)    :: ICNTL(60)
       INTEGER, INTENT(INOUT) :: IORD
       INTEGER, INTENT(INOUT) :: IKEEP(N,3)
-      INTEGER, INTENT(INOUT) :: INFO(40), KEEP(500)
+      INTEGER, INTENT(INOUT) :: INFO(80), KEEP(500)
       INTEGER(8), INTENT(INOUT) :: KEEP8(150)
       INTEGER, INTENT(OUT)   :: NFSIZ(N), FILS(N), FRERE(N)
       INTEGER, INTENT(OUT)   :: XNODEL(N+1), NODEL(ELTPTR(NELT+1)-1)
+#if defined(metis) || defined(parmetis) || defined(metis4) || defined(parmetis3)      
+      INTEGER, INTENT(IN)    :: METIS_OPTIONS(40)
+#endif
       INTEGER K,I,L1,L2,NCMPA,IFSON,IN
       INTEGER NEMIN, MPRINT, LP, MP, LDIAG
       INTEGER(8)  :: NZ8, LLIW8, IWFR8
@@ -50,7 +57,6 @@ C
       INTEGER, DIMENSION(:), ALLOCATABLE :: NUMFLAG
 #endif
       INTEGER :: OPT_METIS_SIZE, METIS_IDX_SIZE
-      INTEGER, DIMENSION(:), ALLOCATABLE :: OPTIONS_METIS
       INTEGER :: IERR
 #endif
       INTEGER IDUM 
@@ -196,7 +202,7 @@ C
            KEEP(20) = LISTVAR_SCHUR(1)
          ELSEIF (KEEP(60) == 2 .OR. KEEP(60) == 3 ) THEN
            KEEP(38) = LISTVAR_SCHUR(1)
-         ELSE
+        ELSE
            WRITE(*,*) "Internal error in CMUMPS_ANA_F_ELT",KEEP(60)
            CALL MUMPS_ABORT()
          ENDIF
@@ -229,33 +235,17 @@ C
 #if defined(metis4) || defined(parmetis3)
          NUMFLAG = 1
          OPT_METIS_SIZE = 8
-         ALLOCATE( OPTIONS_METIS (OPT_METIS_SIZE ), stat = IERR )
-         IF ( IERR .GT. 0 ) THEN
-            INFO( 1 ) = -7
-            INFO( 2 ) = OPT_METIS_SIZE
-            GOTO 90 
-         ENDIF
-         OPTIONS_METIS(1) = 0
 #else
          ALLOCATE( NUMFLAG ( N ), stat = IERR )
          IF ( IERR .GT. 0 ) THEN
             INFO( 1 ) = -7
             INFO( 2 ) = N
-            GOTO 90 
+            GOTO 90             
          ENDIF
          DO I=1,N
             NUMFLAG(I) = 1
          ENDDO
          OPT_METIS_SIZE = 40
-         OPT_METIS_SIZE = OPT_METIS_SIZE + 60
-         ALLOCATE( OPTIONS_METIS (OPT_METIS_SIZE ), stat = IERR )
-         IF ( IERR .GT. 0 ) THEN
-            INFO( 1 ) = -7
-            INFO( 2 ) = OPT_METIS_SIZE
-            RETURN
-         ENDIF
-         CALL METIS_SETDEFAULTOPTIONS(OPTIONS_METIS)
-         OPTIONS_METIS(18) = 1
 #endif
          CALL MUMPS_METIS_IDXSIZE(METIS_IDX_SIZE)
          IF (KEEP(10).EQ.1.AND.METIS_IDX_SIZE.NE.64) THEN
@@ -266,27 +256,28 @@ C
          IF (METIS_IDX_SIZE .EQ. 32) THEN
            CALL MUMPS_METIS_NODEND_MIXEDto32(N, IPE8, IW2(1),
 #if defined(metis4) || defined(parmetis3)
-     &          NUMFLAG,
+     &          NUMFLAG,  
 #else
-     &          NUMFLAG(1),
+     &          NUMFLAG,  
 #endif
-     &          OPTIONS_METIS, OPT_METIS_SIZE,
-     &          IKEEP(1,2), IKEEP(1,1), INFO(1), LP, LPOK)
+     &          METIS_OPTIONS(1), OPT_METIS_SIZE,
+     &          IKEEP(1:N,2), IKEEP(1:N,1), INFO(1), LP, LPOK)
          ELSE IF (METIS_IDX_SIZE .EQ. 64) THEN
            CALL MUMPS_METIS_NODEND_MIXEDto64(N, IPE8, IW2(1),
 #if defined(metis4) || defined(parmetis3)
-     &          NUMFLAG,
+     &          NUMFLAG, 
 #else
-     &          NUMFLAG(1),
+     &          NUMFLAG, 
 #endif
-     &          OPTIONS_METIS, OPT_METIS_SIZE,
-     &          IKEEP(1,2), IKEEP(1,1), INFO(1), 
-     &          LP, LPOK, KEEP(10) )
+     &          METIS_OPTIONS(1), OPT_METIS_SIZE,
+     &          IKEEP(1:N,2), IKEEP(1:N,1), INFO(1), 
+     &          LP, LPOK, KEEP(10), 
+     &          LLIW8, .FALSE., .TRUE. )
          ELSE
-              WRITE(*,*)
+            WRITE(*,*)
      &        "Internal error in METIS wrappers, METIS_IDX_SIZE=",
      &        METIS_IDX_SIZE
-              CALL MUMPS_ABORT()
+            CALL MUMPS_ABORT()
          ENDIF
          IF (INFO(1) .LT. 0) GOTO 90
          DEALLOCATE(IW2)
@@ -330,7 +321,7 @@ C
            KEEP(20) = LISTVAR_SCHUR(1)
          ELSEIF (KEEP(60) == 2 .OR. KEEP(60) == 3 ) THEN
            KEEP(38) = LISTVAR_SCHUR(1)
-         ELSE
+        ELSE
            WRITE(*,*) "Internal error in CMUMPS_ANA_F_ELT",KEEP(60)
            CALL MUMPS_ABORT()
          ENDIF
@@ -450,7 +441,7 @@ C
       RETURN
 99999 FORMAT (/'Entering analysis phase with ...'/
      & '                N         NELT       LIW       INFO(1)'/,
-     & 9X, I8, I11, I12, I14)
+     & 9X, I10, I11, I12, I14)
 99998 FORMAT ('Element pointers:  ELTPTR()   '/(9X, 7I10))
 99995 FORMAT ('Element variables: ELTVAR()   '/(9X, 7I10))
 99997 FORMAT ('IKEEP(.,1)=', 10I6/(12X, 10I6))
@@ -465,7 +456,7 @@ C
       SUBROUTINE CMUMPS_NODEL( NELT, N, NELNOD, XELNOD, ELNOD,
      &                        XNODEL, NODEL, FLAG, IERROR, ICNTL ) 
       IMPLICIT NONE
-      INTEGER NELT, N, NELNOD, IERROR, ICNTL(40)
+      INTEGER NELT, N, NELNOD, IERROR, ICNTL(60)
       INTEGER XELNOD(NELT+1), ELNOD(NELNOD)
       INTEGER XNODEL(N+1), NODEL(NELNOD),
      &        FLAG(N)
@@ -727,7 +718,7 @@ C
      &           KEEP,KEEP8, ICNTL, SYM )
       IMPLICIT NONE
       INTEGER MYID, SLAVEF, N, NELT, SYM
-      INTEGER KEEP( 500 ), ICNTL( 40 )
+      INTEGER KEEP( 500 ), ICNTL( 60 )
       INTEGER(8) KEEP8(150)
       INTEGER(8) :: PTRAIW( NELT+1 ), PTRARW( NELT+1 )
       INTEGER STEP( N )
@@ -895,7 +886,7 @@ C
         IF (III.NE.LEAF) THEN
            INODE=IPOOL(III)
            III = III + 1
-        ELSE 
+        ELSE
            WRITE(6,*) ' ERROR 1 in subroutine CMUMPS_FRTELT '
            CALL MUMPS_ABORT()
         ENDIF

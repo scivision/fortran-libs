@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -12,14 +12,16 @@ C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE DMUMPS_SET_CONSTRAINTS(
      &     N,PIV,FRERE,FILS,NFSIZ,IKEEP,
-     &     NCST,KEEP,KEEP8,id)
+     &     NCST,KEEP,KEEP8, ROWSCA
+     &     )
       USE DMUMPS_STRUC_DEF
       IMPLICIT NONE
-      TYPE (DMUMPS_STRUC) :: id
-      INTEGER N,NCST
-      INTEGER PIV(N),FRERE(N),FILS(N),NFSIZ(N),IKEEP(N,3)
-      INTEGER KEEP(500)
-      INTEGER(8) KEEP8(150)
+      INTEGER, INTENT(IN)  :: N
+      INTEGER, INTENT(OUT) :: NCST
+      INTEGER    :: PIV(N),FRERE(N),FILS(N),NFSIZ(N),IKEEP(N)
+      INTEGER    :: KEEP(500)
+      INTEGER(8) :: KEEP8(150)
+      DOUBLE PRECISION       :: ROWSCA(N)
       INTEGER I,P11,P1,P2,K1,K2,NLOCKED
       LOGICAL V1,V2
       NCST = 0
@@ -28,17 +30,17 @@ C
       DO I=KEEP(93)-1,1,-2
          P1 = PIV(I)
          P2 = PIV(I+1)
-         K1 = IKEEP(P1,1)
-         IF(K1 .GT. 0) THEN
-            V1 = (abs(id%A(K1))*(id%ROWSCA(P1)**2).GE.1.0D-1)
+         K1 = IKEEP(P1)
+         IF (K1 .NE. 0) THEN
+           V1 = (K1+2*exponent(ROWSCA(P1)) .GE. -3)
          ELSE
-            V1 = .FALSE.
+           V1 = .FALSE.
          ENDIF
-         K2 = IKEEP(P2,1)
-         IF(K2 .GT. 0) THEN
-            V2 = (abs(id%A(K2))*(id%ROWSCA(P2)**2).GE.1.0D-1)
+         K2 = IKEEP(P2)
+         IF (K2 .NE. 0) THEN
+           V2 =  (K2+exponent(ROWSCA(P2)**2) .GE. -3)
          ELSE
-            V2 = .FALSE.
+           V2 = .FALSE.
          ENDIF
          IF(V1 .AND. V2) THEN
             PIV(P11) = P1
@@ -120,12 +122,12 @@ C
      &     N,NZ, IRN, ICN, PIV,
      &     NCMP, IW, LW, IPE, LEN, IQ, 
      &     FLAG, ICMP, IWFR,
-     &     IERROR, KEEP,KEEP8, ICNTL)
+     &     IERROR, KEEP,KEEP8, ICNTL,INPLACE64_GRAPH_COPY)
       IMPLICIT NONE
       INTEGER, intent(in)     :: N
       INTEGER(8), intent(in)  :: NZ, LW
       INTEGER, intent(in)     :: IRN(NZ), ICN(NZ), PIV(N)
-      INTEGER, intent(in)     :: ICNTL(40)
+      INTEGER, intent(in)     :: ICNTL(60)
       INTEGER, intent(in)     :: KEEP(500)
       INTEGER(8), intent(in)  :: KEEP8(150)
       INTEGER, intent(out)    :: NCMP, IERROR
@@ -134,6 +136,7 @@ C
       INTEGER, intent(out)    :: LEN(N)
       INTEGER(8), intent(out) :: IQ(N)
       INTEGER, intent(out)    :: FLAG(N), ICMP(N)
+      LOGICAL, intent(inout) :: INPLACE64_GRAPH_COPY
       INTEGER    :: MP, N11, N22
       INTEGER    :: I, J, N1, K
       INTEGER(8) :: NDUP, L, K8, K1, K2, LAST
@@ -172,9 +175,9 @@ C
      &        .OR.(J.LT.1)) THEN
             IERROR = IERROR + 1
          ELSE
-            I = ICMP(I)
-            J = ICMP(J)
-            IF (I.NE.J) THEN
+         I = ICMP(I)
+         J = ICMP(J)
+         IF ((I.NE.0).AND.(J.NE.0).AND.(I.NE.J)) THEN
                IPE(I) = IPE(I) + 1_8
                IPE(J) = IPE(J) + 1_8
             ENDIF
@@ -262,6 +265,7 @@ C
       ENDIF
       IPE(NCMP+1) = IPE(NCMP) + int(LEN(NCMP),8)
       IWFR = IPE(NCMP+1)
+      INPLACE64_GRAPH_COPY = (LW.GE.2*(IWFR-1_8))
       RETURN
       END SUBROUTINE DMUMPS_LDLT_COMPRESS
       SUBROUTINE DMUMPS_SYM_MWM(
@@ -554,13 +558,14 @@ C
      & NRORM, NIORM, IFLAG,IERROR, ICNTL, 
      & symmetry, SYM, NBQD, AvgDens,
      & KEEP264, KEEP265, 
-     & LISTVAR_SCHUR, SIZE_SCHUR, ATOAO, AOTOA
+     & LISTVAR_SCHUR, SIZE_SCHUR, ATOAO, AOTOA,
+     & INPLACE64_GRAPH_COPY
      & )
       IMPLICIT NONE
       INTEGER, intent(in)    :: NA
       INTEGER, intent(in)    :: N, SYM
       INTEGER(8), intent(in) :: NZ, LW
-      INTEGER, intent(in)    :: ICNTL(40)
+      INTEGER, intent(in)    :: ICNTL(60)
       INTEGER, intent(in)    :: IRN(NZ), ICN(NZ) 
       INTEGER, INTENT(IN)  :: SIZE_SCHUR, LISTVAR_SCHUR(SIZE_SCHUR)
       INTEGER, intent(out)   :: IERROR, symmetry
@@ -575,6 +580,7 @@ C
       INTEGER, intent(in)    :: KEEP265
       INTEGER(8), intent(out):: IQ(N)
       INTEGER, intent(out)   :: FLAG(N)
+      LOGICAL, intent(inout) :: INPLACE64_GRAPH_COPY
       INTEGER    :: MP, MPG, I, J, N1
       INTEGER    :: NBERR, THRESH, IAO
       INTEGER(8) :: K8, K1, K2, LAST, NDUP
@@ -909,6 +915,7 @@ C
       ELSE
        symmetry = 100
       ENDIF
+      INPLACE64_GRAPH_COPY = (LW.GE.2*(IWFR-1))
       AvgDens = nint(dble(IWFR-1_8)/dble(N))
       THRESH  = AvgDens*50 - AvgDens/10 + 1
       NBQD    = 0

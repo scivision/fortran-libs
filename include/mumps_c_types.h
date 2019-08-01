@@ -1,11 +1,11 @@
 /*
  *
- *  This file is part of MUMPS 5.1.2, released
- *  on Mon Oct  2 07:37:01 UTC 2017
+ *  This file is part of MUMPS 5.2.1, released
+ *  on Fri Jun 14 14:46:05 UTC 2019
  *
  *
- *  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
- *  University of Bordeaux.
+ *  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
  *  released under the CeCILL-C license:
@@ -17,7 +17,7 @@
 #ifndef MUMPS_C_TYPES_H
 #define MUMPS_C_TYPES_H
 
-#include <inttypes.h>
+#include <stdint.h>
 #ifdef INTSIZE64
 #define MUMPS_INT int64_t
 #else

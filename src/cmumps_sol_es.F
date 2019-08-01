@@ -1,29 +1,30 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
 C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
-       MODULE MUMPS_SOL_ES
+      MODULE CMUMPS_SOL_ES
       PRIVATE
       PUBLIC:: PRUNED_SIZE_LOADED
-      PUBLIC:: MUMPS_CHAIN_PRUN_NODES
-      PUBLIC:: MUMPS_CHAIN_PRUN_NODES_STATS
-      PUBLIC:: MUMPS_INITIALIZE_RHS_BOUNDS
-      PUBLIC:: MUMPS_PROPAGATE_RHS_BOUNDS
-      PUBLIC:: MUMPS_TREE_PRUN_NODES
-      PUBLIC:: MUMPS_TREE_PRUN_NODES_STATS
-      PUBLIC:: MUMPS_SOL_ES_INIT
+      PUBLIC:: CMUMPS_CHAIN_PRUN_NODES
+      PUBLIC:: CMUMPS_CHAIN_PRUN_NODES_STATS
+      PUBLIC:: CMUMPS_INITIALIZE_RHS_BOUNDS
+      PUBLIC:: CMUMPS_PROPAGATE_RHS_BOUNDS
+      PUBLIC:: CMUMPS_TREE_PRUN_NODES
+      PUBLIC:: CMUMPS_TREE_PRUN_NODES_STATS
+      PUBLIC:: CMUMPS_SOL_ES_INIT
       INTEGER(8), POINTER, DIMENSION(:,:) :: SIZE_OF_BLOCK
       INTEGER(8) :: PRUNED_SIZE_LOADED
+      INCLUDE 'mumps_headers.h'
       CONTAINS
-      SUBROUTINE MUMPS_SOL_ES_INIT(SIZE_OF_BLOCK_ARG, KEEP201)
+      SUBROUTINE CMUMPS_SOL_ES_INIT(SIZE_OF_BLOCK_ARG, KEEP201)
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: KEEP201
       INTEGER(8), POINTER, DIMENSION(:,:) :: SIZE_OF_BLOCK_ARG
@@ -33,8 +34,8 @@ C
         NULLIFY(SIZE_OF_BLOCK)
       ENDIF
       RETURN
-      END SUBROUTINE MUMPS_SOL_ES_INIT
-      SUBROUTINE MUMPS_TREE_PRUN_NODES( 
+      END SUBROUTINE CMUMPS_SOL_ES_INIT
+      SUBROUTINE CMUMPS_TREE_PRUN_NODES( 
      &     fill,
      &     DAD, NE_STEPS, FRERE, KEEP28,
      &     FILS, STEP, N,
@@ -124,8 +125,8 @@ C
          END IF
       END DO
       RETURN
-      END SUBROUTINE MUMPS_TREE_PRUN_NODES
-      SUBROUTINE MUMPS_CHAIN_PRUN_NODES(
+      END SUBROUTINE CMUMPS_TREE_PRUN_NODES
+      SUBROUTINE CMUMPS_CHAIN_PRUN_NODES(
      &     fill,
      &     DAD, KEEP28,
      &     STEP, N,
@@ -201,8 +202,8 @@ C
          END IF
       ENDDO
       RETURN
-      END SUBROUTINE MUMPS_CHAIN_PRUN_NODES
-      SUBROUTINE MUMPS_INITIALIZE_RHS_BOUNDS(
+      END SUBROUTINE CMUMPS_CHAIN_PRUN_NODES
+      SUBROUTINE CMUMPS_INITIALIZE_RHS_BOUNDS(
      & STEP, N,
      & IRHS_PTR, NBCOL, IRHS_SPARSE, NZ_RHS,
      & JBEG_RHS, PERM_RHS, SIZE_PERM_RHS, K242, K243,
@@ -257,30 +258,31 @@ C
         END IF
       END DO
       RETURN
-      END SUBROUTINE MUMPS_INITIALIZE_RHS_BOUNDS
-      SUBROUTINE MUMPS_PROPAGATE_RHS_BOUNDS(
+      END SUBROUTINE CMUMPS_INITIALIZE_RHS_BOUNDS
+      SUBROUTINE CMUMPS_PROPAGATE_RHS_BOUNDS(
      & pruned_leaves, nb_pruned_leaves,
      & STEP, N, Pruned_SONS,
      & DAD, RHS_BOUNDS, NSTEPS,
-     & MYID, COMM,
+     & MYID, COMM, KEEP485,
      & IW, LIW, PTRIST, KIXSZ,OOC_FCT_LOC, PHASE, LDLT, K38)
       IMPLICIT NONE
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_headers.h'
       INTEGER, INTENT(IN) :: nb_pruned_leaves, N, NSTEPS
       INTEGER, INTENT(IN) :: STEP(N), DAD(NSTEPS), Pruned_SONS(NSTEPS)
-      INTEGER, INTENT(IN) :: MYID, COMM
+      INTEGER, INTENT(IN) :: MYID, COMM, KEEP485
       INTEGER, INTENT(IN) :: pruned_leaves(nb_pruned_leaves)
       INTEGER, INTENT(IN) :: LIW, IW(LIW), PTRIST(NSTEPS)
       INTEGER, INTENT(IN) :: KIXSZ, OOC_FCT_LOC, PHASE, LDLT, K38
       INTEGER, INTENT(INOUT):: RHS_BOUNDS(2*NSTEPS)
-      INTEGER :: I, node, father, size_pool, next_size_pool, IERR
+      INTEGER :: I, node, father, size_pool, next_size_pool
+      INTEGER :: IERR
       INTEGER, ALLOCATABLE, DIMENSION(:) :: POOL, NBSONS
       ALLOCATE(POOL(nb_pruned_leaves),
      &         NBSONS(NSTEPS),
      &         STAT=IERR)
       IF (IERR.NE.0) THEN
-         WRITE(6,*)'Allocation problem in MUMPS_PROPAGATE_RHS_BOUNDS'
+         WRITE(6,*)'Allocation problem in CMUMPS_PROPAGATE_RHS_BOUNDS'
          CALL MUMPS_ABORT()
       END IF
       size_pool = nb_pruned_leaves
@@ -312,9 +314,9 @@ C
       END DO
       DEALLOCATE(POOL, NBSONS)
       RETURN
-      END SUBROUTINE MUMPS_PROPAGATE_RHS_BOUNDS
-      INTEGER(8) FUNCTION MUMPS_LOCAL_FACTOR_SIZE(IW,LIW,PTR, PHASE,
-     &                    LDLT, IS_ROOT)
+      END SUBROUTINE CMUMPS_PROPAGATE_RHS_BOUNDS
+      INTEGER(8) FUNCTION CMUMPS_LOCAL_FACTOR_SIZE(IW,LIW,PTR,
+     &                                 PHASE, LDLT, IS_ROOT)
         INTEGER, INTENT(IN) :: LIW, PTR, PHASE, LDLT
         INTEGER, INTENT(IN) :: IW(LIW)
         LOGICAL, INTENT(IN) :: IS_ROOT
@@ -325,27 +327,90 @@ C
         NPIV  = int(IW(PTR+3),8)
         LIELL = NPIV + NCB
         IF (IS_ROOT) THEN
-          MUMPS_LOCAL_FACTOR_SIZE = int(IW(PTR+1),8) *     
-     &                              int(IW(PTR+2),8) / 2_8 
+          CMUMPS_LOCAL_FACTOR_SIZE = int(IW(PTR+1),8) *     
+     &                               int(IW(PTR+2),8) / 2_8 
           RETURN
         ENDIF
         IF (NCB.GE.0_8) THEN 
           IF (PHASE.EQ.0   
      &      .OR. (PHASE.EQ.1.AND.LDLT.NE.0) 
      &  ) THEN
-            MUMPS_LOCAL_FACTOR_SIZE =
-     &      NPIV*(NPIV-1_8)/2_8 + (NROW-NPIV)*NPIV
+            CMUMPS_LOCAL_FACTOR_SIZE =
+     &            NPIV*(NPIV-1_8)/2_8 + (NROW-NPIV)*NPIV
           ELSE
-            MUMPS_LOCAL_FACTOR_SIZE =
+            CMUMPS_LOCAL_FACTOR_SIZE =
      &      NPIV*(NPIV+1_8)/2_8 + (LIELL-NPIV)*NPIV
           ENDIF
         ELSE
-          MUMPS_LOCAL_FACTOR_SIZE =
+          CMUMPS_LOCAL_FACTOR_SIZE =
      &      -NCB*NELIM
         END IF
       RETURN
-      END FUNCTION MUMPS_LOCAL_FACTOR_SIZE
-      SUBROUTINE MUMPS_TREE_PRUN_NODES_STATS(MYID, N, KEEP28, KEEP201,
+      END FUNCTION CMUMPS_LOCAL_FACTOR_SIZE
+      INTEGER(8) FUNCTION CMUMPS_LOCAL_FACTOR_SIZE_BLR(IW,LIW,PTR,
+     &                                LRSTATUS, IWHANDLER,
+     &                                PHASE, LDLT, IS_ROOT)
+      USE CMUMPS_LR_DATA_M
+      USE CMUMPS_LR_TYPE
+        INTEGER, INTENT(IN) :: LIW, PTR, PHASE, LDLT
+        INTEGER, INTENT(IN) :: LRSTATUS, IWHANDLER
+        INTEGER, INTENT(IN) :: IW(LIW)
+        LOGICAL, INTENT(IN) :: IS_ROOT
+        INTEGER(8) :: NCB, NELIM, LIELL, NPIV, NROW, FACTOR_SIZE
+        INTEGER :: NB_PANELS, IPANEL, LorU, IBLOCK
+        LOGICAL :: LR_ACTIVATED
+        TYPE(LRB_TYPE), POINTER, DIMENSION(:) :: LRB_PANEL
+        NCB   = int(IW(PTR),8)     
+        NELIM = int(IW(PTR+1),8)   
+        NROW  = int(IW(PTR+2),8)
+        NPIV  = int(IW(PTR+3),8)
+        LIELL = NPIV + NCB
+        LR_ACTIVATED=(LRSTATUS.GE.2)
+        IF (LR_ACTIVATED) THEN
+          FACTOR_SIZE = 0_8
+          CALL CMUMPS_BLR_RETRIEVE_NB_PANELS(IWHANDLER, NB_PANELS)
+          IF (LDLT.EQ.0) THEN 
+            LorU = PHASE
+          ELSE
+            LorU = 0
+          ENDIF
+          DO IPANEL=1,NB_PANELS
+            IF (IS_ROOT.AND.IPANEL.EQ.NB_PANELS) THEN
+              CYCLE
+            ENDIF
+            IF (CMUMPS_BLR_EMPTY_PANEL_LORU(IWHANDLER, LorU, IPANEL))
+     &        THEN
+              CYCLE
+            ENDIF
+             CALL CMUMPS_BLR_RETRIEVE_PANEL_LORU(IWHANDLER, LorU,
+     &                       IPANEL, LRB_PANEL)
+            IF (size(LRB_PANEL).GT.0) THEN
+              IF (PHASE.EQ.0) THEN
+                FACTOR_SIZE = FACTOR_SIZE + 
+     &            int(LRB_PANEL(1)%N,8)*(int(LRB_PANEL(1)%N,8)-1_8)/2_8
+              ELSE
+                FACTOR_SIZE = FACTOR_SIZE + 
+     &           int(LRB_PANEL(1)%N,8)*(int(LRB_PANEL(1)%N,8)+1_8)/2_8
+              ENDIF
+            ENDIF
+            DO IBLOCK=1,size(LRB_PANEL)
+              IF (LRB_PANEL(IBLOCK)%ISLR) THEN
+                FACTOR_SIZE = FACTOR_SIZE + int(LRB_PANEL(IBLOCK)%K,8)*
+     &            int(LRB_PANEL(IBLOCK)%M+LRB_PANEL(IBLOCK)%M,8)
+              ELSE
+                FACTOR_SIZE = FACTOR_SIZE +
+     &             int(LRB_PANEL(IBLOCK)%M*LRB_PANEL(IBLOCK)%N,8)
+              ENDIF
+            ENDDO
+          ENDDO
+          CMUMPS_LOCAL_FACTOR_SIZE_BLR = FACTOR_SIZE
+        ELSE
+          CMUMPS_LOCAL_FACTOR_SIZE_BLR = 
+     &      CMUMPS_LOCAL_FACTOR_SIZE(IW, LIW, PTR, PHASE, LDLT, IS_ROOT)
+        ENDIF
+      RETURN
+      END FUNCTION CMUMPS_LOCAL_FACTOR_SIZE_BLR
+      SUBROUTINE CMUMPS_TREE_PRUN_NODES_STATS(MYID, N, KEEP28, KEEP201,
      &           KEEP8_31,
      &           STEP, Pruned_List, nb_prun_nodes, OOC_FCT_TYPE_LOC)
       INTEGER, intent(in) :: KEEP28, KEEP201, OOC_FCT_TYPE_LOC, MYID, N
@@ -365,13 +430,14 @@ C
         PRUNED_SIZE_LOADED = PRUNED_SIZE_LOADED +Pruned_Size
       ENDIF
       RETURN
-      END SUBROUTINE MUMPS_TREE_PRUN_NODES_STATS
-      SUBROUTINE MUMPS_CHAIN_PRUN_NODES_STATS
-     &                (MYID, N, KEEP28, KEEP201, KEEP8_31,
+      END SUBROUTINE CMUMPS_TREE_PRUN_NODES_STATS
+      SUBROUTINE CMUMPS_CHAIN_PRUN_NODES_STATS
+     &                (MYID, N, KEEP28, KEEP201, KEEP485, KEEP8_31,
      &                STEP, Pruned_List, nb_prun_nodes, OOC_FCT_TYPE_LOC
      & )
       IMPLICIT NONE
-      INTEGER, intent(in) :: KEEP28, KEEP201, OOC_FCT_TYPE_LOC, N
+      INTEGER, intent(in) :: KEEP28, KEEP201, OOC_FCT_TYPE_LOC, N,
+     &                       KEEP485
       INTEGER(8), intent(in) :: KEEP8_31
       INTEGER, intent(in) :: nb_prun_nodes, MYID
       INTEGER, intent(in) :: Pruned_List(nb_prun_nodes)
@@ -393,9 +459,9 @@ C
         ENDIF
       ENDIF
       RETURN
-      END SUBROUTINE MUMPS_CHAIN_PRUN_NODES_STATS
-      END MODULE MUMPS_SOL_ES
-      SUBROUTINE MUMPS_PERMUTE_RHS_GS
+      END SUBROUTINE CMUMPS_CHAIN_PRUN_NODES_STATS
+      END MODULE CMUMPS_SOL_ES
+      SUBROUTINE CMUMPS_PERMUTE_RHS_GS
      &          (LP, LPOK, PROKG, MPG, PERM_STRAT, 
      &           SYM_PERM, N, NRHS,
      &           IRHS_PTR, SIZE_IRHS_PTR, 
@@ -420,7 +486,7 @@ C
        IERR=-1
        IF (LPOK)
      & WRITE(LP,*) " INTERNAL ERROR -1 in ",
-     &       " MUMPS_PERMUTE_RHS_GS, PERM_STRAT =", PERM_STRAT, 
+     &       " CMUMPS_PERMUTE_RHS_GS, PERM_STRAT =", PERM_STRAT, 
      &       " is out of range "
        RETURN
       ENDIF
@@ -433,10 +499,11 @@ C
       ALLOCATE(ROW_REFINDEX(NRHS), STAT=IERR)
       IF (IERR.GT.0) THEN
        IERR=-1
-       IF (LPOK)
-     & WRITE(LP,*) " ERROR -2 : ", 
-     &   " ALLOCATE IN MUMPS_PERMUTE_RHS_GS OF SIZE :",
-     &   NRHS
+       IF (LPOK) THEN
+          WRITE(LP,*) " ERROR -2 : ", 
+     &         " ALLOCATE IN CMUMPS_PERMUTE_RHS_GS OF SIZE :",
+     &         NRHS
+       ENDIF
        RETURN
       ENDIF
       DO I=1,NRHS
@@ -467,7 +534,7 @@ C
          IERR = -3 
          IF (LPOK)
      &   WRITE(LP,*) " INTERNAL ERROR -3 in ",
-     &       " MUMPS_PERMUTE_RHS_GS "
+     &       " CMUMPS_PERMUTE_RHS_GS "
          GOTO 500
        ENDIF
        POSINPERMRHS           = POSINPERMRHS + 1
@@ -477,15 +544,15 @@ C
       IF (POSINPERMRHS.NE.NRHS) THEN
          IF (LPOK)
      &   WRITE(LP,*) " INTERNAL ERROR -4 in ",
-     &       " MUMPS_PERMUTE_RHS_GS ", maxval(ROW_REFINDEX)
+     &       " CMUMPS_PERMUTE_RHS_GS ", maxval(ROW_REFINDEX)
          IERR = -4
          GOTO 500
       ENDIF
   490 CONTINUE
  500  CONTINUE
       IF (allocated(ROW_REFINDEX)) DEALLOCATE(ROW_REFINDEX)
-      END SUBROUTINE MUMPS_PERMUTE_RHS_GS
-      SUBROUTINE MUMPS_PERMUTE_RHS_AM1
+      END SUBROUTINE CMUMPS_PERMUTE_RHS_GS
+      SUBROUTINE CMUMPS_PERMUTE_RHS_AM1
      &          (PERM_STRAT, SYM_PERM,
      &           IRHS_PTR, NHRS,
      &           PERM_RHS, SIZEPERM, IERR
@@ -540,8 +607,8 @@ C
             PERM_RHS(SIZEPERM-SYM_PERM(I)+1) = I
          ENDDO
       ENDIF
-      END SUBROUTINE MUMPS_PERMUTE_RHS_AM1
-      SUBROUTINE MUMPS_INTERLEAVE_RHS_AM1(
+      END SUBROUTINE CMUMPS_PERMUTE_RHS_AM1
+      SUBROUTINE CMUMPS_INTERLEAVE_RHS_AM1(
      &  PERM_RHS, SIZE_PERM,
      &  IPTR_WORKING, SIZE_IPTR_WORKING, WORKING, SIZE_WORKING,
      &  IRHS_PTR,
@@ -601,7 +668,7 @@ C
      &         MYTYPENODE(NSTEPS),
      &         STAT=IERR)
       IF(IERR.GT.0) THEN
-        WRITE(*,*)'Allocation error in MUMPS_INTERLEAVE_RHS_AM1'
+        WRITE(*,*)'Allocation error in CMUMPS_INTERLEAVE_RHS_AM1'
         CALL MUMPS_ABORT()
       END IF
       MYTYPENODE= (PROCNODE-1+2*SLAVEF)/SLAVEF-1
@@ -631,7 +698,7 @@ C
       ALLOCATE(PERM_WORKING(SIZE_PERM_WORKING),
      &         STAT=IERR)
       IF(IERR.GT.0) THEN
-        WRITE(*,*)'Allocation error in MUMPS_INTERLEAVE_RHS_AM1'
+        WRITE(*,*)'Allocation error in CMUMPS_INTERLEAVE_RHS_AM1'
         CALL MUMPS_ABORT()
       END IF
       K = 0
@@ -759,4 +826,4 @@ C
      &           PERM_WORKING,
      &           MYTYPENODE)
       RETURN
-      END SUBROUTINE MUMPS_INTERLEAVE_RHS_AM1
+      END SUBROUTINE CMUMPS_INTERLEAVE_RHS_AM1

@@ -4,9 +4,11 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 project(MUMPS
   LANGUAGES C Fortran
-  VERSION 5.1.2
+  VERSION 5.2.1
   HOMEPAGE_URL http://mumps.enseeiht.fr/)
 enable_testing()
+
+cmake_policy(SET CMP0076 NEW)
 
 if(NOT DEFINED ARITH)
   set(ARITH d)
@@ -27,3 +29,22 @@ add_subdirectory(PORD)
 add_subdirectory(src)
 
 add_subdirectory(tests)
+
+
+# --- install
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  if(WIN32)
+    set(HOME $ENV{USERPROFILE})
+  else()
+    set(HOME $ENV{HOME})
+  endif()
+
+  set(CMAKE_INSTALL_PREFIX "${HOME}/.local/mumps-${PROJECT_VERSION}" CACHE PATH "..." FORCE)
+endif()
+
+install(TARGETS pord mumps_common ${ARITH}mumps
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/include  # no trailing slash!
+  DESTINATION ${CMAKE_INSTALL_PREFIX})

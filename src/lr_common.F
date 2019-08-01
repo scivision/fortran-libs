@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -35,10 +35,10 @@ C
      &     VLIST, FILS, FRERE_STEPS, STEP, DAD_STEPS, NE_STEPS, NA, LNA,
      &     PVS, K38, STEP_SCALAPACK_ROOT)
       IMPLICIT NONE
-      INTEGER, INTENT(IN)    :: N, NV, NSTEPS, LNA, F, VLIST(NV),
-     &     NE_STEPS(NSTEPS)
-      INTEGER, INTENT(INOUT) :: FILS(N), FRERE_STEPS(NSTEPS),
-     &     DAD_STEPS(NSTEPS), STEP(N), PVS(NSTEPS), NA(LNA), LPTR, RPTR
+      INTEGER, INTENT(IN)    :: N, NV, NSTEPS, LNA, F, VLIST(NV)
+      INTEGER                :: FILS(:), FRERE_STEPS(:),
+     &     DAD_STEPS(:), STEP(:), NE_STEPS(:), NA(:)
+      INTEGER, INTENT(INOUT) :: PVS(NSTEPS), LPTR, RPTR
       INTEGER, INTENT(INOUT) :: K38
       INTEGER, INTENT(IN)    :: STEP_SCALAPACK_ROOT
       LOGICAL :: FIRST

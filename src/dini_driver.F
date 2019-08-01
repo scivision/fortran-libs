@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -80,6 +80,8 @@ C     ----------------------------------------------
       CALL MUMPS_SET_VERSION( id%VERSION_NUMBER )
       id%OOC_TMPDIR="NAME_NOT_INITIALIZED"
       id%OOC_PREFIX="NAME_NOT_INITIALIZED"
+      id%SAVE_DIR="NAME_NOT_INITIALIZED"
+      id%SAVE_PREFIX="NAME_NOT_INITIALIZED"
 C     Default value for NRHS is 1
       id%NRHS = 1
 C     Leading dimension will be reset to id%N is DMUMPS_SOL_DRIVER
@@ -102,6 +104,28 @@ C
 C
       id%INST_Number = -1
 C
+C     Define the options for Metis
+C
+      id%METIS_OPTIONS(:) = 0
+#if defined(metis) || defined(parmetis) || defined(metis4) || defined(parmetis3)      
+#if defined(metis4) || defined(parmetis3)
+C     Useful size is 8
+C     set to default options
+      id%METIS_OPTIONS(1) = 0
+#else
+C     Useful size is 40  
+C     This sets the default values
+      CALL METIS_SETDEFAULTOPTIONS(id%METIS_OPTIONS)
+C     This number, 18, corresponds to METIS_OPTIONS_NUMBERING which
+C     tells METIS to use fortran numbering and is found in metis.h
+C     In Metis 5.0.3 and Parmetis 4.0.2, METIS_OPTIONS_NUMBERING 
+C     was METIS_OPTIONS(17). MUMPS doesnot support those versions anymore.
+C     To use them, just change METIS_OPTIONS(18) into METIS_OPTIONS(17)
+C     like that: METIS_OPTIONS(17) = 1
+      id%METIS_OPTIONS(18) = 1
+#endif
+#endif      
+C
 C  Nullify a few pointers and integers
 C
       id%N = 0; id%NZ = 0; id%NNZ = 0_8
@@ -120,8 +144,12 @@ C
       NULLIFY(id%IRHS_SPARSE)
       NULLIFY(id%IRHS_PTR)
       NULLIFY(id%ISOL_loc)
+      NULLIFY(id%IRHS_loc)
       id%LSOL_loc=0
+      id%LRHS_loc=0
+      id%Nloc_RHS=0
       NULLIFY(id%SOL_loc)
+      NULLIFY(id%RHS_loc)
       NULLIFY(id%COLSCA)
       NULLIFY(id%ROWSCA)
       NULLIFY(id%PERM_IN)
@@ -181,6 +209,7 @@ C
       NULLIFY(id%LRGROUPS)
       NULLIFY(id%FDM_F_ENCODING)
       NULLIFY(id%BLRARRAY_ENCODING)
+      NULLIFY(id%MPITOOMP_PROCS_MAP)
 C     Must be nullified because of routine
 C     DMUMPS_SIZE_IN_STRUCT
       NULLIFY(id%CB_SON_SIZE)

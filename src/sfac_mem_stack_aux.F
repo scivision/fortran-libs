@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -78,11 +78,11 @@ C
       SUBROUTINE SMUMPS_COPY_CB_RIGHT_TO_LEFT( A, LA, LDA, POSELT,
      &           IPTRLU, NPIV,
      &           NBCOL_STACK, NBROW_STACK,
-     &           NBROW_SEND, SIZECB, KEEP, COMPRESSCB,
+     &           NBROW_SEND, SIZECB, KEEP, PACKED_CB,
      &           LAST_ALLOWED, NBROW_ALREADY_STACKED )
       IMPLICIT NONE
       INTEGER(8), intent (in) :: POSELT, IPTRLU, LA, SIZECB
-      LOGICAL, intent (in) :: COMPRESSCB
+      LOGICAL, intent (in) :: PACKED_CB
       REAL A(LA)
       INTEGER, intent(in):: LDA, NPIV, NBCOL_STACK, NBROW_STACK,
      &                      NBROW_SEND
@@ -101,7 +101,7 @@ C
         NPOS = IPTRLU + SIZECB         
         APOS = POSELT + int(NPIV+NBROW,8) 
      &       * int(LDA,8) - 1_8 
-        IF ( KEEP(50) .EQ. 0 .OR. .NOT. COMPRESSCB ) THEN
+        IF ( KEEP(50) .EQ. 0 .OR. .NOT. PACKED_CB ) THEN
           APOS = APOS - int(LDA,8) * int(NBROW_ALREADY_STACKED,8)
           NPOS = NPOS
      &         - int(NBCOL_STACK,8) * int(NBROW_ALREADY_STACKED,8)
@@ -121,7 +121,7 @@ C
             ENDDO
             NPOS = NPOS - int(NBCOL_STACK,8)
           ELSE
-            IF (.NOT. COMPRESSCB) THEN
+            IF (.NOT. PACKED_CB) THEN
               IF ( NPOS - int(NBCOL_STACK,8) + 1_8 .LT.
      &                                  LAST_ALLOWED ) THEN
                 EXIT
@@ -154,10 +154,10 @@ C
       SUBROUTINE SMUMPS_COPY_CB_LEFT_TO_RIGHT( A, LA, LDA, POSELT,
      &           IPTRLU, NPIV,
      &           NBCOL_STACK, NBROW_STACK,
-     &           NBROW_SEND, SIZECB, KEEP, COMPRESSCB)
+     &           NBROW_SEND, SIZECB, KEEP, PACKED_CB)
       IMPLICIT NONE
       INTEGER(8), intent (in) :: POSELT, IPTRLU, LA, SIZECB
-      LOGICAL, intent (in) :: COMPRESSCB
+      LOGICAL, intent (in) :: PACKED_CB
       REAL A(LA)
       INTEGER, intent(in):: LDA, NPIV, NBCOL_STACK, NBROW_STACK,
      &                      NBROW_SEND
@@ -171,9 +171,9 @@ C
       LDA8 = int(LDA,8)
       NPOS_ini = IPTRLU + 1_8
       APOS_ini = POSELT + int(NPIV+NBROW_SEND,8)* LDA8 + int(NPIV,8)
-!$OMP PARALLEL DO PRIVATE(J, NPOS, APOS) IF (NBROW_STACK > 300)
+!$OMP PARALLEL DO PRIVATE(J, NPOS, APOS) IF (NBROW_STACK > KEEP(360))
       DO I = 1, NBROW_STACK
-         IF (COMPRESSCB) THEN
+         IF (PACKED_CB) THEN
             NPOS = NPOS_ini + int(I-1,8) * int(I,8)/2_8 +
      &             int(I-1,8) * int(NBROW_SEND,8)
          ELSE
@@ -189,7 +189,7 @@ C
             A(NPOS+J-1_8)=A(APOS+J-1_8)
           ENDDO
 #if defined(ZERO_TRIANGLE)
-          IF (.NOT. COMPRESSCB) THEN
+          IF (.NOT. PACKED_CB) THEN
             A(NPOS+int(I+NBROW_SEND,8):
      &        NPOS+int(NBCOL_STACK-1,8))=ZERO
           ENDIF

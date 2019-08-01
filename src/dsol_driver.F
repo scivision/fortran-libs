@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -12,7 +12,7 @@ C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE DMUMPS_SOLVE_DRIVER(id)
       USE DMUMPS_STRUC_DEF
-      USE MUMPS_SOL_ES
+      USE DMUMPS_SOL_ES
 C
 C  Purpose
 C  =======
@@ -26,6 +26,11 @@ C
       USE DMUMPS_BUF
       USE DMUMPS_OOC
       USE MUMPS_MEMORY_MOD
+      USE DMUMPS_LR_DATA_M, only : DMUMPS_BLR_STRUC_TO_MOD
+     &                           , DMUMPS_BLR_MOD_TO_STRUC
+      USE MUMPS_FRONT_DATA_MGT_M, only : MUMPS_FDM_STRUC_TO_MOD,
+     &                                   MUMPS_FDM_MOD_TO_STRUC
+      USE DMUMPS_SAVE_RESTORE
       IMPLICIT NONE
 C     -------------------
 C     Explicit interfaces
@@ -67,8 +72,8 @@ C
       INTEGER MTYPE, ICNTL21
       LOGICAL LSCAL, POSTPros, GIVSOL
       INTEGER ICNTL10, ICNTL11
-      INTEGER I,K,JPERM, J, II, IZ2
-      INTEGER IZ, NZ_THIS_BLOCK
+      INTEGER I,IPERM,K,JPERM, J, II, IZ2
+      INTEGER IZ, NZ_THIS_BLOCK, PJ
 C     pointers in IS
       INTEGER LIW
 C     pointers in id%S
@@ -112,8 +117,6 @@ C
       INTEGER(8)  :: NBT
       INTEGER     :: NBCOL, COLSIZE, JBEG_RHS, JEND_RHS, JBEG_NEW,
      &               NBCOL_INBLOC, IPOS, IPOSRHSCOMP
-      INTEGER     :: PERM_PIV_LIST(max(id%KEEP(112),1))
-      INTEGER     :: MAP_PIVNUL_LIST(max(id%KEEP(112),1))
       INTEGER, DIMENSION(:), ALLOCATABLE :: PERM_RHS
       INTEGER, DIMENSION(:), POINTER :: PTR_POSINRHSCOMP_FWD,
      &                                  PTR_POSINRHSCOMP_BWD
@@ -132,10 +135,8 @@ C         id%IRHS_SPARSE. To test if we can deallocate it we trace
 C         with IRHS_SPARSE_COPY_ALLOCATED when it was effectively
 C         allocated.
 C     NBCOL_INBLOC  total nb columns to process in this block
-c     JBEG_RHS global ptr for starting column requested for this block
-c     JEND_RHS global ptr for end column_number requested for this block
-C     PERM_PIV_LIST permuted array of pivots
-C     MAP_PIVNUL_LIST: mapping of permuted list
+C     JBEG_RHS global ptr for starting column requested for this block
+C     JEND_RHS global ptr for end column_number requested for this block
 C     PERM_RHS -- Permutation of RHS computed on master and broadcasted
 C         on all procs (of size id%NRHS orginal)
 C         PERM_RHS(k) = i means that i is the kth column to be processed
@@ -166,6 +167,7 @@ C
      &                                 C_W(:)
       INTEGER :: LCWORK
       DOUBLE PRECISION, ALLOCATABLE :: CWORK(:)
+      INTEGER, ALLOCATABLE :: MAP_RHS(:)
       DOUBLE PRECISION, ALLOCATABLE :: R_Y(:), D(:)
       DOUBLE PRECISION, ALLOCATABLE :: R_W(:)
 C     The 2 following workarrays are temporary local
@@ -176,6 +178,8 @@ C     (KEEP(54) .NE. 0).
       INTEGER   :: NBENT_RHSCOMP, NB_FS_IN_RHSCOMP_F,
      &             NB_FS_IN_RHSCOMP_TOT
       INTEGER, DIMENSION(:), ALLOCATABLE :: UNS_PERM_INV
+      LOGICAL :: UNS_PERM_INV_NEEDED_INMAINLOOP,
+     &           UNS_PERM_INV_NEEDED_BEFMAINLOOP
       INTEGER LIWK_SOLVE, LIWCB
       INTEGER, ALLOCATABLE :: IW1(:), IWK_SOLVE(:), IWCB(:)
       INTEGER ::  LIWK_PTRACB
@@ -209,7 +213,7 @@ C           is : y0 =[(D2) **(-1)] x0 and so x0= D2*y0 is modified
 C        --------------
 C        CASE OF AT X =B
 C        --------------
-C         (ICNTL(9).NE.0 or MTYPE=0)
+C         (ICNTL(9).NE.1 or MTYPE=0)
 C           A(sca) = LU  = D1*A*D2
 C           AT*x0 = b0 => D2ATD1 D1-1 x0 = D2b0
 C           b(sca) = D2 * b0 = COLSCA*S(ISTW3)
@@ -225,7 +229,7 @@ C
             DOUBLE PRECISION, dimension(:), pointer :: SCALING
             DOUBLE PRECISION, dimension(:), pointer :: SCALING_LOC
           end type scaling_data_t
-          type (scaling_data_t) :: scaling_data
+          type (scaling_data_t) :: scaling_data_sol, scaling_data_dr
 C      To scale on the fly during GATHER SOLUTION
           DOUBLE PRECISION, DIMENSION(:), POINTER :: PT_SCALING
           DOUBLE PRECISION, TARGET                :: Dummy_SCAL(1)
@@ -239,6 +243,7 @@ C     Interval associated to the subblocks of RHS a node has to process
       INTEGER                            :: LPTR_RHS_BOUNDS
       INTEGER, DIMENSION(:), POINTER     :: PTR_RHS_BOUNDS
       LOGICAL  :: DO_NBSPARSE, NBSPARSE_LOC
+      LOGICAL  :: PRINT_MAXAVG
       DOUBLE PRECISION ARRET
       DOUBLE PRECISION C_DUMMY(1)
       DOUBLE PRECISION R_DUMMY(1)
@@ -260,8 +265,8 @@ C     Interval associated to the subblocks of RHS a node has to process
       INTEGER IFLAG_IR, IRStep
       LOGICAL TESTConv
       LOGICAL WORKSPACE_MINIMAL_PREFERRED, WK_USER_PROVIDED
-      INTEGER(8) NB_BYTES     !size of data allocated during solve
-      INTEGER(8) NB_BYTES_MAX !MAX size of data allocated during solve
+      INTEGER(8) NB_BYTES       !size of data allocated during solve
+      INTEGER(8) NB_BYTES_MAX   !MAX size of data allocated during solve
       INTEGER(8) NB_BYTES_EXTRA !For Step2Node, which may be freed later
       INTEGER(8) NB_INT, NB_CMPLX, NB_CHAR, K34_8, K35_8
       INTEGER(8) K16_8, ITMP8, NB_BYTES_ON_ENTRY
@@ -272,11 +277,14 @@ C  Vampir
 #endif
       LOGICAL I_AM_SLAVE, BUILD_POSINRHSCOMP
       LOGICAL WORK_WCB_ALLOCATED, IS_INIT_OOC_DONE
+      LOGICAL :: IS_LR_MOD_TO_STRUC_DONE
+      INTEGER :: KEEP350_SAVE
       LOGICAL STOP_AT_NEXT_EMPTY_COL
       INTEGER  MTYPE_LOC
       INTEGER  MAT_ALLOC_LOC, MAT_ALLOC
       INTEGER MUMPS_PROCNODE
       EXTERNAL MUMPS_PROCNODE
+      INTEGER(8) :: FILE_SIZE,STRUC_SIZE
 C
 C  First executable statement
 C
@@ -302,7 +310,12 @@ C     -- enable deallocation
       RHS_SPARSE_COPY_ALLOCATED=.FALSE.
       NULLIFY(RHS_IR)
       NULLIFY(WORK_WCB)
+      NULLIFY(scaling_data_dr%SCALING)
+      NULLIFY(scaling_data_dr%SCALING_LOC)
+      NULLIFY(scaling_data_sol%SCALING)
+      NULLIFY(scaling_data_sol%SCALING_LOC)
       IS_INIT_OOC_DONE   = .FALSE.
+      IS_LR_MOD_TO_STRUC_DONE = .FALSE.
       WK_USER_PROVIDED   = .FALSE.
       WORK_WCB_ALLOCATED = .FALSE.
       CNTL =>id%CNTL
@@ -322,6 +335,7 @@ C      ROWSCA =>id%ROWSCA
       PROK  = ((MP.GT.0).AND.(id%ICNTL(4).GE.2))
       PROKG = ( MPG .GT. 0 .and. id%MYID .eq. MASTER )
       PROKG = (PROKG.AND.(id%ICNTL(4).GE.2))
+      PRINT_MAXAVG = .NOT.(id%NSLAVES.EQ.1 .AND. KEEP(46).EQ.1)
       IF (.not.PROK)  MP =0
       IF (.not.PROKG) MPG=0
       IF ( PROK  ) WRITE(MP,100)
@@ -351,6 +365,9 @@ C     LD_RHSCOMP = max(KEEP(89),1)  ! at the nb of pivots eliminated on
 !     number of FS var of the pruned tree
 !     mapped on this proc
       NB_FS_IN_RHSCOMP_F = NB_FS_IN_RHSCOMP_TOT
+C     Save value of KEEP(350), in case of LR solve
+C     KEEP(350) may be overwritten and restored
+      KEEP350_SAVE = KEEP(350)
 C
 C     Depending on the type of parallelism,
 C     the master can have the role of a slave
@@ -361,7 +378,9 @@ C
 C     Compute the number of integers and nb of reals in the structure
       CALL DMUMPS_SIZE_IN_STRUCT (id, NB_INT,NB_CMPLX,NB_CHAR)
       NB_BYTES = NB_BYTES + NB_INT * K34_8 + NB_CMPLX * K35_8 + NB_CHAR
+     &     + KEEP8(71) * K35_8
       NB_BYTES_ON_ENTRY = NB_BYTES !used to check alloc/dealloc count ok
+      CALL DMUMPS_COMPUTE_MEMORY_SAVE(id,FILE_SIZE,STRUC_SIZE)
       NB_BYTES_MAX = max(NB_BYTES_MAX,NB_BYTES)
 C     ======================================
 C     BEGIN CHECK KEEP ENTRIES AND INTERFACE
@@ -379,11 +398,11 @@ C         switch off exploit sparsity when RHS is too dense.
           IF (id%ICNTL(20) .EQ. 1) id%KEEP(235) = -1 !automatic
           IF (id%ICNTL(20) .EQ. 2) id%KEEP(235) = 0  !off
           IF (id%ICNTL(20) .EQ. 3) id%KEEP(235) = 1  !on
-          IF (id%ICNTL(20).EQ.1.or.id%ICNTL(20).EQ.2.or.
+          IF (id%ICNTL(20).EQ.1 .or. id%ICNTL(20).EQ.2 .or.
      &       id%ICNTL(20).EQ.3) THEN
-           id%KEEP(248) = 1 !sparse RHS
+            id%KEEP(248) = 1 !sparse RHS
           ELSE
-           id%KEEP(248) = 0 !dense RHS
+            id%KEEP(248) = 0 !dense RHS
           ENDIF
           ICNTL21      = id%ICNTL(21)
           IF (ICNTL21 .ne.0.and.ICNTL21.ne.1) ICNTL21=0
@@ -400,8 +419,7 @@ C            Force KEEP(248) accordingly.
              id%KEEP(248)=1
           ENDIF
           IF ((id%KEEP(221).EQ.2 ).AND.(id%KEEP(248).NE.0) ) THEN
-C          -- input RHS is in fact effectively
-C          -- stored in REDRHS and RHSCOMP
+C          -- input RHS is indeed stored in REDRHS and RHSCOMP
            id%KEEP(248) = 0
           ENDIF
           IF ((id%KEEP(221).EQ.2 ).AND.(id%KEEP(235).NE.0) ) THEN
@@ -449,19 +467,28 @@ C                            it is deactived)
           IF ((KEEP(242).NE.0).AND.KEEP(237).EQ.0) THEN
             IF ((KEEP(242).NE.-9).AND.KEEP(242).NE.1.AND.
      &           KEEP(242).NE.-1) THEN
-             WRITE(6,*) " WARNING !!! A-1 OFF and KEEP(242)= ", 
-     &                    KEEP(242), " is reset to zero (OFF)"
 C            Reset it to 0 
              KEEP(242) = 0
             ENDIF
           ENDIF
           IF (KEEP(242).EQ.-9) THEN
+C           {
 C           Automatic setting of permute RHS
             IF (id%KEEP(237).NE.0) THEN
-              KEEP(242) = 1  ! postorder
-            ELSE
-              KEEP(242) = 0  ! no permutation
+              KEEP(242) = 1  ! postorder for A-1
+            ELSE ! dense or general sparse or distributed RHS
+              KEEP(242) = 0  ! no permutation in most general case
+              IF (KEEP(248) .EQ. 1) THEN ! sparse RHS
+                IF (id%KEEP(235) .EQ. 1) THEN ! Tree pruning
+                  IF (id%NRHS .GT. 1) THEN
+                    IF (KEEP(497).EQ.-1 .OR. KEEP(497).GE.1) THEN
+                      KEEP(242)=1
+                    ENDIF
+                  ENDIF
+                ENDIF
+              ENDIF
             ENDIF
+C           }
           ENDIF
           IF ( (id%KEEP(221).EQ.1 ).AND.(id%KEEP(235).NE.0) ) THEN
 C          -- Do not permute RHS with REDRHS for the time being
@@ -485,11 +512,19 @@ C           (exploit sparsity parameters)
             IF (id%KEEP(495).EQ.-1) id%KEEP(495)=1
             IF (id%KEEP(497).EQ.-1) id%KEEP(497)=1
            ENDIF
-          ELSE ! dense or general sparse
+          ELSE ! dense or general sparse or distributed RHS
             id%KEEP(243)=0
             id%KEEP(495)=0
-            IF (id%KEEP(235) .EQ. 1) THEN
-             IF (id%KEEP(497).EQ.-1) id%KEEP(497)=0
+            IF (KEEP(248) .EQ. 1) THEN ! sparse RHS
+              IF (id%KEEP(235) .EQ. 1) THEN ! Tree pruning
+                IF (id%NRHS .GT. 1) THEN
+                  IF (id%KEEP(497).EQ.-1) id%KEEP(497)=1
+                ENDIF
+              ENDIF
+            ELSE
+C             nbsparse meaningless for distributed or dense RHS 
+C             Force it to 0 whatever was the initial value
+              id%KEEP(497)=0
             ENDIF
           ENDIF
           MTYPE = id%ICNTL(  9 )
@@ -497,6 +532,17 @@ C           (exploit sparsity parameters)
           IF ((MTYPE.EQ.0).AND.KEEP(50).NE.0) MTYPE =1
 !         suppress option Atx=b for A-1
           IF (id%KEEP(237).NE.0) MTYPE = 1
+C
+C         ICNTL(35) was defined at analysis and 
+C         consistently reset at factorization
+C         It was stored in KEEP(486) after factorization 
+C         Set KEEP(485) accordingly.
+C
+          IF (KEEP(486) .EQ. 2) THEN 
+            KEEP(485) = 1 ! BLR solve
+          ELSE
+            KEEP(485) = 0 ! FR solve
+          ENDIF
       ENDIF
       CALL MPI_BCAST(MTYPE,1,MPI_INTEGER,MASTER,
      &               id%COMM,IERR)
@@ -514,10 +560,12 @@ C           (exploit sparsity parameters)
      &                  IERR )
       CALL MPI_BCAST( id%KEEP(350), 1, MPI_INTEGER, MASTER, id%COMM,
      &                  IERR )
+      CALL MPI_BCAST( id%KEEP(485), 1, MPI_INTEGER, MASTER, id%COMM,
+     &                  IERR )
       CALL MPI_BCAST( id%KEEP(495), 3, MPI_INTEGER, MASTER, id%COMM,
      &                  IERR )
       CALL MPI_BCAST( ICNTL21, 1, MPI_INTEGER, MASTER, id%COMM, IERR )
-C     Broadcast original id%NRHS (used at least for checks on ISOL_loc
+C     Broadcast original id%NRHS (used at least for checks on SOL_loc
 C                       and to allocate PERM_RHS in case of exploit sparsity)
       CALL MPI_BCAST( id%NRHS,1, MPI_INTEGER, MASTER, id%COMM,IERR)
 C
@@ -559,7 +607,7 @@ C     ------------------------------
 C     Check parameters on the master
 C     ------------------------------
       IF ( id%MYID .EQ. MASTER ) THEN
-          IF ((KEEP(23).NE.0).AND.KEEP(50).NE.0) THEN
+         IF ((KEEP(23).NE.0).AND.KEEP(50).NE.0) THEN
 C          Maximum transversal permutation
 C          has not been saved (KEEP(23)>0 and UNS_PERM allocated)
 C          when matrix is symmetric.
@@ -577,15 +625,19 @@ C         an OOC factorization or just get nb of
 C         negative pivots or determinant)
 C         ------------------------------------
           IF (KEEP(201) .EQ. -1) THEN
-             IF (PROKG) WRITE(MPG,'(A)')
-     &       ' ERROR: Solve impossible because factors not kept'
+             IF (PROKG) THEN
+                WRITE(MPG,'(A)')
+     &               ' ERROR: Solve impossible because factors not kept'
+             ENDIF
              id%INFO(1)=-44
              id%INFO(2)=KEEP(251)
              GOTO 333
           ELSE IF (KEEP(221).EQ.0 .AND. KEEP(251) .EQ. 2
      &            .AND. KEEP(252).EQ.0) THEN
-             IF (PROKG) WRITE(MPG,'(A)')
-     &       ' ERROR: Solve impossible because factors not kept'
+             IF (PROKG) THEN
+                WRITE(MPG,'(A)')
+     &               ' ERROR: Solve impossible because factors not kept'
+             ENDIF
              id%INFO(1)=-44
              id%INFO(2)=KEEP(251)
              GOTO 333
@@ -597,21 +649,26 @@ C            KEEP(252-253) available on all procs since analysis phase
 C            Error: id%NRHS is not allowed to change since analysis
 C            because fwd has been performed during facto with
 C            KEEP(253) RHS
-             IF (PROKG) WRITE(MPG,'(A)')
-     &       ' ERROR: id%NRHS not allowed to change when ICNTL(32)=1'
+             IF (PROKG) THEN
+                WRITE(MPG,'(A)')
+     &               ' ERROR: id%NRHS not allowed to change when',
+     &               ' ICNTL(32)=1'
+             ENDIF
              id%INFO(1)=-42
              id%INFO(2)=id%KEEP(253)
              GOTO 333
           ENDIF
-C         Testing MTYPE instead of ICNTL(9)
+C     Testing MTYPE instead of ICNTL(9)
           IF (KEEP(252).NE.0 .AND. MTYPE.NE.1) THEN
 C            Fwd in facto is not compatible with transpose system
              INFO(1) = -43
              INFO(2) = 9
-             IF (PROKG) WRITE(MPG,'(A)')
-     &       ' ERROR: Transpose system (ICNTL(9).NE.0) not ',
-     &       ' compatible with forward performed during',
-     &       ' factorization (ICNTL(32)=1)'
+             IF (PROKG) THEN
+                WRITE(MPG,'(A)')
+     &               ' ERROR: Transpose system (ICNTL(9).NE.0) not ',
+     &               ' compatible with forward performed during',
+     &               ' factorization (ICNTL(32)=1)'
+             ENDIF
              GOTO 333
           ENDIF
           IF (KEEP(248) .NE. 0.AND.KEEP(252).NE.0) THEN
@@ -620,38 +677,49 @@ C            Forbid sparse RHS when Fwd performed during facto
 C            Sparse RHS may be due to A-1 (ICNTL(30)
              INFO(1) = -43
              IF (KEEP(237).NE.0) THEN
-              INFO(2) = 30 ! icntl(30)
-              IF (PROKG) WRITE(MPG,'(A)')
-     &        ' ERROR: A-1 functionality incompatible with forward',
-     &        ' performed during factorization (ICNTL(32)=1)'
+               INFO(2) = 30 ! ICNTL(30)
+               IF (PROKG) THEN
+                  WRITE(MPG,'(A)')
+     &                 ' ERROR: A-1 functionality incompatible with',
+     &                 ' forward performed during factorization',
+     &                 ' (ICNTL(32)=1)'
+               ENDIF
              ELSE
-              INFO(2) = 20 ! ICNTL(20)
-              IF (PROKG) WRITE(MPG,'(A)')
-     &        ' ERROR: sparse RHS incompatible with forward',
-     &        ' performed during factorization (ICNTL(32)=1)'
+               INFO(2) = 20      ! ICNTL(20)
+               IF (PROKG) THEN
+                  WRITE(MPG,'(A)')
+     &         ' ERROR: sparse RHS incompatible with forward',
+     &         ' elimination during factorization (ICNTL(32)=1)'
+               ENDIF
              ENDIF
              GOTO 333
           ENDIF
           IF (KEEP(237) .NE. 0 .AND. ICNTL21.NE.0) THEN
-             IF (PROKG) WRITE(MPG,'(A)')
-     &       ' ERROR: A-1 functionality is incompatible',
-     &       ' with distributed solution.'
+             IF (PROKG) THEN
+                WRITE(MPG,'(A)')
+     &               ' ERROR: A-1 functionality is incompatible',
+     &               ' with distributed solution.'
+             ENDIF
              INFO(1)=-48
              INFO(2)=21
              GOTO 333
           ENDIF
           IF (KEEP(237) .NE. 0 .AND. KEEP(60) .NE.0) THEN
-             IF (PROKG) WRITE(MPG,'(A)')
-     &       ' ERROR: A-1 functionality is incompatible',
-     &       ' with Schur.'
+             IF (PROKG)  THEN
+                WRITE(MPG,'(A)')
+     &               ' ERROR: A-1 functionality is incompatible',
+     &               ' with Schur.'
+             ENDIF
              INFO(1)=-48
              INFO(2)=19
              GOTO 333
           ENDIF
           IF (KEEP(237) .NE. 0 .AND. KEEP(111) .NE.0) THEN
-             IF (PROKG) WRITE(MPG,'(A)')
-     &       ' ERROR: A-1 functionality is incompatible',
-     &       ' with null space.'
+             IF (PROKG) THEN
+                WRITE(MPG,'(A)')
+     &               ' ERROR: A-1 functionality is incompatible',
+     &               ' with null space.'
+             ENDIF
              INFO(1)=-48
              INFO(2)=25
              GOTO 333
@@ -771,22 +839,28 @@ C         --------------------------------
           IF (KEEP(248) .NE.0.AND.KEEP(111).NE.0) THEN
 C             Ignore sparse RHS in case we compute
 C             vectors of the null space (KEEP(111)).NE.0.)
-              IF (PROKG) WRITE(MPG,'(A)')
-     &        ' ERROR: ICNTL(20) and ICNTL(30) functionalities ',
-     &        ' incompatible with null space'
-              INFO(1) = -37
-              IF (KEEP(237).NE.0) THEN
-                 INFO(2) = 30 ! icntl(30)
-                 IF (PROKG) WRITE(MPG,'(A)')
-     &           ' ERROR: ICNTL(30) functionality ',
-     &           ' incompatible with null space'
-              ELSE
-                 IF (PROKG) WRITE(MPG,'(A)')
-     &           ' ERROR: ICNTL(20) functionality ',
-     &           ' incompatible with null space'
-                 INFO(2) = 20  ! inclt(20)
-              ENDIF
-              GOTO 333
+             IF (PROKG) THEN
+                WRITE(MPG,'(A)')
+     &               ' ERROR: ICNTL(20) and ICNTL(30) functionalities ',
+     &               ' incompatible with null space'
+             ENDIF
+             INFO(1) = -37
+             IF (KEEP(237).NE.0) THEN
+                INFO(2) = 30    ! icntl(30)
+                IF (PROKG) THEN
+                   WRITE(MPG,'(A)')
+     &               ' ERROR: ICNTL(30) functionality ',
+     &                  ' incompatible with null space'
+                ENDIF
+             ELSE
+                IF (PROKG) THEN
+                   WRITE(MPG,'(A)')
+     &                  ' ERROR: ICNTL(20) functionality ',
+     &                  ' incompatible with null space'
+                ENDIF
+                INFO(2) = 20    ! inclt(20)
+             ENDIF
+             GOTO 333
           ENDIF
           IF (( KEEP(111) .LT. -1 ) .OR.
      &         (KEEP(111).GT.KEEP(112)+KEEP(17)) .OR.
@@ -806,9 +880,7 @@ C     --------------------------------------
 C     Check distributed solution vectors
 C     --------------------------------------
       IF (ICNTL21==1) THEN
-          IF ( id%MYID .ne. MASTER  .OR.
-     &       ( id%MYID .eq. MASTER .AND.
-     &               id%KEEP(46) .eq. 1 ) ) THEN
+          IF ( I_AM_SLAVE ) THEN
 C           (I)SOL_loc should be allocated to hold the
 C           distributed solution on exit
             IF ( id%LSOL_loc < id%KEEP(89) ) THEN
@@ -930,7 +1002,8 @@ C         Note that LSOL_loc >= KEEP(89)
      &               id%KEEP(1),id%KEEP8(1),
      &               id%IS(1), LIW_PASSED,id%MYID_NODES,
      &               id%N, id%STEP(1), id%PROCNODE_STEPS(1),
-     &               id%NSLAVES, scaling_data, LSCAL )
+     &               id%NSLAVES, scaling_data_sol, LSCAL
+     &               )
             DO J=1, id%NRHS
               DO I=1, KEEP(89)
                 id%SOL_loc((J-1)*id%LSOL_loc + I) =ZERO
@@ -945,7 +1018,7 @@ C       ----------------------------
          IF (id%MYID.EQ.MASTER) THEN
             DO J=1, id%NRHS
               DO I=1, id%N
-                id%RHS((J-1)*id%LRHS + I) =ZERO
+                id%RHS(int(J-1,8)*int(id%LRHS,8) + int(I,8)) =ZERO
               ENDDO
             ENDDO
          ENDIF
@@ -955,8 +1028,10 @@ C       print solve phase stats if requested
         IF ( PROKG )  THEN
 C          write(6,*) " NZ_RHS is zero "
            WRITE( MPG, 150 )
+C             ICNTL(35) should not been accessed during SOLVE thus
+C             print KEEP(486) value set during factorization
      &        id%NRHS, ICNTL(27), ICNTL(9), ICNTL(10), ICNTL(11),
-     &        ICNTL(20), ICNTL(21), ICNTL(30)
+     &        ICNTL(20), ICNTL(21), ICNTL(30), KEEP(486)
            IF (KEEP(221).NE.0) THEN
             WRITE (MPG, 152) KEEP(221)
            ENDIF
@@ -979,7 +1054,7 @@ C
       IF ((id%KEEP(235).NE.0).or.(id%KEEP(237).NE.0)) THEN
 C        Case of pruned elimination tree or selected entries in A-1
          IF (id%KEEP(237).NE.0.AND.
-     &       id%KEEP(248).EQ.0) THEN
+     &        id%KEEP(248).EQ.0) THEN
 C         When A-1 is requested (keep(237).ne.0)
 C         sparse RHS has been forced to be on.
           IF (LPOK) THEN
@@ -1032,7 +1107,7 @@ C        some stats
 C
 C     Initialize SIZE_OF_BLOCK from MUMPS_SOL_ES module
       IF ( I_AM_SLAVE )
-     &  CALL MUMPS_SOL_ES_INIT(id%OOC_SIZE_OF_BLOCK, id%KEEP(201))
+     &  CALL DMUMPS_SOL_ES_INIT(id%OOC_SIZE_OF_BLOCK, id%KEEP(201))
       DO_NULL_PIV = .TRUE.
       NBCOL_INBLOC = -9998
       NZ_THIS_BLOCK= -9998
@@ -1063,7 +1138,7 @@ C           Internal error: tested before in mumps_driver
      &        WRITE(LP,*) " Internal Error 3 in solution driver ",
      &                    " NRHS_NONEMPTY= ",
      &        NRHS_NONEMPTY
-              CALL MUMPS_ABORT()
+            CALL MUMPS_ABORT()
            ENDIF
         ELSE
            NRHS_NONEMPTY = id%NRHS
@@ -1264,7 +1339,7 @@ C          will only be available with Fortran 2003 compilers.
            MAXS = KEEP8(23)
         ELSE
           ! S not allocated and WK_USER not provided ==> must be in OOC
-          IF (KEEP(201).EQ.0) THEN  ! incore
+           IF (KEEP(201).EQ.0) THEN ! incore
             WRITE(*,*) ' Working array S not allocated ',
      &                ' on entry to solve phase (in core) '
             CALL MUMPS_ABORT()
@@ -1292,7 +1367,8 @@ C             Use suggested value of MAXS provided in KEEP(209)
             KEEP8(23)=MAXS
             IF ( allocok .GT. 0 ) THEN
               IF (LPOK) THEN
-              WRITE(LP,*) id%MYID,': problem allocation of S at solve'
+                 WRITE(LP,*) id%MYID,': problem allocation of S ',
+     &                'at solve'
               ENDIF
               INFO(1) = -13
               CALL MUMPS_SET_IERROR(MAXS, INFO(2))
@@ -1364,11 +1440,39 @@ C
      &                     id%COMM,id%MYID)
       IF (INFO(1) < 0) GOTO 90
 C
+#if defined(RHSCOMP_BYROWS)
+CC#if defined(MUMPS_USE_BLAS2)
+C         Potentially compatible
+CC#else
+         WRITE(*,*) " Internal error RHSCOMP_BYROWS not compatible", 
+     &              " with LRSOLVE"
+         CALL MUMPS_ABORT()
+C#endif
+#endif
+      IF (I_AM_SLAVE) THEN
+        IF (KEEP(485).EQ.1) THEN
+          IF (KEEP(350).EQ.0) KEEP(350)= 1 ! default value
+          IF (.NOT. (associated(id%FDM_F_ENCODING))) THEN
+            WRITE(*,*) "Internal error 18 in DMUMPS_SOL_DRIVER"
+            CALL MUMPS_ABORT()
+          ENDIF
+          IF (.NOT. (associated(id%BLRARRAY_ENCODING))) THEN
+            WRITE(*,*) "Internal error 19 in DMUMPS_SOL_DRIVER"
+            CALL MUMPS_ABORT()
+          ENDIF
+C         Access to OOC data in module during solve
+          CALL MUMPS_FDM_STRUC_TO_MOD('F',id%FDM_F_ENCODING)
+          CALL DMUMPS_BLR_STRUC_TO_MOD(id%BLRARRAY_ENCODING)
+          IS_LR_MOD_TO_STRUC_DONE = .TRUE.
+        ENDIF
+      ENDIF
       IF (id%MYID.EQ.MASTER) THEN
         IF ( PROKG )  THEN
           WRITE( MPG, 150 )
+C             ICNTL(35) should not been accessed during SOLVE thus
+C             print KEEP(486) value set during factorization
      &        id%NRHS, NBRHS, ICNTL(9), ICNTL(10), ICNTL(11),
-     &        ICNTL(20), ICNTL(21), ICNTL(30)
+     &        ICNTL(20), ICNTL(21), ICNTL(30), KEEP(486)
           IF (KEEP(111).NE.0) THEN
             WRITE (MPG, 151) KEEP(111)
           ENDIF
@@ -1407,24 +1511,31 @@ C       -When only one columns of A-1 is requested then
 C        we could try to reactivate IR even if
 C          -code need be updated
 C          -accuracy could be # when one or more columns are requested
-              IF (PROKG) WRITE(MPG,'(A)')
+              IF (PROKG) WRITE(MPG,'(A,A)')
      &       ' WARNING: Incompatible features: null space basis ',
-     &       ' and Iter. Ref and/or Err. Anal.'
+     &       '          and Iter. Ref and/or Err. Anal.'
               POSTPros = .FALSE.
            ELSE IF (KEEP(221).NE.0) THEN
 C       Forbid error analysis and iterative refinement
 C       in case of reduced rhs/solution
-              IF (PROKG) WRITE(MPG,'(A)')
+              IF (PROKG) WRITE(MPG,'(A,A)')
      &       ' WARNING: Incompatible features: reduced RHS ',
-     &       ' and Iter. Ref and/or Err. Anal.'
+     &       '          and Iter. Ref and/or Err. Anal.'
               POSTPros = .FALSE.
             ELSE IF  (NBRHS.GT. 1 .OR. ICNTL(21) .GT. 0) THEN
 C          Forbid error analysis and iterative refinement if
 C       the solution is distributed or
 C       in the case where nrhs > 1
-              IF (PROKG) WRITE(MPG,'(A)')
+              IF (PROKG) WRITE(MPG,'(A,A)')
      &       ' WARNING:  Incompatible features: nrhs>1 or distrib sol',
-     &       ' and Iter. Ref and/or Err. Anal.'
+     &       '           and Iter. Ref and/or Err. Anal.'
+              POSTPros = .FALSE.
+            ELSE IF ( KEEP(248) .EQ. -1 ) THEN
+C          Forbid error analysis and iterative refinement
+C          in case of distributed RHS
+              IF (PROKG) WRITE(MPG,'(A,A)')
+     &       ' WARNING:  Incompatible features: distrib rhs',
+     &       '           and Iter. Ref and/or Err. Anal.'
               POSTPros = .FALSE.
             ENDIF  
             IF (.NOT.POSTPros) THEN
@@ -1515,9 +1626,10 @@ C   Write a warning.
         IF (POSTPros) THEN
             ALLOCATE(SAVERHS(id%N*NBRHS),stat = allocok)
             IF ( allocok .GT. 0 ) THEN
-              IF (LPOK)
-     &        WRITE(LP,*) id%MYID,
-     &        ':Problem in solve: error allocating SAVERHS'
+              IF (LPOK) THEN
+                 WRITE(LP,*) id%MYID,
+     &                ':Problem in solve: error allocating SAVERHS'
+              ENDIF
               INFO(1) = -13
               INFO(2) = id%N*NBRHS
               GOTO 111
@@ -1625,9 +1737,10 @@ C       The buffer is used both for solve and for DMUMPS_GATHER_SOLUTION
         ENDIF
         ALLOCATE (id%BUFR(id%LBUFR),stat=allocok)
         IF ( allocok .GT. 0 ) THEN
-            IF (LPOK)
-     &      WRITE(LP,*) id%MYID,
-     &      ' Problem in solve: error allocating BUFR'
+            IF (LPOK) THEN
+               WRITE(LP,*) id%MYID,
+     &              ' Problem in solve: error allocating BUFR'
+            ENDIF
             INFO(1) = -13
             INFO(2) = id%LBUFR
             GOTO 111
@@ -1706,8 +1819,9 @@ C
           IF ( IERR .GT. 0 ) THEN
             INFO(1)=-13
             INFO(2)=id%N
-            IF (LPOK)
-     &        WRITE(LP,*) 'ERROR while allocating RHS on a slave'
+            IF (LPOK) THEN
+               WRITE(LP,*) 'ERROR while allocating RHS on a slave'
+            ENDIF
             GOTO 111
           END IF
         ELSE
@@ -1731,9 +1845,11 @@ c         --- ALLOCATE outside loop RHS_BOUNDS is needed
           IF (IERR.GT.0) THEN
             INFO(1)=-13
             INFO(2)=LPTR_RHS_BOUNDS
-            IF (LPOK)
-     &        WRITE(LP,*) 'ERROR while allocating RHS_BOUNDS on a slave'
-              GOTO 111
+            IF (LPOK) THEN
+               WRITE(LP,*) 'ERROR while allocating RHS_BOUNDS on',
+     &              ' a slave'
+            ENDIF
+            GOTO 111
           END IF
           NB_BYTES = NB_BYTES +
      &        int(size(RHS_BOUNDS),8)*K34_8
@@ -1893,6 +2009,7 @@ C       the routine DMUMPS_GATHER_SOLUTION.
 C
 C     Precompute inverse of UNS_PERM outside loop
       IF (allocated(UNS_PERM_INV)) DEALLOCATE(UNS_PERM_INV)
+      UNS_PERM_INV_NEEDED_INMAINLOOP = .FALSE.
       IF ( ( id%MYID .eq. MASTER.AND.(KEEP(23).GT.0) .AND.
      &         (MTYPE .NE. 1).AND.(KEEP(248).NE.0)
      &       )
@@ -1915,7 +2032,12 @@ C          UNS_PERM_INV needs to be allocated on each proc
 C          since it is used in DMUMPS_SOL_C routine for pruning.
 C          It is allocated only once and its allocation has been
 C          migrated outside the blocking on the right hand sides.
-     &      )  THEN
+     & ) THEN
+            UNS_PERM_INV_NEEDED_INMAINLOOP = .TRUE.
+      ENDIF
+      UNS_PERM_INV_NEEDED_BEFMAINLOOP = .FALSE.
+      IF ( UNS_PERM_INV_NEEDED_INMAINLOOP .OR.
+     &     UNS_PERM_INV_NEEDED_BEFMAINLOOP ) THEN
            ALLOCATE(UNS_PERM_INV(id%N),stat=allocok)
            if (allocok .GT.0 ) THEN
              INFO(1)=-13
@@ -1953,10 +2075,14 @@ C     Propagate errors
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &                   id%COMM,id%MYID)
       IF (INFO(1) .LT.0 ) GOTO 90
-      IF ( ( KEEP(237).NE.0 ) .AND. (KEEP(23).NE.0)  ) THEN
+C
+C     UNS_PERM_INV needed on slaves:
+      IF ( KEEP(23).NE.0 .AND.
+     &     ( KEEP(237).NE.0 .OR.
+     &     ( MTYPE.NE.1 .AND. KEEP(248).EQ.-1 ) ) ) THEN
 C       Broadcast UNS_PERM_INV
-        CALL MPI_BCAST(UNS_PERM_INV,id%N,MPI_INTEGER,MASTER,
-     &                 id%COMM,IERR)
+        CALL MPI_BCAST( UNS_PERM_INV,id%N,MPI_INTEGER,MASTER,
+     &                  id%COMM,IERR )
       ENDIF
 C     -------------------------------------
 C     BEGIN
@@ -1965,7 +2091,7 @@ C     -------------------------------------
       IF ( ICNTL21==1 ) THEN
         IF (LSCAL) THEN
 C         In case of scaling we will need to scale
-C         back the RHS. Put the values of the scaling
+C         back the sol. Put the values of the scaling
 C         arrays needed to do that on each processor.
           IF (id%MYID.NE.MASTER) THEN
             IF (MTYPE == 1) THEN
@@ -1979,24 +2105,16 @@ C         arrays needed to do that on each processor.
               ENDIF
               INFO(1)=-13
               INFO(2)=id%N
-              GOTO 40
+              GOTO 37
             ENDIF
             NB_BYTES = NB_BYTES + int(id%N,8)*K16_8
             NB_BYTES_MAX = max(NB_BYTES_MAX,NB_BYTES)
-          ENDIF
-          IF (MTYPE == 1) THEN
-              CALL MPI_BCAST(id%COLSCA(1),id%N,
-     &                       MPI_DOUBLE_PRECISION,MASTER,
-     &                       id%COMM,IERR)
-              scaling_data%SCALING=>id%COLSCA
-          ELSE
-              CALL MPI_BCAST(id%ROWSCA(1),id%N,
-     &                       MPI_DOUBLE_PRECISION,MASTER,
-     &                       id%COMM,IERR)
-              scaling_data%SCALING=>id%ROWSCA
-          ENDIF
+          ENDIF ! MYID .NE. MASTER
+ 37       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &                         id%COMM,id%MYID)
+          IF (INFO(1) .LT.0 ) GOTO 90
           IF (I_AM_SLAVE) THEN
-            ALLOCATE(scaling_data%SCALING_LOC(id%KEEP(89)),
+            ALLOCATE(scaling_data_sol%SCALING_LOC(id%KEEP(89)),
      &               stat=allocok)
             IF (allocok > 0) THEN
               IF (LPOK) THEN
@@ -2004,12 +2122,29 @@ C         arrays needed to do that on each processor.
               ENDIF
               INFO(1)=-13
               INFO(2)=id%KEEP(89)
-              GOTO 40
+              GOTO 38
             ENDIF
             NB_BYTES = NB_BYTES + int(id%KEEP(89),8)*K16_8
             NB_BYTES_MAX = max(NB_BYTES_MAX,NB_BYTES)
+          ENDIF ! I_AM_SLAVE
+ 38       CONTINUE
+          CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &                         id%COMM,id%MYID)
+          IF (INFO(1) .LT.0 ) THEN
+            GOTO 90
           ENDIF
-        ENDIF
+          IF (MTYPE == 1) THEN
+              CALL MPI_BCAST(id%COLSCA(1),id%N,
+     &                       MPI_DOUBLE_PRECISION,MASTER,
+     &                       id%COMM,IERR)
+              scaling_data_sol%SCALING=>id%COLSCA
+          ELSE
+              CALL MPI_BCAST(id%ROWSCA(1),id%N,
+     &                       MPI_DOUBLE_PRECISION,MASTER,
+     &                       id%COMM,IERR)
+              scaling_data_sol%SCALING=>id%ROWSCA
+          ENDIF
+        ENDIF ! LSCAL
         IF ( I_AM_SLAVE ) THEN
 C         ----------------------
 C         Prepare ISOL_loc array
@@ -2024,8 +2159,9 @@ C         Note that LSOL_loc >= KEEP(89)
      &               id%KEEP(1),id%KEEP8(1),
      &               id%IS(1), LIW_PASSED,id%MYID_NODES,
      &               id%N, id%STEP(1), id%PROCNODE_STEPS(1),
-     &               id%NSLAVES, scaling_data, LSCAL )
-          ENDIF
+     &               id%NSLAVES, scaling_data_sol, LSCAL
+     &               )
+          ENDIF 
           IF (id%MYID.NE.MASTER .AND. LSCAL) THEN
 C           ---------------------------------
 C           Local (small) scaling arrays have
@@ -2040,7 +2176,7 @@ C           ---------------------------------
             ENDIF
             NB_BYTES = NB_BYTES - int(id%N,8)*K16_8
           ENDIF
-        ENDIF
+        ENDIF ! I_AM_SLAVE
         IF (KEEP(23) .NE. 0 .AND. MTYPE==1) THEN
 C         Broadcast the unsymmetric permutation and
 C         permute the indices in ISOL_loc
@@ -2074,7 +2210,7 @@ C
             NULLIFY(id%UNS_PERM)
           ENDIF
         ENDIF
-      ENDIF
+      ENDIF ! ICNTL(21)=1
 C     --------------------------------------
 C     Preparation for distributed solution
 C     END
@@ -2150,7 +2286,7 @@ C           on output: PERM_RHS(k) = i means that i is the kth column
 C                                    to be processed
             IF (KEEP(237).EQ.0) THEN
 C               Permute RHS : case of GS (General Sparse) RHS
-                CALL MUMPS_PERMUTE_RHS_GS(
+                CALL DMUMPS_PERMUTE_RHS_GS(
      &            LP, LPOK, PROKG, MPG, KEEP(242),
      &            id%SYM_PERM(1), id%N, id%NRHS,
      &            id%IRHS_PTR(1),  id%NRHS+1, 
@@ -2169,7 +2305,7 @@ C            We apply permutation to IRHS_SPARSE ONLY.
 C            Note NRHS_NONEMPTY holds the nb of non empty columns 
 C            in A-1.
               STRAT_PERMAM1 = KEEP(242)
-                 CALL MUMPS_PERMUTE_RHS_AM1
+                 CALL DMUMPS_PERMUTE_RHS_AM1
      &             (STRAT_PERMAM1, id%SYM_PERM(1),
      &             id%IRHS_PTR(1), id%NRHS+1,
      &             PERM_RHS, id%NRHS,
@@ -2219,13 +2355,7 @@ C        in this case the complete list
             CALL MUMPS_ABORT()
        ENDIF                     ! End Permute_RHS
       ELSE
-C   Phase 1 : DMUMPS_PERMUTE_RHS_NS
-C        local permutations to minimize sequential disk access
-C        with  chunck of size KEEP(84)/NSLAVES
-C   Phase 2 : DMUMPS_SOL_APPLY_PARPERM
-C        parallel redistribution to exploit // disk access feature
          IF (DO_PERMUTE_RHS .AND. KEEP(111).NE.0 ) THEN
-C           Phase 1 to be called on each proc
             WRITE(*,*) id%MYID, ':INTERNAL ERROR 2 : ',
      &                 ' PERMUTE RHS during null space computation ',
      &                 ' not available yet '
@@ -2233,13 +2363,13 @@ C           Phase 1 to be called on each proc
 C
 C
          ENDIF                  !  End DO_PERMUTE_RHS
-         IF (INTERLEAVE_PAR) THEN
-          IF ( KEEP(111).NE.0 ) THEN
+         IF (INTERLEAVE_PAR.AND. (KEEP(111).NE.0)) THEN
             WRITE(*,*) id%MYID, ':INTERNAL ERROR 3 : ',
      &        ' INTERLEAVE RHS during null space computation ',
      &        ' not available yet '
             CALL MUMPS_ABORT()
-          ELSE
+         ENDIF
+         IF (INTERLEAVE_PAR.AND.KEEP(111).EQ.0) THEN
 C     -   A-1 + Interleave:
 C     permute RHS on master
            IF (id%MYID.EQ.MASTER) THEN
@@ -2247,7 +2377,7 @@ C            -- PERM_RHS must have been already set or initialized
 C            -- it is then modified in next routine
              SIZE_WORKING = id%IPTR_WORKING(id%NPROCS+1)-1
              SIZE_IPTR_WORKING = id%NPROCS+1
-             CALL MUMPS_INTERLEAVE_RHS_AM1(
+             CALL DMUMPS_INTERLEAVE_RHS_AM1(
      &        PERM_RHS, id%NRHS,
      &        id%IPTR_WORKING(1), SIZE_IPTR_WORKING,
      &        id%WORKING(1), SIZE_WORKING,
@@ -2258,8 +2388,7 @@ C            -- it is then modified in next routine
      &        KEEP(495).NE.0, KEEP(496), PROKG, MPG 
      &        )
            ENDIF               !      End Master
-          ENDIF                 !    End A-1 / NS
-         ENDIF                  !  End INTERLEAVE_PAR
+         ENDIF                 !  End A-1 and INTERLEAVE_PAR
 C -------------
       ENDIF                  ! End Parallel Case
 c --------------------------
@@ -2396,8 +2525,8 @@ C                General sparse RHS (NOT A-1) and centralized solution
 C                Set to zero part of the
 C                solution corresponding to empty columns
                  DO I=1, id%N
-                   id%RHS((PERM_RHS(JBEG_RHS) -1)*LD_RHS+I)
-     &                     = ZERO
+                   id%RHS(int(PERM_RHS(JBEG_RHS) -1,8)*int(LD_RHS,8)+
+     &                    int(I,8)) = ZERO
                  ENDDO
               ENDIF
               JBEG_RHS = JBEG_RHS +1
@@ -2411,13 +2540,15 @@ C               Case of general sparse RHS (NOT A-1) and
 C               centralized solution: set to zero part of
 C               the solution corresponding to empty columns
                 DO I=1, id%N
-                  id%RHS((JBEG_RHS -1)*LD_RHS + I) = ZERO
+                  id%RHS(int(JBEG_RHS -1,8)*int(LD_RHS,8) +
+     &                   int(I,8)) = ZERO
                 ENDDO
               ENDIF
               IF (KEEP(221).EQ.1) THEN
 C               Reduced RHS set to ZERO
                 DO I = 1, id%SIZE_SCHUR
-                  id%REDRHS((JBEG_RHS-1)*LD_REDRHS + I) =  ZERO
+                  id%REDRHS(int(JBEG_RHS-1,8)*int(LD_REDRHS,8) +
+     &            int(I,8)) =  ZERO
                 ENDDO
               ENDIF
               JBEG_RHS = JBEG_RHS +1
@@ -2432,7 +2563,8 @@ C         and we have JBEG_RHS = JEND_RHS+1
      &          id%IRHS_PTR(JBEG_RHS+1) )  THEN
               DO J=JBEG_RHS, JBEG_RHS + NBRHS_EFF -1
                 DO I=1, id%SIZE_SCHUR
-                  id%REDRHS((J-1)*LD_REDRHS + I) =  ZERO
+                  id%REDRHS(int(J-1,8)*int(LD_REDRHS,8) +
+     &            int(I,8)) =  ZERO
                 ENDDO
               ENDDO
             ENDIF
@@ -2551,10 +2683,11 @@ C           set REDRHS, RHSCOMP will be set later
             IF (KEEP(221).EQ.1) THEN
               DO J=JBEG_RHS, JBEG_RHS+ NBRHS_EFF  -1
                 DO I = 1, id%SIZE_SCHUR
-                  id%REDRHS((JBEG_RHS-1)*LD_REDRHS + I) =  ZERO
+                  id%REDRHS(int(JBEG_RHS-1,8)*int(LD_REDRHS,8) +
+     &                      int(I,8)) =  ZERO
                 ENDDO
               ENDDO
-            ELSE
+           ELSE
               WRITE(*,*) "Internal error 15 is sol_driver"
               CALL MUMPS_ABORT()
             ENDIF
@@ -2568,7 +2701,7 @@ C           set REDRHS, RHSCOMP will be set later
 #endif
 C
           IF (NBCOL.NE.NBRHS_EFF.AND. (KEEP(237).NE.0)
-     &        .AND.KEEP(221).NE.1) THEN
+     &         .AND.KEEP(221).NE.1) THEN
 C           With exploit sparsity for general sparse RHS (Not A-1)
 C           we skip empty rows up to reaching
 C           the first non empty column; then we process a block of
@@ -2578,7 +2711,7 @@ C           and thus cannot compress on the fly, as done naturally
 C           for A-1). Thus NBCOL might be smaller than NBRHS_EFF
             WRITE(6,*) ' Internal Error 8 in solution driver ',
      &            NBCOL, NBRHS_EFF
-              call MUMPS_ABORT()
+            call MUMPS_ABORT()
           ENDIF
 C         -------------------------------------------------------------
 C
@@ -2664,7 +2797,7 @@ C     .         on the master in any order.
 C
             ENDIF
 C          
-C           Initialize IRHS_SPARSE_COPY 
+C     Initialize IRHS_SPARSE_COPY
             IF (IRHS_SPARSE_COPY_ALLOCATED) THEN
                 IF ( DO_PERMUTE_RHS.OR.INTERLEAVE_PAR ) THEN
                   IPOS = 1
@@ -2794,7 +2927,7 @@ C       NBCOL_INBLOC depends on loop
         ENDIF
         JEND_RHS =JBEG_RHS + NBCOL_INBLOC - 1
         IF ((KEEP(111).eq.0).AND.(KEEP(252).EQ.0)
-     &      .AND.(KEEP(221).NE.2 ).AND.(KEEP(248).NE.0) ) THEN
+     &      .AND.(KEEP(221).NE.2 ).AND.(KEEP(248).EQ.1) ) THEN
 C         ----------------------------
 C         -- SPARSE RIGHT-HAND-SIDE
 C         ----------------------------
@@ -2858,9 +2991,10 @@ C ======================================================================
           ENDIF
         ENDIF
 C
-C       ==========================================================
+C       =========================================================
 C       INITIALIZE POSINRHSCOMP_ROW/COL, RHSCOMP and related data
-C       ==========================================================
+C       For distributed RHS, initialize RHSMAPINFO (at 1st block)
+C       =========================================================
         IF ( I_AM_SLAVE ) THEN
 C         --------------------------------------------------
 C         If I am involved in the solve and if
@@ -2892,7 +3026,7 @@ C         INITTIALZE POSINRHSCOMP_ROW/COL
 C         -------------------------------
 C
           IF ( KEEP(221).EQ.2 .AND. KEEP(252).EQ.0
-     &      .AND.  (KEEP(248).EQ.0 .OR. (id%NRHS.EQ.1))
+     &      .AND.  (KEEP(248).NE.1 .OR. (id%NRHS.EQ.1))
      &      ) THEN
 C           Reduced RHS was already computed during
 C           a previous forward step AND is valid.
@@ -2903,7 +3037,7 @@ C           AND
 C            -no exploit sparsity with multiple RHS
 C            because in this case POSINRHSCOMP would
 C            be valid only for the last block processed during fwd.
-C           In those cases since we only perform backward step, we do not
+C           In those cases since we only perform the backward step, we do not
 C           need to compute POSINRHSCOMP
             BUILD_POSINRHSCOMP = .FALSE.
           ENDIF
@@ -3073,6 +3207,10 @@ C =====================  ERROR handling and propagation ================
         IF (INFO(1) .LT.0 ) GOTO 90
 C ======================================================================
 C
+C       ---------------------------
+C       Prepare RHS on master (case
+C       of dense and sparse RHS)
+C       ---------------------------
         IF (id%MYID .eq. MASTER) THEN
 C         =========================
           IF (KEEP(23) .NE. 0) THEN
@@ -3126,7 +3264,7 @@ C
                   SAVERHS(I+(K-1)*id%N) = id%RHS(KDEC+I-1)
                 END DO
               ENDDO
-            ELSE
+            ELSE IF (KEEP(248)==1) THEN
               SAVERHS(:) = ZERO
               DO K = 1, NBRHS
                 DO J = id%IRHS_PTR(K), id%IRHS_PTR(K+1)-1
@@ -3162,7 +3300,7 @@ C               we solve Atx=b, use COLSCA to scale the RHS
                   ENDDO
                 ENDDO
               ENDIF
-            ELSE
+            ELSE IF (KEEP(248)==1) THEN
 C             -------------------------
 C             KEEP(248)==1 (and MASTER)
 C             -------------------------
@@ -3178,6 +3316,9 @@ C               Columns are not contiguous and need be copied one by one
                 IPOS = 1
                 J    = 0
                 DO I=JBEG_RHS, JBEG_RHS + NBCOL_INBLOC -1
+                  IF (DO_PERMUTE_RHS.OR.INTERLEAVE_PAR) THEN
+                      IPERM = PERM_RHS(I)
+                  ENDIF 
                   J = J+1
 C                 Note that we work here on compressed IRHS_PTR_COPY
                   COLSIZE = IRHS_PTR_COPY(J+1) - IRHS_PTR_COPY(J)
@@ -3189,7 +3330,7 @@ C                     if A-1 only, then, for each non empty target
 C                     column PERM_RHS(I), scale in first position
 C                     in column the diagonal entry
 C                     build the scaled rhs ej on each slave.
-                      RHS_SPARSE_COPY(IPOS) =   id%ROWSCA(PERM_RHS(I)) *
+                      RHS_SPARSE_COPY(IPOS) =   id%ROWSCA(IPERM) *
      &                       ONE
                     ELSE
                       RHS_SPARSE_COPY(IPOS) =   id%ROWSCA(I) * ONE
@@ -3215,11 +3356,11 @@ C                     PERM_RHS(I) corresponds to column in original RHS.
 C                     Original IRHS_PTR must be used to access id%RHS_SPARSE
                       IF (MTYPE.EQ.1) THEN
                         RHS_SPARSE_COPY(IPOS+K-1) =
-     &                  id%RHS_SPARSE(id%IRHS_PTR(PERM_RHS(I))+K-1)*
+     &                  id%RHS_SPARSE(id%IRHS_PTR(IPERM)+K-1)*
      &                  id%ROWSCA(II)
                       ELSE
                           RHS_SPARSE_COPY(IPOS+K-1) =
-     &                    id%RHS_SPARSE(id%IRHS_PTR(PERM_RHS(I))+K-1)*
+     &                    id%RHS_SPARSE(id%IRHS_PTR(IPERM)+K-1)*
      &                    id%COLSCA(II)
                       ENDIF
                     ENDDO
@@ -3341,13 +3482,14 @@ C             -- sparse RHS. We need to store it into RHSCOMP.
 C
               IF (KEEP(237).NE.0)  THEN
                 IF ( I_AM_SLAVE ) THEN
-c                 -----
-c                 case of A-1
-c                 -----
-c                 - Take columns with non-zero entry, say j,
-*                 - to build Ej and store it in RHSCOMP
+C                 -----
+C                 case of A-1
+C                 -----
+C                 - Take columns with non-zero entry, say j,
+C                 - to build Ej and store it in RHSCOMP
                   K=1              ! Column index in RHSCOMP
-                  id%RHSCOMP(1:NBRHS_EFF*LD_RHSCOMP) = ZERO
+                  id%RHSCOMP(1_8:int(NBRHS_EFF,8)*int(LD_RHSCOMP,8))
+     &            = ZERO
                   IPOS = 1
                   DO I = 1, NBCOL_INBLOC
                     COLSIZE = IRHS_PTR_COPY(I+1) - IRHS_PTR_COPY(I)
@@ -3373,10 +3515,12 @@ C                       Furthermore we know that only one entry is
 C                       needed the diagonal entry (for the forward with A-1).
 C
 #if defined(RHSCOMP_BYROWS)
-                        id%RHSCOMP((IPOSRHSCOMP-1)*NBRHS_EFF+K) =
+                        id%RHSCOMP(int(IPOSRHSCOMP-1,8)*
+     &                      int(NBRHS_EFF,8)+int(K,8)) =
      &                      RHS_SPARSE_COPY(IPOS)
 #else
-                        id%RHSCOMP((K-1)*LD_RHSCOMP+IPOSRHSCOMP) =
+                        id%RHSCOMP(int(K-1,8)*int(LD_RHSCOMP,8)+
+     &                       int(IPOSRHSCOMP,8)) =
      &                       RHS_SPARSE_COPY(IPOS)
 #endif
                       ENDIF               ! End of J on my proc
@@ -3406,7 +3550,8 @@ C               -- reset to zero RHSCOMP for skipped columns (if any)
 #else
                   DO K = JBEG_RHS-NB_RHSSKIPPED, JBEG_RHS-1
                     DO I = 1,  LD_RHSCOMP
-                      id%RHSCOMP((K-1)*LD_RHSCOMP + I) =  ZERO
+                      id%RHSCOMP(int(K-1,8)*int(LD_RHSCOMP,8)
+     &                           + int(I,8)) =  ZERO
                     ENDDO
                   ENDDO
 #endif
@@ -3452,8 +3597,8 @@ C                     NB_FS_IN_RHSCOMP_TOT
      &                .AND.(IPOSRHSCOMP.GT.0) ) THEN
 C                        ! I is fully summed var mapped on my proc
 #if defined(RHSCOMP_BYROWS)
-                        id%RHSCOMP(KDEC+(IPOSRHSCOMP-1)*NBRHS_EFF)=
-     &                  id%RHSCOMP(KDEC+(IPOSRHSCOMP-1)*NBRHS_EFF) +
+                     id%RHSCOMP(KDEC+int(IPOSRHSCOMP-1,8)*NBRHS_EFF)=
+     &               id%RHSCOMP(KDEC+int(IPOSRHSCOMP-1,8)*NBRHS_EFF) +
      &                  RHS_SPARSE_COPY(IZ)
 #else
                         id%RHSCOMP(KDEC+IPOSRHSCOMP)=
@@ -3544,11 +3689,7 @@ C
                   II = 1
                   DO I = IBEG_GLOB_DEF, IEND_GLOB_DEF
                     IRHS_PTR_COPY(I-IBEG_GLOB_DEF+1)      = I
-                    IF (INTERLEAVE_PAR .AND.(id%NSLAVES .GT. 1) ) THEN
-                      IRHS_SPARSE_COPY(II) = PERM_PIV_LIST(I)
-                    ELSE
                       IRHS_SPARSE_COPY(II) = id%PIVNUL_LIST(I)
-                    ENDIF
                     II = II +1
                   ENDDO
                   IRHS_PTR_COPY(NZ_THIS_BLOCK+1) = NZ_THIS_BLOCK+1
@@ -3573,7 +3714,7 @@ C               End IF Exploit Sparsity
 c
 C             Initialize RHSCOMP to 0  ! to be suppressed
 #if defined(RHSCOMP_BYROWS)
-              id%RHSCOMP(1:NBRHS_EFF*LD_RHSCOMP)=ZERO
+              id%RHSCOMP(1:int(NBRHS_EFF,8)*int(LD_RHSCOMP,8))=ZERO
 #else
               DO K=1, NBRHS_EFF
                 KDEC = int(K-1,8) * int(LD_RHSCOMP,8)
@@ -3586,51 +3727,6 @@ C             .OR. KEEP(220) > IEND_GLOB_DEF ) then we do not enter
 C             the loop.
 C             Note that local processor has indices
 C             KEEP(220):KEEP(220)+KEEP(109)-1
-              IF ((KEEP(235).NE.0) .AND. INTERLEAVE_PAR) THEN
-C               When the PIVNUL_LIST has been permuted (in PERM_PIV_LIST)
-C               then to exploit sparsity RHSCOMP need be initialized with
-c               some care; taking into acount the processor localisation
-C               of the indices of the null pivots.
-                DO I=IBEG_GLOB_DEF,IEND_GLOB_DEF
-C                 Local processor is concerned by I-th column of
-C                 global right-hand side.
-                  IF (id%MYID_NODES .EQ. MAP_PIVNUL_LIST(I) ) THEN
-                    JJ= id%POSINRHSCOMP_ROW(PERM_PIV_LIST(I))
-                    IF (JJ.GT.LD_RHSCOMP) THEN
-                      WRITE(6,*) ' Internal Error 10 JJ, LD_RHSCOMP=',
-     &                JJ, LD_RHSCOMP
-                    ENDIF
-                    IF (JJ.GT.0) THEN
-                      IF (KEEP(50).EQ.0) THEN
-C     unsymmetric : always set to fixation used during facto
-C     because during factorization we aimed at preserving the
-C     sign of the diagonal element, sign here may be different
-C     from sign of corresponding diagonal element (not critical)
-#if defined(RHSCOMP_BYROWS)
-                        id%RHSCOMP(IBEG_RHSCOMP +
-     &                  int(I-IBEG_GLOB_DEF,8) +
-     &                  int(JJ-1,8)* int(NBRHS_EFF,8)) =
-#else
-                        id%RHSCOMP(IBEG_RHSCOMP +
-     &                  int(I-IBEG_GLOB_DEF,8)*int(LD_RHSCOMP,8) +
-     &                  int(JJ-1,8)) =
-#endif
-     &                  abs(id%DKEEP(2))
-                      ELSE
-#if defined(RHSCOMP_BYROWS)
-                        id%RHSCOMP(IBEG_RHSCOMP +
-     &                  int(I-IBEG_GLOB_DEF,8) +
-     &                  int(JJ-1,8) *int(NBRHS_EFF,8)) = ONE
-#else
-                        id%RHSCOMP(IBEG_RHSCOMP+
-     &                  int(I-IBEG_GLOB_DEF,8)*int(LD_RHSCOMP,8) +
-     &                  int(JJ-1,8)) = ONE
-#endif
-                      ENDIF
-                    ENDIF
-                  ENDIF
-                ENDDO
-              ELSE
 C
 C               Computation of null space and computation of backward
 C               step incompatible, do one or the other.
@@ -3666,7 +3762,6 @@ C                 global right-hand side.
                     ENDIF
                   ENDIF
                 ENDDO
-              ENDIF   ! exploit sparsity
               IF ( KEEP(17).NE.0 .AND.
      &             id%MYID_NODES.EQ.MASTER_ROOT) THEN
 C               ---------------------------
@@ -3831,24 +3926,24 @@ C
             FROM_PP = .FALSE.
             NBSPARSE_LOC = (DO_NBSPARSE.AND.NBRHS_EFF.GT.1)
             CALL DMUMPS_SOL_C(id%root, id%N, id%S(1), LA_PASSED,IS(1),
-     &    LIW_PASSED, WORK_WCB(1), LWCB8_SOL_C, IWCB, LIWCB, NBRHS_EFF,
-     &    id%NA(1),id%LNA, id%NE_STEPS(1), SRW3, MTYPE, ICNTL(1),
-     &    FROM_PP, id%STEP(1), id%FRERE_STEPS(1), id%DAD_STEPS(1),
-     &    id%FILS(1), id%PTLUST_S(1), id%PTRFAC(1), 
-     &    IWK_SOLVE, LIWK_SOLVE, PTRACB, LIWK_PTRACB,
-     &    id%PROCNODE_STEPS(1),id%NSLAVES,INFO(1),KEEP(1),
-     &    KEEP8(1), id%DKEEP(1), id%COMM_NODES, id%MYID, id%MYID_NODES,
-     &    id%BUFR(1), id%LBUFR, id%LBUFR_BYTES, id%ISTEP_TO_INIV2(1),
-     &    id%TAB_POS_IN_PERE(1,1), IBEG_ROOT_DEF, IEND_ROOT_DEF,
-     &    IROOT_DEF_RHS_COL1, PTR_RHS_ROOT(1), LPTR_RHS_ROOT, SIZE_ROOT,
-     &    MASTER_ROOT, id%RHSCOMP(IBEG_RHSCOMP), LD_RHSCOMP,
-     &    id%POSINRHSCOMP_ROW(1), id%POSINRHSCOMP_COL(1),
-     &    NZ_THIS_BLOCK, NBCOL_INBLOC, id%NRHS, JBEG_RHS ,
-     &    id%Step2node(1), id%KEEP(28), IRHS_SPARSE_COPY(1),
-     &    IRHS_PTR_COPY(1), size(PERM_RHS), PERM_RHS, size(UNS_PERM_INV)
+     & LIW_PASSED, WORK_WCB(1), LWCB8_SOL_C, IWCB, LIWCB, NBRHS_EFF,
+     & id%NA(1),id%LNA, id%NE_STEPS(1), SRW3, MTYPE, ICNTL(1),
+     & FROM_PP, id%STEP(1), id%FRERE_STEPS(1), id%DAD_STEPS(1),
+     & id%FILS(1), id%PTLUST_S(1), id%PTRFAC(1), 
+     & IWK_SOLVE, LIWK_SOLVE, PTRACB, LIWK_PTRACB,
+     & id%PROCNODE_STEPS(1),id%NSLAVES,INFO(1),KEEP(1),
+     & KEEP8(1), id%DKEEP(1), id%COMM_NODES, id%MYID, id%MYID_NODES,
+     & id%BUFR(1), id%LBUFR, id%LBUFR_BYTES, id%ISTEP_TO_INIV2(1),
+     & id%TAB_POS_IN_PERE(1,1), IBEG_ROOT_DEF, IEND_ROOT_DEF,
+     & IROOT_DEF_RHS_COL1, PTR_RHS_ROOT(1), LPTR_RHS_ROOT, SIZE_ROOT,
+     & MASTER_ROOT, id%RHSCOMP(IBEG_RHSCOMP), LD_RHSCOMP,
+     & id%POSINRHSCOMP_ROW(1), id%POSINRHSCOMP_COL(1),
+     & NZ_THIS_BLOCK, NBCOL_INBLOC, id%NRHS, JBEG_RHS ,
+     & id%Step2node(1), id%KEEP(28), IRHS_SPARSE_COPY(1),
+     & IRHS_PTR_COPY(1), size(PERM_RHS), PERM_RHS, size(UNS_PERM_INV),
 C size 1 if not used
-     &    , UNS_PERM_INV, NB_FS_IN_RHSCOMP_F, NB_FS_IN_RHSCOMP_TOT
-     &    , NBSPARSE_LOC, PTR_RHS_BOUNDS(1), LPTR_RHS_BOUNDS
+     & UNS_PERM_INV, NB_FS_IN_RHSCOMP_F, NB_FS_IN_RHSCOMP_TOT,
+     & NBSPARSE_LOC, PTR_RHS_BOUNDS(1), LPTR_RHS_BOUNDS
      &       )
           ENDIF   ! end of exploit sparsity (pruning nodes of the tree)
         END IF
@@ -3977,6 +4072,22 @@ C             CWORK not needed for AM1
                 INFO(2)=max(max(KEEP(247),KEEP(246)),1)
               ENDIF
             ENDIF
+            IF ( (id%MYID.EQ.MASTER).AND. (KEEP(237).NE.0)
+     &        .AND. (id%NSLAVES.NE.1)) THEN
+C             Precompute map of indices in current column
+C             (no need to reset it between columns
+              ALLOCATE (MAP_RHS(id%N), stat = allocok)
+              IF ( allocok .GT. 0 ) THEN
+                IF (LPOK) THEN
+                 WRITE(LP,*) ' Problem allocation of MAP_RHS at solve'
+                ENDIF
+                INFO(1) = -13
+                INFO(2) = id%N
+              ELSE
+                NB_BYTES = NB_BYTES + int(id%N,8) * K34_8
+                NB_BYTES_MAX = max(NB_BYTES_MAX,NB_BYTES)
+              ENDIF
+            ENDIF
 C           Propagate errors
             CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &                       id%COMM,id%MYID)
@@ -4075,47 +4186,42 @@ C               --- A-1 related entries
             IF ( (id%MYID.EQ.MASTER).AND. (KEEP(237).NE.0)
      &        ) THEN
 C             Copy back solution from RHS_SPARSE_COPY TO RHS_SPARSE
-              IF (DO_PERMUTE_RHS.OR.INTERLEAVE_PAR) THEN
-                DO J = JBEG_RHS, JBEG_RHS+NBCOL_INBLOC-1
-                  COLSIZE = id%IRHS_PTR(PERM_RHS(J)+1) -
-     &                  id%IRHS_PTR(PERM_RHS(J))
-                  IF (COLSIZE.EQ.0) CYCLE
-                  JJ = J-JBEG_RHS+1
-c                 IZ - Column index in Sparse RHS
-                  DO IZ= id%IRHS_PTR(PERM_RHS(J)),
-     &              id%IRHS_PTR(PERM_RHS(J)+1)-1
-                    I = id%IRHS_SPARSE (IZ)
-                    DO IZ2 = IRHS_PTR_COPY(JJ),IRHS_PTR_COPY(JJ+1)-1
-                      IF (IRHS_SPARSE_COPY(IZ2).EQ.I) EXIT
-                      IF (IZ2.EQ.IRHS_PTR_COPY(JJ+1)-1) THEN
-                        WRITE(6,*) " Internal Error 13 in solution ",
-     &                  " driver, gather "
-                        CALL MUMPS_ABORT()
-                      ENDIF
-                    ENDDO
+              DO J = JBEG_RHS, JBEG_RHS+NBCOL_INBLOC-1
+                IF (DO_PERMUTE_RHS.OR.INTERLEAVE_PAR) THEN
+                 PJ = PERM_RHS(J)
+                ELSE
+                 PJ =J
+                ENDIF
+                COLSIZE = id%IRHS_PTR(PJ+1) -
+     &                id%IRHS_PTR(PJ)
+                IF (COLSIZE.EQ.0) CYCLE
+                JJ = J-JBEG_RHS+1
+C               Precompute map of indices in current column
+C               (no need to reset it between columns
+                IF (id%NSLAVES.NE.1) THEN
+                 DO II=1, COLSIZE
+                   MAP_RHS(id%IRHS_SPARSE(
+     &                id%IRHS_PTR(PJ) + II - 1)) = II
+                 ENDDO
+                 DO IZ2 = IRHS_PTR_COPY(JJ),IRHS_PTR_COPY(JJ+1)-1
+                     II = IRHS_SPARSE_COPY(IZ2)
+                     id%RHS_SPARSE(id%IRHS_PTR(PJ)+MAP_RHS(II)-1)= 
+     &                      RHS_SPARSE_COPY(IZ2)
+                 ENDDO
+                ELSE
+C                 Entries within a column are in order
+C                 IZ - Column index in Sparse RHS
+                  DO IZ= id%IRHS_PTR(PJ), id%IRHS_PTR(PJ+1)-1
+                    IZ2 = IRHS_PTR_COPY(JJ) + 
+     &                    IZ - id%IRHS_PTR(PJ)
                     id%RHS_SPARSE(IZ) = RHS_SPARSE_COPY(IZ2)
                   ENDDO
-                ENDDO
-              ELSE            ! Not (DO_PERMUTE_RHS.OR.INTERLEAVE_PAR)
-                DO J = JBEG_RHS, JBEG_RHS+NBCOL_INBLOC-1
-                  COLSIZE = id%IRHS_PTR(J+1) - id%IRHS_PTR(J)
-                  IF (COLSIZE.EQ.0) CYCLE
-                  JJ = J-JBEG_RHS+1
-c                 IZ - Column index in Sparse RHS
-                  DO IZ= id%IRHS_PTR(J), id%IRHS_PTR(J+1) - 1
-                    I = id%IRHS_SPARSE (IZ)
-                    DO IZ2 = IRHS_PTR_COPY(JJ),IRHS_PTR_COPY(JJ+1)-1
-                      IF (IRHS_SPARSE_COPY(IZ2).EQ.I) EXIT
-                      IF (IZ2.EQ.IRHS_PTR_COPY(JJ+1)-1) THEN
-                        WRITE(6,*) " Internal Error 14 in solution",
-     &                  " driver, gather "
-                        CALL MUMPS_ABORT()
-                      ENDIF
-                    ENDDO
-                    id%RHS_SPARSE(IZ) = RHS_SPARSE_COPY(IZ2)
-                  ENDDO
-                ENDDO
-              ENDIF           ! End DO_PERMUTE_RHS.OR.INTERLEAVE_PAR
+                ENDIF
+              ENDDO
+              IF (id%NSLAVES.NE.1) THEN
+               NB_BYTES = NB_BYTES - int(size(MAP_RHS),8) * K34_8
+               DEALLOCATE ( MAP_RHS )
+              ENDIF
             ENDIF             ! end A-1 on master
 C
 C         -- END of backward was performed with centralized solution
@@ -4140,7 +4246,7 @@ C             Note that LSOL_loc >= KEEP(89)
      &          id%PTLUST_S(1), id%PROCNODE_STEPS(1),
      &          id%KEEP(1),id%KEEP8(1),
      &          IS(1), LIW_PASSED,
-     &          id%STEP(1), scaling_data, LSCAL, NB_RHSSKIPPED,
+     &          id%STEP(1), scaling_data_sol, LSCAL, NB_RHSSKIPPED,
      &          PERM_RHS, size(PERM_RHS) ) ! For permuted sparse RHS
               ENDIF
             ENDIF
@@ -4483,7 +4589,7 @@ C                 -----------------
                   CALL DMUMPS_SOL_OMEGA(id%N,SAVERHS,
      &                id%RHS(IBEG), C_Y, R_W, C_W, IW1, IFLAG_IR,
      &                RINFOG(7), NOITER, TESTConv,
-     &                MP, ARRET )
+     &                MP, ARRET, KEEP(361) )
                   IF (ICNTL10.LT.0) THEN
                     CALL MUMPS_SECFIN(TIMEEA1)
                     id%DKEEP(120)=id%DKEEP(120)+TIMEEA1
@@ -4717,7 +4823,7 @@ C             If IFLAG_IR = 0 or 1 IW1 should be correct
                 CALL DMUMPS_SOL_OMEGA(id%N,SAVERHS,
      &              id%RHS(IBEG), C_Y, R_W, C_W, IW1, IFLAG_IR,
      &              RINFOG(7), 0, TESTConv,
-     &              MP, ARRET )
+     &              MP, ARRET, KEEP(361) )
               ENDIF ! (IFLAG_IR.EQ.2)
 c             Compute some statistics for
               GIVSOL = .TRUE.
@@ -4943,7 +5049,7 @@ C     ========================================================
         IF (DO_PERMUTE_RHS.OR.INTERLEAVE_PAR) THEN
            DO WHILE ( JBEG_NEW.LE. id%NRHS)
               DO I=1, id%N
-                 id%RHS((PERM_RHS(JBEG_NEW) -1)*LD_RHS+I)
+                 id%RHS(int(PERM_RHS(JBEG_NEW) -1,8)*int(LD_RHS,8)+I)
      &                     = ZERO
               ENDDO
               JBEG_NEW = JBEG_NEW +1
@@ -4952,7 +5058,7 @@ C     ========================================================
         ELSE
           DO WHILE ( JBEG_NEW.LE. id%NRHS)
             DO I=1, id%N
-                id%RHS((JBEG_NEW -1)*LD_RHS + I) = ZERO
+                id%RHS(int(JBEG_NEW -1,8)*int(LD_RHS,8) + I) = ZERO
             ENDDO
             JBEG_NEW = JBEG_NEW +1
           ENDDO
@@ -4968,8 +5074,8 @@ C     ========================================================
         IF (DO_PERMUTE_RHS.OR.INTERLEAVE_PAR) THEN
            DO WHILE ( JBEG_NEW.LE. id%NRHS)
               DO I=1, KEEP(89)
-                 id%SOL_loc((PERM_RHS(JBEG_NEW) -1)*id%LSOL_LOC+I)
-     &                     = ZERO
+                 id%SOL_loc(int(PERM_RHS(JBEG_NEW) -1,8)*
+     &                      int(id%LSOL_loc,8)+int(I,8)) = ZERO
               ENDDO
               JBEG_NEW = JBEG_NEW +1
            ENDDO
@@ -4994,7 +5100,8 @@ C     ================================================================
            JBEG_NEW = JEND_RHS + 1
            DO WHILE ( JBEG_NEW.LE. id%NRHS)
             DO I=1,  id%SIZE_SCHUR
-              id%REDRHS((JBEG_NEW -1)*LD_REDRHS + I) =  ZERO
+              id%REDRHS(int(JBEG_NEW -1,8)*int(LD_REDRHS,8) +
+     &                  int(I,8)) =  ZERO
             ENDDO
             JBEG_NEW = JBEG_NEW +1
            ENDDO
@@ -5004,7 +5111,8 @@ C     ================================================================
            DO I=1,NBENT_RHSCOMP
             JBEG_NEW = JEND_RHS + 1
             DO WHILE ( JBEG_NEW.LE. id%NRHS)
-              id%RHSCOMP(JBEG_NEW + (I-1)*NBRHS_EFF) =  ZERO
+              id%RHSCOMP(int(JBEG_NEW,8) +
+     &                     int(I-1,8)*int(NBRHS_EFF,8)) = ZERO
               JBEG_NEW = JBEG_NEW +1
             ENDDO
            ENDDO
@@ -5012,7 +5120,8 @@ C     ================================================================
            JBEG_NEW = JEND_RHS + 1
            DO WHILE ( JBEG_NEW.LE. id%NRHS)
             DO I=1,NBENT_RHSCOMP
-              id%RHSCOMP((JBEG_NEW -1)*LD_RHSCOMP + I) =  ZERO
+              id%RHSCOMP(int(JBEG_NEW -1,8)*int(LD_RHSCOMP,8) +
+     &                   int(I,8)) =  ZERO
             ENDDO
             JBEG_NEW = JBEG_NEW +1
            ENDDO
@@ -5033,6 +5142,7 @@ C     ----------------------------------------------------
       CALL MUMPS_MEM_CENTRALIZE( id%MYID, id%COMM,
      &                           id%INFO(26), id%INFOG(30), IRANK )
       IF ( PROKG ) THEN
+       IF (PRINT_MAXAVG) THEN
         WRITE( MPG,'(A,I10) ')
      &  ' ** Rank of processor needing largest memory in solve     :',
      &  IRANK
@@ -5048,6 +5158,11 @@ C     ----------------------------------------------------
      &  ' ** Avg. Space in MBYTES per working proc during solve    :',
      &  id%INFOG(31) / id%NSLAVES
         END IF
+       ELSE
+        WRITE( MPG,'(A,I10) ')
+     &  ' ** Space in MBYTES used for solve                        :',
+     &  id%INFOG(30)
+       ENDIF
       END IF
 *===============================
 *End of Solve Phase
@@ -5061,7 +5176,7 @@ C  Store and print timings
       id%DKEEP(122)=TIMECOPYSCALE2
       IF (PROKG) THEN
         WRITE ( MPG, *)
-        WRITE ( MPG, *) "Global statistics"
+        WRITE ( MPG, *) "Leaving solve with ..."
         WRITE( MPG, 434 ) id%DKEEP(115)
         WRITE( MPG, 432 ) id%DKEEP(113)
         WRITE( MPG, 435 ) id%DKEEP(117)
@@ -5085,6 +5200,14 @@ C  Store and print timings
       END IF
  90   CONTINUE
       IF (INFO(1) .LT.0 ) THEN
+      ENDIF
+      IF (KEEP(485) .EQ. 1) THEN
+        KEEP(350) = KEEP350_SAVE
+        IF (IS_LR_MOD_TO_STRUC_DONE) THEN
+          CALL DMUMPS_BLR_MOD_TO_STRUC(id%BLRARRAY_ENCODING)
+          CALL MUMPS_FDM_MOD_TO_STRUC('F',id%FDM_F_ENCODING,
+     &             id%INFO(1))
+        ENDIF
       ENDIF
       IF (KEEP(201).GT.0)THEN
         IF (IS_INIT_OOC_DONE) THEN
@@ -5199,9 +5322,9 @@ C       Deallocate temporary workspace SRW3
         IF (LSCAL .AND. ICNTL21==1) THEN
 C         Free local scaling arrays
           NB_BYTES = NB_BYTES -
-     &              int(size(scaling_data%SCALING_LOC),8)*K16_8
-          DEALLOCATE(scaling_data%SCALING_LOC)
-          NULLIFY(scaling_data%SCALING_LOC)
+     &              int(size(scaling_data_sol%SCALING_LOC),8)*K16_8
+          DEALLOCATE(scaling_data_sol%SCALING_LOC)
+          NULLIFY(scaling_data_sol%SCALING_LOC)
         ENDIF
 C       Free memory until next call to DMUMPS
         IF (WK_USER_PROVIDED) THEN
@@ -5253,29 +5376,31 @@ C       position inside id%S, nullify it
       RETURN
  55   FORMAT (//' ERROR ANALYSIS BEFORE ITERATIVE REFINEMENT')
  100  FORMAT(//' ****** SOLVE & CHECK STEP ********'/)
- 110  FORMAT (//' VECTOR SOLUTION FOR COLUMN ',I12)
+ 110  FORMAT (//' Vector solution for column ',I12)
  115  FORMAT(1X, A44,1P,D9.2)
- 434  FORMAT(' TIME to build/scatter RHS        =',F15.6)
- 432  FORMAT(' TIME in solution step (fwd/bwd)  =',F15.6)
- 435  FORMAT('  .. TIME in forward (fwd) step   =   ',F15.6)
- 437  FORMAT('  .. TIME in ScaLAPACK root       =   ',F15.6)
- 436  FORMAT('  .. TIME in backward (bwd) step  =   ',F15.6)
- 433  FORMAT(' TIME to gather solution(cent.sol)=',F15.6)
- 431  FORMAT(' TIME to copy/scale RHS (dist.sol)=',F15.6)
- 150  FORMAT(/' STATISTICS PRIOR SOLVE PHASE     ...........'/
-     &        ' NUMBER OF RIGHT-HAND-SIDES                    =',I12/
-     &        ' BLOCKING FACTOR FOR MULTIPLE RHS              =',I12/
+ 434  FORMAT(' Time to build/scatter RHS        =',F15.6)
+ 432  FORMAT(' Time in solution step (fwd/bwd)  =',F15.6)
+ 435  FORMAT('  .. Time in forward (fwd) step   =   ',F15.6)
+ 437  FORMAT('  .. Time in ScaLAPACK root       =   ',F15.6)
+ 436  FORMAT('  .. Time in backward (bwd) step  =   ',F15.6)
+ 433  FORMAT(' Time to gather solution(cent.sol)=',F15.6)
+ 431  FORMAT(' Time to copy/scale dist. solution=',F15.6)
+ 150  FORMAT(' GLOBAL STATISTICS PRIOR SOLVE PHASE ...........'/
+     &        ' Number of right-hand-sides                    =',I12/
+     &        ' Blocking factor for multiple rhs              =',I12/
      &        ' ICNTL (9)                                     =',I12/
      &        '  --- (10)                                     =',I12/
      &        '  --- (11)                                     =',I12/
      &        '  --- (20)                                     =',I12/
      &        '  --- (21)                                     =',I12/
-     &        '  --- (30)                                     =',I12)
+     &        '  --- (30)                                     =',I12/
+     &        '  --- (35)                                     =',I12
+     &        )
  151  FORMAT ('  --- (25)                                     =',I12)
  152  FORMAT ('  --- (26)                                     =',I12)
  153  FORMAT ('  --- (32)                                     =',I12)
  160  FORMAT (' RHS'/(1X,1P,5D14.6))
- 170  FORMAT (//' ERROR ANALYSIS' )
+ 170  FORMAT (/' ERROR ANALYSIS' )
  240  FORMAT (1X, A42,I4)
  270  FORMAT (//' BEGIN ITERATIVE REFINEMENT' )
   81  FORMAT (/' STATISTICS AFTER ITERATIVE REFINEMENT ')
@@ -5408,8 +5533,7 @@ C         Case of special root node
      &    PTR_RHS_ROOT(1), LPTR_RHS_ROOT, SIZE_ROOT, MASTER_ROOT,
      &    id%RHSCOMP(IBEG_RHSCOMP), LD_RHSCOMP,
      &    PTR_POSINRHSCOMP_FWD(1), PTR_POSINRHSCOMP_BWD(1)
-     &    , 1            , 1       ,  1
-     &    , 1
+     &    , 1            , 1       ,  1    , 1
      &    , IDUMMY, 1, JDUMMY, KDUMMY, 1, LDUMMY, 1, MDUMMY
      &    , 1, 1
      &    , NBSPARSE_LOC, PTR_RHS_BOUNDS(1), LPTR_RHS_BOUNDS

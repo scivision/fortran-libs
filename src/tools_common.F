@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -112,6 +112,30 @@ C
      &           ( TPN .eq. -1 .OR. TPN .eq. 0 )
       RETURN
       END FUNCTION MUMPS_IN_OR_ROOT_SSARBR
+            SUBROUTINE MUMPS_SET_SSARBR_DAD(
+     &           SSARBR, INODE, DAD, N,
+     &           KEEP28,
+     &           STEP, PROCNODE_STEPS, SLAVEF)
+            IMPLICIT NONE
+            INTEGER, INTENT(IN) :: N, KEEP28, SLAVEF, INODE
+            INTEGER, INTENT(IN) :: DAD(KEEP28), PROCNODE_STEPS(KEEP28)
+            INTEGER, INTENT(IN) :: STEP(N)
+            LOGICAL, INTENT(OUT) :: SSARBR
+            INTEGER :: DADINODE, TYPEDAD
+            LOGICAL, EXTERNAL :: MUMPS_INSSARBR
+            INTEGER, EXTERNAL :: MUMPS_TYPENODE
+            SSARBR   = .FALSE.
+            DADINODE = DAD(STEP(INODE))
+            IF (DADINODE .NE. 0) THEN
+              TYPEDAD  = MUMPS_TYPENODE(PROCNODE_STEPS(STEP(DADINODE)),
+     &                                  SLAVEF)
+              IF (TYPEDAD.EQ.1) THEN
+                SSARBR=MUMPS_INSSARBR(PROCNODE_STEPS(STEP(DADINODE)),
+     &                                SLAVEF)
+              ENDIF
+            ENDIF
+            RETURN
+            END SUBROUTINE MUMPS_SET_SSARBR_DAD
       LOGICAL FUNCTION MUMPS_I_AM_CANDIDATE( MYID, SLAVEF, INODE,
      &                 NMB_PAR2, ISTEP_TO_INIV2 , K71, STEP, N, 
      &                 CANDIDATES, KEEP24 )
@@ -281,7 +305,7 @@ C
       CALL MPI_REDUCE( TEMP1, TEMP2, 1, MPI_2INTEGER,
      &                 MPI_MAXLOC, MASTER, COMM, IERR_MPI )
       IF ( MYID.eq. MASTER ) THEN
-        IF ( INFOG(1) .ne. TEMP2(1) ) THEN
+         IF ( INFOG(1) .ne. TEMP2(1) ) THEN
           write(*,*) 'Error in MUMPS_MEM_CENTRALIZE'
           CALL MUMPS_ABORT()
         END IF
@@ -435,9 +459,6 @@ C
       INTEGER, intent(out)::KEEP12
       INTEGER, intent(in)::ICNTL14,KEEP50,KEEP54,ICNTL6,ICNTL8
       KEEP12 = ICNTL14 
-      IF(ICNTL6.EQ.0 .AND. ICNTL8.EQ.0) RETURN
-      IF ( (KEEP54.NE.0).AND. (KEEP50.NE.1)
-     &     .AND. (KEEP12 .GT. 0) ) KEEP12= KEEP12+5
       RETURN
       END SUBROUTINE MUMPS_GET_PERLU
       SUBROUTINE MUMPS_BCAST_I8( I8_VALUE, ROOT, MYID, COMM, IERR)
@@ -617,7 +638,7 @@ C
       INTEGER NA(LNA), NE(NSTEPS), ND(NSTEPS)
       INTEGER DAD(LDAD)
       LOGICAL USE_DAD
-      INTEGER INFO(40)
+      INTEGER INFO(80)
       INTEGER SLAVEF,PROCNODE(NSTEPS)
       INTEGER  POSTORDER,TMP_SWAP
       INTEGER, DIMENSION (:), ALLOCATABLE :: STEP_TO_NODE
@@ -632,7 +653,7 @@ C
       ALLOCATE( IPOOL(NBLEAF), TNSTK(NSTEPS), stat=allocok )
       IF (allocok > 0) THEN
         IF ( LP .GT. 0 )
-     &    WRITE(LP,*)'Memory allocation error in CMUMPS_SORT_STEP'
+     &    WRITE(LP,*)'Memory allocation error in MUMPS_SORT_STEP'
         INFO(1)=-7
         INFO(2)=NSTEPS
         RETURN
@@ -644,7 +665,7 @@ C
       IF (allocok > 0) THEN
          IF ( LP .GT. 0 )
      &        WRITE(LP,*)'Memory allocation error in
-     &CMUMPS_REORDER_TREE'
+     &MUMPS_SORT_STEP'
          INFO(1)=-7
          INFO(2)=NSTEPS
          RETURN
@@ -739,16 +760,27 @@ C
       RETURN
       END SUBROUTINE CHECK_EQUAL
 #endif
+      SUBROUTINE MUMPS_CHECK_COMM_NODES(COMM_NODES, EXIT_FLAG)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN)  :: COMM_NODES
+      LOGICAL, INTENT(OUT) :: EXIT_FLAG
+      INCLUDE 'mumps_tags.h'
+      INCLUDE 'mpif.h'
+      INTEGER :: STATUS(MPI_STATUS_SIZE), IERR
+      CALL MPI_IPROBE( MPI_ANY_SOURCE, TERREUR, COMM_NODES,
+     &            EXIT_FLAG, STATUS, IERR)
+      RETURN
+      END SUBROUTINE MUMPS_CHECK_COMM_NODES
       SUBROUTINE MUMPS_GET_PROC_PER_NODE(K414, MyID, NbProcs, COMM)
       IMPLICIT NONE
       INCLUDE 'mpif.h'
       INTEGER :: K414, MyID, NbProcs, COMM, ALLOCOK
       INTEGER :: ierr,MyNAME_length,MyNAME_length_RCV,i,j
       CHARACTER(len=MPI_MAX_PROCESSOR_NAME) :: MyNAME
-      CHARACTER, dimension(:), allocatable :: MyNAME_TAB,MyName_TAB_RCV
+      CHARACTER, dimension(:), allocatable :: MyNAME_TAB,MyNAME_TAB_RCV
       logical :: SAME_NAME
       call MPI_GET_PROCESSOR_NAME(MyNAME, MyNAME_length, ierr)
-      allocate(MyName_TAB(MyNAME_length), STAT=ALLOCOK)
+      allocate(MyNAME_TAB(MyNAME_length), STAT=ALLOCOK)
       IF(ALLOCOK.LT.0) THEN
          write(*,*) "Allocation error in MUMPS_GET_PROC_PER_NODE"
          call MUMPS_ABORT()
@@ -777,20 +809,20 @@ C
      &        i,COMM,ierr)
          SAME_NAME=.FALSE.
          IF(MyNAME_length .EQ. MyNAME_length_RCV) THEN
-            DO J=1, MyNAME_length
-               IF(MyNAME_TAB(J) .NE. MyNAME_TAB_RCV(J)) THEN
+            DO j=1, MyNAME_length
+               IF(MyNAME_TAB(j) .NE. MyNAME_TAB_RCV(j)) THEN
                   goto 100
                ENDIF
             ENDDO
             SAME_NAME=.TRUE.
          ENDIF
  100     continue
-         IF(SAME_NAME) k414=k414+1
-         deallocate(MyName_TAB_RCV)
+         IF(SAME_NAME) K414=K414+1
+         deallocate(MyNAME_TAB_RCV)
       enddo
-      deallocate(MyName_TAB)
+      deallocate(MyNAME_TAB)
       END SUBROUTINE MUMPS_GET_PROC_PER_NODE
-      SUBROUTINE MUMPS_COPY_INT_32TO64 (INTAB, SIZETAB, OUTTAB8)
+      SUBROUTINE MUMPS_ICOPY_32TO64 (INTAB, SIZETAB, OUTTAB8)
       INTEGER, intent(in)     ::  SIZETAB
       INTEGER, intent(in)     ::  INTAB(SIZETAB)
       INTEGER(8), intent(out) ::  OUTTAB8(SIZETAB)
@@ -799,8 +831,8 @@ C
        OUTTAB8(I) = int(INTAB(I),8)
       ENDDO
       RETURN
-      END SUBROUTINE MUMPS_COPY_INT_32TO64
-      SUBROUTINE MUMPS_COPY_INT_32TO64_64C(INTAB, SIZETAB8, OUTTAB8)
+      END SUBROUTINE MUMPS_ICOPY_32TO64
+      SUBROUTINE MUMPS_ICOPY_32TO64_64C(INTAB, SIZETAB8, OUTTAB8)
       INTEGER(8), intent(in)  ::  SIZETAB8
       INTEGER, intent(in)     ::  INTAB(SIZETAB8)
       INTEGER(8), intent(out) ::  OUTTAB8(SIZETAB8)
@@ -810,13 +842,40 @@ C
 !$OMP PARALLEL DO PRIVATE(I8)
 !$OMP&         IF(OMP_FLAG)
       DO I8=1_8, SIZETAB8
-       OUTTAB8(I8) = int(INTAB(I8),8)
+        OUTTAB8(I8) = int(INTAB(I8),8)
       ENDDO
 !$OMP END PARALLEL DO
       RETURN
-      END SUBROUTINE MUMPS_COPY_INT_32TO64_64C
-      SUBROUTINE MUMPS_COPY_INT_64TO32 (INTAB8, SIZETAB, OUTTAB)
-      INTEGER, intent(in)    ::  SIZETAB
+      END SUBROUTINE MUMPS_ICOPY_32TO64_64C
+      SUBROUTINE MUMPS_ICOPY_32TO64_64C_IP(IN_OUT_TAB48, SIZETAB)
+      INTEGER(8), intent(in) :: SIZETAB
+      INTEGER, intent(inout) :: IN_OUT_TAB48(2*SIZETAB)
+      CALL MUMPS_ICOPY_32TO64_64C_IP_REC(IN_OUT_TAB48, SIZETAB)
+      RETURN
+      END SUBROUTINE MUMPS_ICOPY_32TO64_64C_IP
+      RECURSIVE SUBROUTINE MUMPS_ICOPY_32TO64_64C_IP_REC(
+     &                     IN_OUT_TAB48, SIZETAB)
+      IMPLICIT NONE
+      INTEGER(8), intent(in) :: SIZETAB
+      INTEGER :: IN_OUT_TAB48(2*SIZETAB)
+      INTEGER(8) :: IBEG24, IBEG28, SIZE1, SIZE2
+      IF (SIZETAB.LE. 1000_8) THEN
+        CALL MUMPS_ICOPY_32TO64_64C_IP_C(IN_OUT_TAB48(1),
+     &       SIZETAB)
+      ELSE
+        SIZE2  = SIZETAB / 2
+        SIZE1  = SIZETAB - SIZE2
+        IBEG24 = SIZE1+1                 
+        IBEG28 = 2*SIZE1+1_8             
+        CALL MUMPS_ICOPY_32TO64_64C(IN_OUT_TAB48(IBEG24),
+     &                           SIZE2, IN_OUT_TAB48(IBEG28))
+        CALL MUMPS_ICOPY_32TO64_64C_IP_REC(IN_OUT_TAB48,
+     &                           SIZE1)
+      ENDIF
+      RETURN
+      END SUBROUTINE MUMPS_ICOPY_32TO64_64C_IP_REC
+      SUBROUTINE MUMPS_ICOPY_64TO32(INTAB8, SIZETAB, OUTTAB)
+      INTEGER, intent(in) ::  SIZETAB
       INTEGER(8), intent(in) ::  INTAB8(SIZETAB)
       INTEGER, intent(out)   ::  OUTTAB(SIZETAB)
       INTEGER :: I
@@ -824,7 +883,44 @@ C
        OUTTAB(I) = int(INTAB8(I))
       ENDDO
       RETURN
-      END SUBROUTINE MUMPS_COPY_INT_64TO32
+      END SUBROUTINE MUMPS_ICOPY_64TO32
+      SUBROUTINE MUMPS_ICOPY_64TO32_64C (INTAB8, SIZETAB, OUTTAB)
+      INTEGER(8), intent(in)    ::  SIZETAB
+      INTEGER(8), intent(in) ::  INTAB8(SIZETAB)
+      INTEGER, intent(out)   ::  OUTTAB(SIZETAB)
+      INTEGER(8) :: I8
+      DO I8=1_8,SIZETAB
+       OUTTAB(I8) = int(INTAB8(I8))
+      ENDDO
+      RETURN
+      END SUBROUTINE MUMPS_ICOPY_64TO32_64C
+      SUBROUTINE MUMPS_ICOPY_64TO32_64C_IP(IN_OUT_TAB48, SIZETAB)
+      INTEGER(8), intent(in) :: SIZETAB
+      INTEGER, intent(inout) :: IN_OUT_TAB48(2*SIZETAB)
+      CALL MUMPS_ICOPY_64TO32_64C_IP_REC(IN_OUT_TAB48, SIZETAB)
+      RETURN
+      END SUBROUTINE MUMPS_ICOPY_64TO32_64C_IP
+      RECURSIVE SUBROUTINE MUMPS_ICOPY_64TO32_64C_IP_REC(
+     &                     IN_OUT_TAB48, SIZETAB)
+      IMPLICIT NONE
+      INTEGER(8), intent(in) :: SIZETAB
+      INTEGER :: IN_OUT_TAB48(2*SIZETAB)
+      INTEGER(8) :: IBEG24, IBEG28, SIZE1, SIZE2
+      IF (SIZETAB.LE. 1000_8) THEN
+        CALL MUMPS_ICOPY_64TO32_64C_IP_C(IN_OUT_TAB48(1),
+     &       SIZETAB)
+      ELSE
+        SIZE2  = SIZETAB / 2
+        SIZE1  = SIZETAB - SIZE2
+        IBEG24 = SIZE1 + 1
+        IBEG28 = SIZE1 + SIZE1 + 1_8
+        CALL MUMPS_ICOPY_64TO32_64C_IP_REC(IN_OUT_TAB48,
+     &                                        SIZE1)
+        CALL MUMPS_ICOPY_64TO32_64C(IN_OUT_TAB48(IBEG28),
+     &                           SIZE2, IN_OUT_TAB48(IBEG24))
+      ENDIF
+      RETURN
+      END SUBROUTINE MUMPS_ICOPY_64TO32_64C_IP_REC
       SUBROUTINE MUMPS_GET_NNZ_INTERNAL( NNZ, NZ, NNZ_i )
       INTEGER   , INTENT(IN)  :: NZ
       INTEGER(8), INTENT(IN)  :: NNZ

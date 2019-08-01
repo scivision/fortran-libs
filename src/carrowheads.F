@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -18,7 +18,7 @@ C
       IMPLICIT NONE
       TYPE (CMUMPS_STRUC) :: id
       INTEGER MYID, N, SLAVEF
-      INTEGER KEEP( 500 ), ICNTL( 40 )
+      INTEGER KEEP( 500 ), ICNTL( 60 )
       INTEGER(8) KEEP8(150)
       INTEGER PROCNODE( KEEP(28) ), STEP( N )
       INTEGER(8), INTENT(INOUT) :: PTRAIW( N ), PTRARW( N )
@@ -177,8 +177,8 @@ C
      &   LP, COMM, root, KEEP, KEEP8, FILS, RG2L,
      &   INTARR, LINTARR, DBLARR, LDBLARR, PTRAIW, PTRARW, FRERE_STEPS,
      &   STEP, A, LA, ISTEP_TO_INIV2, I_AM_CAND, CANDIDATES )
+      USE CMUMPS_STRUC_DEF, ONLY : CMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'cmumps_root.h'
       INTEGER    :: N, COMM, NBRECORDS
       INTEGER(8), INTENT(IN) :: NZ
       INTEGER KEEP( 500 )
@@ -618,8 +618,8 @@ C
      &    PROCNODE_STEPS,
      &    SLAVEF, PERM, FRERE_STEPS, STEP, INFO1, INFO2
      &   )
+      USE CMUMPS_STRUC_DEF, ONLY : CMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'cmumps_root.h'
       INTEGER N, MYID, COMM
       INTEGER(8), INTENT(IN) :: LDBLARR, LINTARR
       INTEGER INTARR(LINTARR) 

@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -14,7 +14,7 @@ C
      &     LBUFR_BYTES,
      &     IWPOS, IWPOSCB,
      &     IPTRLU, LRLU, LRLUS,
-     &     TNBPROCFILS, N, IW, LIW, A, LA,
+     &     TNBPROCFILS, N, IW, LIW, A, LA, SLAVEF, PROCNODE_STEPS, DAD,
      &     PTRIST, PTRAST, STEP, PIMASTER, PAMASTER, COMP,
      &     KEEP,KEEP8, DKEEP, ITLOC, RHS_MUMPS, ISTEP_TO_INIV2,
 #if ! defined(NO_FDM_DESCBAND)
@@ -22,6 +22,8 @@ C
 #endif
      &     IFLAG, IERROR )
       USE CMUMPS_LOAD
+      USE CMUMPS_LR_DATA_M, ONLY: CMUMPS_BLR_INIT_FRONT,
+     &                            CMUMPS_BLR_SAVE_NFS4FATHER
 #if ! defined(NO_FDM_DESCBAND)
       USE MUMPS_FAC_DESCBAND_DATA_M
 #endif
@@ -36,6 +38,8 @@ C
       INTEGER IWPOS, IWPOSCB, N, LIW
       INTEGER IW( LIW )
       COMPLEX A( LA )
+      INTEGER, INTENT(IN) :: SLAVEF
+      INTEGER, INTENT(IN) :: PROCNODE_STEPS(KEEP(28)), DAD(KEEP(28))
       INTEGER(8) :: PAMASTER(KEEP(28))
       INTEGER(8) :: PTRAST(KEEP(28))
       INTEGER PTRIST(KEEP(28)), STEP(N), 
@@ -62,6 +66,8 @@ C
 #else
 #endif
       INTEGER :: LRSTATUS
+      INTEGER :: ESTIM_NFS4FATHER_ATSON
+      LOGICAL :: LR_ACTIVATED, COMPRESS_CB
       INODE = BUFR( 2 )
       NBPROCFILS = BUFR( 3 )
       NROW = BUFR( 4 )
@@ -70,7 +76,8 @@ C
       NFRONT = BUFR( 7 )
       NSLAVES_RECU = BUFR( 8 )
       LRSTATUS =  BUFR( 9 )
-      IBUFR    = 10
+      ESTIM_NFS4FATHER_ATSON = BUFR(10)
+      IBUFR    = 11
 #if ! defined(NO_FDM_DESCBAND)
       IWHANDLER_LOC = IWHANDLER_IN
       IF ((IWHANDLER_IN .LE. 0) .AND.
@@ -103,7 +110,7 @@ C
       LREQCB = int(NCOL,8) * int(NROW,8)
       CALL CMUMPS_ALLOC_CB(.FALSE., 0_8, .FALSE.,.TRUE.,
      &   MYID,N, KEEP, KEEP8, DKEEP, IW, LIW, A, LA,
-     &   LRLU, IPTRLU,IWPOS,IWPOSCB,
+     &   LRLU, IPTRLU,IWPOS,IWPOSCB, SLAVEF, PROCNODE_STEPS, DAD,
      &   PTRIST,PTRAST, STEP, PIMASTER,PAMASTER,
      &   LREQ, LREQCB, INODE, S_ACTIVE, .TRUE.,
      &   COMP, LRLUS, IFLAG, IERROR
@@ -121,6 +128,7 @@ C
         ENDIF
         IW(IWPOSCB+1+XXA) = IWHANDLER_LOC
 #     endif
+        IW(IWPOSCB+1+XXF) = -9999
       IW( IWPOSCB + 1+KEEP(IXSZ) ) = NCOL
       IW( IWPOSCB + 2+KEEP(IXSZ) ) = - NASS
       IW( IWPOSCB + 3+KEEP(IXSZ) ) = NROW
@@ -150,6 +158,32 @@ C
       IW(IWPOSCB+1+XXNBPR)=NBPROCFILS
 #     endif
       IW(IWPOSCB+1+XXLR)=LRSTATUS
+      COMPRESS_CB    = ((LRSTATUS.EQ.1).OR.
+     &                  (LRSTATUS.EQ.3))
+      LR_ACTIVATED   = (LRSTATUS.GT.0)
+      IF (LR_ACTIVATED.AND.
+     &       (KEEP(480).NE.0
+     &       .OR.
+     &       (
+     &         (KEEP(486).EQ.2) 
+     &       )
+     &       .OR.COMPRESS_CB
+     &       )) THEN
+         INFO_TMP=0
+         CALL CMUMPS_BLR_INIT_FRONT (IW(IWPOSCB+1+XXF), INFO_TMP) 
+         IF (INFO_TMP(1).LT.0)  THEN
+          IFLAG = INFO_TMP(1)
+          IERROR = INFO_TMP(2)
+          RETURN
+         ENDIF
+         IF (COMPRESS_CB.AND.
+     &     (KEEP(219).NE.0).AND.(KEEP(50).EQ.2).AND.
+     &     (ESTIM_NFS4FATHER_ATSON.GE.0)
+     &    ) THEN
+            CALL CMUMPS_BLR_SAVE_NFS4FATHER ( IW(IWPOSCB+1+XXF),
+     &             ESTIM_NFS4FATHER_ATSON )
+         ENDIF
+      ENDIF
       IF (NBPROCFILS .EQ. 0) THEN
       ENDIF
       RETURN
@@ -165,7 +199,7 @@ C
      &    IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &
      &    root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &    FILS, PTRARW, PTRAIW,
+     &    FILS, DAD, PTRARW, PTRAIW,
      &    INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
      &    LPTRAR, NELT, FRTPTR, FRTELT,
      &
@@ -176,11 +210,11 @@ C
 #     if ! defined(NO_FDM_DESCBAND)
       USE MUMPS_FAC_DESCBAND_DATA_M
 #     endif
+      USE CMUMPS_STRUC_DEF, ONLY : CMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'cmumps_root.h'
       INTEGER, INTENT(IN) :: INODE  
       TYPE (CMUMPS_ROOT_STRUC) :: root
-      INTEGER KEEP(500), ICNTL(40)
+      INTEGER KEEP(500), ICNTL(60)
       INTEGER(8) KEEP8(150)
       REAL       DKEEP(230)
       INTEGER LBUFR, LBUFR_BYTES
@@ -209,7 +243,7 @@ C
       DOUBLE PRECISION OPASSW, OPELIW
       INTEGER NELT, LPTRAR
       INTEGER FRTPTR( N+1 ), FRTELT( NELT )
-      INTEGER ITLOC( N + KEEP(253) ), FILS( N )
+      INTEGER ITLOC( N + KEEP(253) ), FILS( N ), DAD( KEEP(28) )
       COMPLEX :: RHS_MUMPS(KEEP(255))
       INTEGER(8), INTENT(IN) :: PTRARW( LPTRAR ), PTRAIW( LPTRAR )
       INTEGER ND( KEEP(28) ), FRERE( KEEP(28) )
@@ -240,7 +274,7 @@ C
      &       LBUFR_BYTES,
      &       IWPOS, IWPOSCB,
      &       IPTRLU, LRLU, LRLUS,
-     &       NBPROCFILS, N, IW, LIW, A, LA,
+     &       NBPROCFILS, N, IW, LIW, A, LA, SLAVEF, PROCNODE_STEPS, DAD,
      &       PTRIST, PTRAST, STEP, PIMASTER, PAMASTER, COMP,
      &       KEEP, KEEP8, DKEEP, ITLOC, RHS_MUMPS, ISTEP_TO_INIV2,
      &       IWHANDLER,
@@ -248,7 +282,7 @@ C
         IF (IFLAG .LT. 0) GOTO 500 
         CALL MUMPS_FDBD_FREE_DESCBAND_STRUC(IW(PTRIST(STEP(INODE))+XXA))
       ELSE 
-        IF (INODE_WAITED_FOR.GT.0) THEN
+         IF (INODE_WAITED_FOR.GT.0) THEN
           WRITE(*,*) " Internal error 1 in CMUMPS_TREAT_DESCBAND",
      &    INODE, INODE_WAITED_FOR
           CALL MUMPS_ABORT()
@@ -272,7 +306,7 @@ C
      &    NBPROCFILS, IPOOL, LPOOL, LEAF,
      &    NBFIN, MYID, SLAVEF,
      &    root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &    FILS, PTRARW, PTRAIW,
+     &    FILS, DAD, PTRARW, PTRAIW,
      &    INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE. 

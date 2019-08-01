@@ -1,11 +1,11 @@
 /*
  *
- *  This file is part of MUMPS 5.1.2, released
- *  on Mon Oct  2 07:37:01 UTC 2017
+ *  This file is part of MUMPS 5.2.1, released
+ *  on Fri Jun 14 14:46:05 UTC 2019
  *
  *
- *  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
- *  University of Bordeaux.
+ *  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
  *  released under the CeCILL-C license:
@@ -128,8 +128,8 @@ void*  mumps_async_thread_function_with_sem (void* arg){
    /* The main thread ordered the end of the IO thread (it changed sem_stop).
     We exit. */
    pthread_exit(NULL);
-/* Not reached */
-   return NULL;
+/* FIXME Not reached */
+/*   return NULL; */
 }
 MUMPS_INT mumps_test_request_th(MUMPS_INT* request_id,MUMPS_INT *flag){
   /* Tests if the request "request_id" has finished. It sets the flag  */

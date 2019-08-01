@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -19,12 +19,13 @@ C     XXS    ->  status of the node
 C     XXN    ->  node number
 C     XXP    ->  pointer to previous record
 C     XXA    ->  active fronts data management
-C     XXF    ->  reserved
+C     XXF    ->  blr data passed from factorization to solve
 C     XXLR   ->  Low rank status of a node (0=FR, 
 C                                           1=LowRank CB only
 C                                           2=LowRank factors/panels only
 C                                           3=LowRank CB+factor/panel)
 C     XXEBF  ->  End of Blocfacto (0=not yet, 1=finished)  
+C     XXD    ->  dynamic data size
 C REMARK: .h file could be replaced by a module with functions to get node status
 C          added in the module.
 C 
@@ -33,6 +34,7 @@ C
       INTEGER, PARAMETER :: XXLR = 8
       INTEGER, PARAMETER :: XXNBPR = 9
       INTEGER, PARAMETER :: XXEBF = 10
+      INTEGER, PARAMETER :: XXD = 11
 C 
 C     Size of header in incore and out-of-core
 C
@@ -41,8 +43,8 @@ C
 C     At the moment, all headers are of the same size because
 C     no OOC specific information are stored in header.
 CM     other OOC specific information directly in the headers.
-      PARAMETER (XSIZE_IC=11,XSIZE_OOC_SYM=11,XSIZE_OOC_UNSYM=11,
-     &           XSIZE_OOC_NOPANEL=11)
+      PARAMETER (XSIZE_IC=13,XSIZE_OOC_SYM=13,XSIZE_OOC_UNSYM=13,
+     &           XSIZE_OOC_NOPANEL=13)
 C
 C     -------------------------------------------------------
 C     Position of header size (formerly XSIZE) in KEEP array.
@@ -51,20 +53,22 @@ C     to either XSIZE_IC, XSIZE_OOC_SYM or XSIZE_OOC_UNSYM.
 C     -------------------------------------------------------
       INTEGER IXSZ
       PARAMETER(IXSZ= 222)    ! KEEP(222) used
-      INTEGER S_CB1COMP
-      PARAMETER (S_CB1COMP=314)
+      INTEGER, PARAMETER :: S_CB1COMP = 314
       INTEGER S_ACTIVE, S_ALL, S_NOLCBCONTIG,
      &        S_NOLCBNOCONTIG, S_NOLCLEANED,
      &        S_NOLCBNOCONTIG38, S_NOLCBCONTIG38,
-     &        S_NOLCLEANED38, C_FINI
+     &        S_NOLCLEANED38, 
+     &        S_NOLNOCB, S_NOLNOCBCLEANED,
+     &        C_FINI
       PARAMETER(S_ACTIVE=400, S_ALL=401, S_NOLCBCONTIG=402,
      &          S_NOLCBNOCONTIG=403, S_NOLCLEANED=404,
      &          S_NOLCBNOCONTIG38=405, S_NOLCBCONTIG38=406,
-     &          S_NOLCLEANED38=407,C_FINI=1)
-      INTEGER S_FREE, S_NOTFREE
-      PARAMETER(S_FREE=54321,S_NOTFREE=-123456)
-      INTEGER TOP_OF_STACK
-      PARAMETER(TOP_OF_STACK=-999999)
+     &          S_NOLCLEANED38=407, 
+     &          S_NOLNOCB=408, S_NOLNOCBCLEANED=409,
+     &          C_FINI=1)
+      INTEGER, PARAMETER :: S_FREE = 54321
+      INTEGER, PARAMETER :: S_NOTFREE = -123
+      INTEGER, PARAMETER :: TOP_OF_STACK = -999999
       INTEGER XTRA_SLAVES_SYM, XTRA_SLAVES_UNSYM
       PARAMETER(XTRA_SLAVES_SYM=4, XTRA_SLAVES_UNSYM=2)
          INTEGER S_ROOT2SON_CALLED, S_REC_CONTSTATIC, 

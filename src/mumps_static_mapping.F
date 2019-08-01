@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -91,7 +91,7 @@ C
       integer,intent(in)::n,slavef
       integer, intent(inout),TARGET:: ne(n),nfsiz(n),
      &         procnode(n),ssarbr(n),frere(n),fils(n),keep(500),
-     &         icntl(40),info(40)
+     &         icntl(60),info(80)
       INTEGER(8) KEEP8(150)
       integer,intent(out)::nbsa,istat
       integer ierr,nmb_thislayer,layernmb,mapalgo,allocok,i
@@ -615,8 +615,10 @@ C
          costw = dble(0)
          costm = dble(1)
       else
-         if((cv_keep(486).eq.1).and.(cv_keep(471).ge.0).and.
+         if((cv_keep(494).ne.0).and.(cv_keep(471).ge.0).and.
      &     (npiv.ge.cv_keep(490)).and.(nfront.ge.cv_keep(491))) then
+           WRITE(*,*) " *** Temp internal error in MUMPS_CALCNODECOSTS:"
+           CALL MUMPS_ABORT()
            call MUMPS_CALCNODECOSTS_BLR(npiv, nfront, costw, costm,
      &              cv_keep(471), cv_keep(472), cv_keep(475), 
      &              cv_keep(488), cv_keep(50))
@@ -654,7 +656,7 @@ C
           R = 1.0D0
         ELSEIF (K471.EQ.1) THEN
           R = SQRT(DBLE(N))
-        ELSE
+       ELSE
           WRITE(*,*) 'Internal error in MUMPS_CALCNODECOSTS_BLR', K471
           CALL MUMPS_ABORT()
         ENDIF
@@ -712,7 +714,7 @@ C
           R = 1.0D0
         ELSEIF (K471.EQ.1) THEN
           R = SQRT(DBLE(N))
-        ELSE
+       ELSE
           WRITE(*,*) 'Internal error in ',
      &       'MUMPS_COSTS_BLR_T2_MASTER', K471
           CALL MUMPS_ABORT()
@@ -773,7 +775,7 @@ C
           R = 1.0D0
         ELSEIF (K471.EQ.1) THEN
           R = SQRT(DBLE(N))
-        ELSE
+       ELSE
           WRITE(*,*) 'Internal error in ',
      &       'MUMPS_COSTS_BLR_T2_SLAVE', K471
           CALL MUMPS_ABORT()
@@ -858,10 +860,12 @@ C
               if (cv_keep(48).EQ.5) keep48_loc = 5
                min_needed = MUMPS_BLOC2_GET_NSLAVESMIN(
      &             cv_slavef, keep48_loc,cv_keep8(21),
-     &             cv_keep(50),nfront,ncb, cv_keep(375))
+     &             cv_keep(50),nfront,ncb,
+     &             cv_keep(375), cv_keep(119))
                max_needed = MUMPS_BLOC2_GET_NSLAVESMAX(
      &             cv_slavef, keep48_loc,cv_keep8(21),
-     &             cv_keep(50),nfront,ncb, cv_keep(375))
+     &             cv_keep(50),nfront,ncb,
+     &             cv_keep(375), cv_keep(119))
                if(cand_strat.eq.1) then
                   more_than_needed = 0
                elseif (cand_strat.eq.2) then
@@ -1011,7 +1015,8 @@ C
             if (cv_keep(48).EQ.5) keep48_loc = 5
             min_needed= MUMPS_BLOC2_GET_NSLAVESMIN
      &          (cv_slavef, keep48_loc,cv_keep8(21),
-     &           cv_keep(50),nfront,ncb, cv_keep(375))
+     &           cv_keep(50),nfront,ncb,
+     &           cv_keep(375), cv_keep(119))
             if(min_needed.lt.1) then
                if(cv_lp.gt.0)
      &         write(cv_lp,*)'Error in ',subname,'.NEG min_needed'
@@ -1070,7 +1075,7 @@ C
             total_nmb_cand=min(total_nmb_cand,ncb)
             cv_layer_p2node(layernmb)%t2_cand(j,cv_slavef+1)
      &                                 = total_nmb_cand
-            BLRNODE = ((cv_keep(486).eq.1).and.(cv_keep(471).ge.0) .and.
+            BLRNODE = ((cv_keep(494).ne.0).and.(cv_keep(471).ge.0) .and.
      &     (npiv.ge.cv_keep(490)).and.(nfront.ge.cv_keep(491))) 
             IF (BLRNODE) THEN
               call MUMPS_COSTS_BLR_T2_MASTER(npiv, nfront, 
@@ -1170,7 +1175,7 @@ C
       if (cv_slavef.eq.1) then
          return
       endif
-      if (cv_icntl(40) .ne. 0) then
+      if (cv_icntl(59) .ne. 0) then
          istat = 0
          return
       endif
@@ -1201,6 +1206,15 @@ C
               npropmap=npropmap+1
            endif
         end do
+        IF (keep(376) .EQ.1) THEN
+           err_rep='GET_SPLIT_4_PERF'
+           CALL MUMPS_GET_SPLIT_4_PERF(inode, nfront, npiv,
+     &     dble(npropmap),
+     &     k1, lnpivsplit, npivsplit, n, cv_frere(1), cv_keep(1), istat)
+           k3=k1
+           doit = .true.
+           GOTO 200
+        ENDIF
         IF ((cv_keep(79) .EQ.0).OR.(cv_keep(79).GE.5)) THEN
           err_rep='GET_SPLIT_INKPART'
          call MUMPS_GET_SPLIT_INKPART(inode,
@@ -1214,7 +1228,7 @@ C
          k3=k2
         ENDIF
         if (ierr.eq.0) then
-          if (lnpivsplit < k1) then
+           if (lnpivsplit < k1) then
             write(*,*) 'error in', subname, lnpivsplit, k1, cv_keep(108)
             call MUMPS_ABORT()
           endif
@@ -1223,6 +1237,7 @@ C
           enddo
           npivsplit(k1)=npiv-(npiv/k1)*(k1-1)
         endif
+ 200    CONTINUE
         if(ierr.ne.0) then
             if(cv_lp.gt.0)
      &           write(cv_lp,*)'Error reported by ',
@@ -1271,7 +1286,7 @@ C
       integer,intent(out) ::k1,k3
       integer npiv2,nfront2,npiv_son2
       integer ncb,kmax,keep48_loc,nslaves_max,
-     &     nslaves_estim,strat,kk, blsize
+     &     nslaves_estim,strat,kk
       DOUBLE PRECISION wk_master,wk_master2,wk_slave2
       integer MUMPS_REG_GETKMAX,
      &     MUMPS_BLOC2_GET_NSLAVESMAX,
@@ -1309,23 +1324,22 @@ C
       endif
       if (cv_keep(48).EQ.5) keep48_loc = 5
       if(npropmap .gt. cv_keep(83)) then
-         blsize = cv_keep(420)
-         if (cv_keep(486).ne.0) then
-           blsize = max( cv_keep(488),cv_keep(420))
-         endif
          nslaves_max   = MUMPS_BLOC2_GET_NSLAVESMAX(
      &        cv_slavef, keep48_loc, cv_keep8(21),
      &        cv_keep(50), nfront, 
-     &        max(max(ncb,nfront-blsize),1), cv_keep(375))
+     &        max(max(ncb,nfront-cv_keep(420)),1),
+     &        cv_keep(375), cv_keep(119))
          nslaves_estim = min(npropmap-1,nslaves_max)
          nslaves_estim = max(nslaves_estim,1)
       else
          nslaves_max   = MUMPS_BLOC2_GET_NSLAVESMAX(
      &        cv_slavef, keep48_loc, cv_keep8(21),
-     &        cv_keep(50), nfront, ncb, cv_keep(375) )
+     &        cv_keep(50), nfront, ncb, cv_keep(375),
+     &        cv_keep(119) )
          nslaves_estim = MUMPS_BLOC2_GET_NSLAVESMIN(
      &     cv_slavef, keep48_loc,cv_keep8(21),
-     &     cv_keep(50), nfront, ncb, cv_keep(375) )
+     &     cv_keep(50), nfront, ncb,
+     &     cv_keep(375), cv_keep(119) )
          nslaves_estim = max(nslaves_estim,1)
          nslaves_estim = min(nslaves_estim,nslaves_max)
       endif
@@ -1793,7 +1807,7 @@ C
                   in = ifather
                   cv_nodelayer (in) = current
                   exit
-                else
+               else
                  write(6,*) ' Internal error 1 in MUMPS_HIGHER_LAYER'
                  call MUMPS_ABORT()
                 endif
@@ -1815,7 +1829,7 @@ C
                 else if (abs(cv_nodetype(ifather)).eq.tsplit_last) then
                   in = ifather
                   exit
-                else
+               else
                  write(6,*) ' Internal error 1 in MUMPS_HIGHER_LAYER',
      &           cv_nodetype(ifather)
                  call MUMPS_ABORT()
@@ -1891,7 +1905,7 @@ C
       implicit none
       integer, intent(in)::n,slavef
       integer, intent(in), TARGET:: frere(n),fils(n),nfsiz(n),ne(n),
-     &  keep(500),icntl(40),info(40),
+     &  keep(500),icntl(60),info(80),
      &  procnode(n),ssarbr(n)
       INTEGER(8), intent(in), TARGET:: KEEP8(150)
       integer,intent(out)::istat
@@ -2086,7 +2100,7 @@ C
       MUMPS_ISTYPE2BYSIZE=.FALSE.
       if( (nfront - npiv > cv_keep(9))
      &     .and. ((npiv > cv_keep(4)).or.(.TRUE.))
-     &     .and. (cv_icntl(40).eq.0) ) MUMPS_ISTYPE2BYSIZE=.TRUE.
+     &     .and. (cv_icntl(59).eq.0) ) MUMPS_ISTYPE2BYSIZE=.TRUE.
       return
       end function MUMPS_ISTYPE2BYSIZE
       subroutine MUMPS_LAYERL0(istat)
@@ -2908,6 +2922,7 @@ C
       integer nmb_propmap_strict,share2,procsrest,current2
       integer k69onid
       INTEGER, ALLOCATABLE, DIMENSION(:) :: procs_inode
+      LOGICAL UPDATE_CTR
       if (ctr.le.0) then
          istat = 0
          return
@@ -3007,9 +3022,13 @@ C
       in=son
       current = 1
       do while(in.gt.0)
-         if( (nmb_sons_inode.ge.nmb_procs_inode).AND.
-     &       (nmb_procs_inode.LT.4) ) then
+         UPDATE_CTR = .TRUE.
+         if( ( (nmb_sons_inode.ge.nmb_procs_inode).AND.
+     &         (nmb_procs_inode.LT.4) )
+     &       .OR. ( nmb_sons_inode.EQ.1 )
+     &     ) then
             procs4son = cv_prop_map(inode)%ind_proc
+            IF (nmb_sons_inode.EQ.1) UPDATE_CTR=.FALSE.
          else
             do k=1,cv_size_ind_proc
                do j=0,cv_bitsize_of_int-1
@@ -3068,7 +3087,11 @@ C
          ierr=0
          in1=in
          cv_prop_map(in1)%ind_proc=procs4son
-         call MUMPS_MOD_PROPMAP(in1,ctr-1,ierr)
+         IF (UPDATE_CTR) THEN
+          call MUMPS_MOD_PROPMAP(in1,ctr-1,ierr)
+         ELSE
+          call MUMPS_MOD_PROPMAP(in1,ctr,ierr)
+         ENDIF
          if(ierr.ne.0) then
             if(cv_lp.gt.0) write(cv_lp,*)
      &           'Error reported in ',subname
@@ -3470,7 +3493,8 @@ C
      &              MUMPS_BLOC2_GET_NSLAVESMIN
      &              (cv_slavef, keep48_loc,cv_keep8(21),
      &              cv_keep(50),
-     &              nfront,ncb, cv_keep(375))
+     &              nfront,ncb,
+     &              cv_keep(375), cv_keep(119))
                min_cand_needed=min(cv_slavef,min_cand_needed+1)
             else
                min_cand_needed = 0
@@ -3917,7 +3941,7 @@ C
       implicit none
       integer,dimension(cv_n),intent(inout)::ne,nfsiz,frere,fils,
      &                                     procnode,ssarbr
-      integer, intent(inout):: keep(500),info(40),nbsa
+      integer, intent(inout):: keep(500),info(80),nbsa
       INTEGER(8) KEEP8(150)
       ne=cv_ne
       nfsiz=cv_nfsiz
@@ -4013,7 +4037,7 @@ C
       integer,intent(in)::pos
       integer i,nfront,npiv,nextpos
       if ((.NOT.associated(cv_tcostw)).OR.(.NOT.associated(cv_tcostm)))
-     &   then
+     &     then
          call MUMPS_ABORT()
       end if
       nfront=cv_nfsiz(pos)
@@ -4109,7 +4133,8 @@ C
       return
       end subroutine MUMPS_FIX_ACCEPTED_MASTER
       end subroutine MUMPS_DISTRIBUTE
-      subroutine MUMPS_RETURN_CANDIDATES(par2_nodes,cand,istat)
+      subroutine MUMPS_RETURN_CANDIDATES(par2_nodes,cand,
+     &                istat)
       integer, intent(out) :: par2_nodes(cv_nb_niv2), istat
       integer, intent(out) :: cand(:,:)
       character (len=48):: subname
@@ -4592,7 +4617,7 @@ C
      &                   ICNTL13, KEEP, FRERE, ND, ISTAT)
       IMPLICIT NONE
       INTEGER, intent(in) :: N, SLAVEF, ICNTL13, MP
-      INTEGER KEEP(150)
+      INTEGER KEEP(500)
       INTEGER FRERE(N), ND(N)
       INTEGER, intent(out) :: ISTAT
       INTEGER IROOTTREE, SIZEROOT, NFRONT, I
@@ -4776,7 +4801,7 @@ C
       inode = inode_chain
       k  = 1  
       do
-        if (.not. (frere(inode) .lt. 0) ) then
+         if (.not. (frere(inode) .lt. 0) ) then
           write(*,*) " Internal error 0 in SETUP_CAND",
      &    frere(inode), inode
           CALL MUMPS_ABORT()
@@ -4787,7 +4812,7 @@ C
         procnode(ifather) = cand(dummy,1) + 1
         if  ( (nodetype(ifather).eq.tsplit_mid) .or.
      &        (nodetype(ifather).eq.tsplit_last) ) then
-          if (nbcand.lt.2) then
+           if (nbcand.lt.2) then
             par2_nodes(dummy+1) = ifather
             procnode(ifather) = procnode(inode) 
             cand(dummy+1,:) = cand(dummy,:)
@@ -4817,7 +4842,7 @@ C
           cand(dummy+1,nbcand-1+k) = procnode(inode)-1 
           nbcand = nbcand+k-1
           k = 1
-        else
+       else
           write(6,*) ' Internal error 2 in SETUP_CAND', 
      &    ' in, ifather =', inode, ifather,
      &    ' nodetype(ifather) ', nodetype(ifather)
@@ -4830,3 +4855,165 @@ C
       end do
       istat = 0
       end subroutine MUMPS_SETUP_CAND_CHAIN
+      subroutine MUMPS_GET_SPLIT_4_PERF(inode, nfront, npiv, nproc,
+     &                                  k, lnpivsplit, npivsplit,
+     &                                  n, frere, keep, istat)
+      implicit none
+      integer,intent(in)::inode, nfront, npiv, lnpivsplit, n
+      integer,intent(in)::frere(n)
+      integer,intent(in)::keep(150)
+      double precision, intent(in):: nproc
+      integer,intent(out)::k, npivsplit(lnpivsplit), istat
+      logical :: nosplit
+      integer :: kk, optimization_strategy, nass, npiv2
+      double precision :: nproc2
+      integer :: npivOld, npivNew
+      double precision :: timeFacOld, timeFacNew, timeAss
+      double precision ,parameter :: alpha=8.0D9
+      double precision ,parameter :: gamma=1.2D9
+      nosplit = npiv .le. npiv4equilibreRows(nfront, nproc)
+      optimization_strategy = 0 
+      nosplit = nosplit .or. (frere(inode) .eq. 0)
+      if ( nosplit ) then
+         k = 1
+         npivsplit(1) = npiv
+         istat = 0
+         return
+      endif
+      if (nproc .le. 1.0d0) then 
+         k = 1
+         npivsplit(1) = npiv
+         istat = -1
+         return
+      endif
+      nproc2 = nproc
+      nass = 0
+      kk = 0
+      do while (nass .lt. npiv)
+        if ((nproc2 .eq. 2.0d0) .or.
+     &           (nfront - nass .le. 6*keep(9))) then
+          npiv2 = npiv - nass
+        else if (nproc2 .gt. 2) then
+          if (optimization_strategy .eq. 0) then 
+            npiv2 = min(npiv - nass,
+     &                  npiv4equilibreRows(nfront - nass, nproc2 ))
+          else if (optimization_strategy .eq. 1) then 
+            if (nproc2 .eq. nproc) then
+              npiv2 = min(npiv - nass,
+     &                    npiv4equilibreFlops(nfront - nass, nproc2 ))
+            else 
+              npiv2 = min(npiv - nass,
+     &                    npiv4equilibreRows(nfront - nass, nproc2 ))
+            endif
+         else
+            write(*,*) "Internal error in MUMPS_GET_SPLIT_4_PERF,"
+            write(*,*) "optimization_strategy not implemented"
+            call MUMPS_ABORT()
+          endif
+        endif
+        nass = nass + npiv2
+        kk = kk + 1
+        npivsplit(kk) = npiv2
+        if (keep(79) .ge. 1  
+     &    .and. kk .ne. 1) then  
+          if (optimization_strategy .eq. 0) then 
+            npivOld = min(npiv - nass,
+     &                npiv4equilibreRows(nfront - nass, nproc ))
+            npivNew = min(npiv - nass,
+     &                npiv4equilibreRows(nfront - nass, nproc2 - 1.0d0))
+          else if (optimization_strategy .eq. 1) then 
+            npivOld = min(npiv - nass,
+     &              npiv4equilibreFlops(nfront - nass, nproc ))
+            npivNew = min(npiv - nass,
+     &              npiv4equilibreRows(nfront - nass, nproc2 - 1.0d0))
+         else
+            write(*,*) "Internal error in MUMPS_GET_SPLIT_4_PERF,"
+            write(*,*) "optimization_strategy not implemented"
+            call MUMPS_ABORT()
+          endif
+          timeAss = timeAssembly(int(nfront-nass,8), nproc2)
+          timeFacOld = timeFacto(int(nfront-nass,8), int(npivOld,8),
+     &                           nproc)
+          timeFacNew = timeFacto(int(nfront-nass,8),int(npivNew,8),
+     &                           nproc2)
+          if ( (flopsFactoPanel(int(npivOld,8),int(nfront-nass,8))+
+     &          flopsUpdate(int(nfront-nass-npivOld,8),
+     &          int(nfront-nass-npivOld,8), int(npivOld,8)))/
+     &          (timeFacOld+timeAss)
+     &       .gt. (flopsFactoPanel(int(npivNew,8),int(nfront-nass,8))+
+     &          flopsUpdate(int(nfront-nass-npivNew,8),
+     &          int(nfront-nass-npivNew,8), int(npivNew,8)))/
+     &          timeFacNew ) then 
+            npivsplit(kk) = -npiv2
+            nproc2 = nproc
+          else
+            nproc2 = nproc2 - 1.0d0
+          endif
+        endif
+      enddo
+      k = kk
+      istat=0
+      return
+      CONTAINS   
+      function npiv4equilibreRows(nfront, nproc)
+      implicit none
+      integer npiv4equilibreRows
+      integer, intent(in) :: nfront
+      double precision, intent(in) :: nproc
+        npiv4equilibreRows = max(1, int(dble(nfront)/nproc))
+        return 
+      end function npiv4equilibreRows
+      function  npiv4equilibreFlops(nfront, nproc)
+      implicit none
+      integer npiv4equilibreFlops
+      integer, intent(in) :: nfront
+      double precision, intent(in) :: nproc
+        double precision::n,s,a,b,c,sdelta,npiv
+        n = dble(nfront)
+        s = nproc - 1.0d0
+        a = s/3.+1.
+        b = -3.*n - s*n - s/2.
+        c = 2.*n**2 + s*n + s/6.
+        sdelta = (b*b) - 4*a*c
+        if (sdelta < 0.0E0) then
+          WRITE(*,*) "Delta < 0 in npiv4equilibreFlops"
+          call MUMPS_ABORT()
+        endif
+        sdelta = sqrt(sdelta)
+        npiv = (-b - sdelta)/(2*a)
+        npiv4equilibreFlops = max(1, int(npiv))
+        return
+      end function npiv4equilibreFlops
+      function flopsFactoPanel(nbrows, nbcols)
+        integer(8) :: nbrows, nbcols
+        double precision :: flopsFactoPanel
+        flopsFactoPanel = (nbrows*((-1.d0/3.d0)*nbrows**2 +
+     &          (nbcols + 1.d0/2.d0)*nbrows +
+     &          (nbcols + 1.d0/6.d0)))
+      end function flopsFactoPanel
+      function flopsUpdate(m, n, k)
+        integer(8) :: m, n, k
+        double precision :: flopsUpdate
+        flopsUpdate = dble(2*m*n*k + m*k**2)
+      end function flopsUpdate
+      function timeFacto(nfront, npiv, nproc)
+        integer(8), intent(in) :: nfront, npiv
+        double precision, intent(in) :: nproc
+        double precision :: timeFacto
+        timeFacto = (max(flopsFactoPanel(npiv,nfront),
+     &              flopsUpdate(nfront-npiv, nfront-npiv, npiv)/
+     &              (nproc-1))/alpha)
+      end function timeFacto
+      function timeNIV1(nfront, npiv)
+        integer(8) :: nfront, npiv
+        double precision :: timeNIV1
+        timeNIV1 = ((flopsFactoPanel(npiv, nfront) +
+     &           flopsUpdate(nfront - npiv, nfront - npiv, npiv))/alpha)
+      end function timeNIV1
+      function timeAssembly(n, p)
+        integer(8) :: n
+        double precision, intent(in) :: p
+        double precision :: timeAssembly
+        timeAssembly = ((n*n/p)/(gamma/(log(p)/log(2.0d0))))
+      end function timeAssembly
+      end subroutine MUMPS_GET_SPLIT_4_PERF

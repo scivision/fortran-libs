@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -13,7 +13,7 @@ C
       SUBROUTINE CMUMPS_PROCESS_NODE( MYID,KEEP,KEEP8,DKEEP,
      &           BUFR, LBUFR, LBUFR_BYTES,
      &           IWPOS, IWPOSCB, IPTRLU, LRLU, LRLUS,
-     &           N, IW, LIW, A, LA,
+     &           N, IW, LIW, A, LA, SLAVEF, PROCNODE_STEPS, DAD,
      &           PTRIST, PTRAST, STEP, PIMASTER, PAMASTER,
      &           NSTK_S, COMP,
      &           FPERE, FLAG, IFLAG, IERROR, COMM,
@@ -31,6 +31,8 @@ C
       INTEGER N, LIW
       INTEGER IW( LIW )
       COMPLEX A( LA )
+      INTEGER, INTENT(IN) :: SLAVEF
+      INTEGER, INTENT(IN) :: PROCNODE_STEPS(KEEP(28)), DAD(KEEP(28))
       INTEGER(8) :: PTRAST  (KEEP(28))
       INTEGER(8) :: PAMASTER(KEEP(28))
       INTEGER PTRIST( KEEP(28) )
@@ -46,7 +48,7 @@ C
       INTEGER SIZE_PACKET
       INTEGER NBROWS_ALREADY_SENT, NBROWS_PACKET
       INCLUDE 'mumps_headers.h'
-      LOGICAL COMPRESSCB
+      LOGICAL PACKED_CB
       FLAG = .FALSE.
       POSITION = 0
       CALL MPI_UNPACK(BUFR, LBUFR_BYTES, POSITION,
@@ -64,8 +66,8 @@ C
       CALL MPI_UNPACK(BUFR, LBUFR_BYTES, POSITION,
      &                NBROWS_PACKET, 1, MPI_INTEGER,
      &                COMM, IERR)
-      COMPRESSCB = (FLCONT.LT.0) 
-      IF (COMPRESSCB) THEN
+      PACKED_CB = (FLCONT.LT.0) 
+      IF (PACKED_CB) THEN
         FLCONT   = -FLCONT
         LREQCB  = (int(FLCONT,8) * int(FLCONT+1,8)) / 2_8
       ELSE
@@ -73,24 +75,22 @@ C
       ENDIF
       IF (NBROWS_ALREADY_SENT == 0) THEN
         LREQ    = 2 * FLCONT + 6 + KEEP(IXSZ)
-        IF (IPTRLU.LT.0_8) WRITE(*,*) 'before alloc_cb:IPTRLU = ',IPTRLU
         CALL CMUMPS_ALLOC_CB( .FALSE., 0_8, .FALSE.,.FALSE.,
      &  MYID,N, KEEP,KEEP8, DKEEP, IW, LIW, A, LA,
-     &  LRLU, IPTRLU,IWPOS,IWPOSCB,
+     &  LRLU, IPTRLU,IWPOS,IWPOSCB, SLAVEF, PROCNODE_STEPS, DAD,
      &  PTRIST,PTRAST,STEP, PIMASTER, PAMASTER,
      &  LREQ, LREQCB, FINODE, S_NOTFREE, .TRUE.,
      &  COMP, LRLUS, IFLAG, IERROR
      &     )
-        IF (IPTRLU.LT.0_8) WRITE(*,*) 'after alloc_cb:IPTRLU = ',IPTRLU
         IF ( IFLAG .LT. 0 ) RETURN
         PIMASTER(STEP( FINODE )) = IWPOSCB + 1
         PAMASTER(STEP( FINODE )) = IPTRLU  + 1_8
-        IF (COMPRESSCB)  IW(IWPOSCB + 1 + XXS ) = S_CB1COMP
+        IF (PACKED_CB)  IW(IWPOSCB + 1 + XXS ) = S_CB1COMP
         CALL MPI_UNPACK(BUFR, LBUFR_BYTES, POSITION,
      &        IW(IWPOSCB + 1+KEEP(IXSZ)), LREQ-KEEP(IXSZ),
      &        MPI_INTEGER, COMM, IERR)
       ENDIF
-      IF (COMPRESSCB) THEN
+      IF (PACKED_CB) THEN
         ISHIFT_PACKET = int(NBROWS_ALREADY_SENT,8) *
      &                  int(NBROWS_ALREADY_SENT+1,8) / 2_8
         SIZE_PACKET = (NBROWS_PACKET * (NBROWS_PACKET+1))/2 +

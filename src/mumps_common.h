@@ -1,11 +1,11 @@
 /*
  *
- *  This file is part of MUMPS 5.1.2, released
- *  on Mon Oct  2 07:37:01 UTC 2017
+ *  This file is part of MUMPS 5.2.1, released
+ *  on Fri Jun 14 14:46:05 UTC 2019
  *
  *
- *  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
- *  University of Bordeaux.
+ *  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
  *  released under the CeCILL-C license:
@@ -75,4 +75,12 @@ MUMPS_ASSIGN_SYM_PERM(MUMPS_INT * f77sym_perm);
     F_SYMBOL(nullify_c_sym_perm,NULLIFY_C_SYM_PERM)
 void MUMPS_CALL
 MUMPS_NULLIFY_C_SYM_PERM();
+#define MUMPS_ICOPY_32TO64_64C_IP_C \
+    F_SYMBOL(icopy_32to64_64c_ip_c,ICOPY_32TO64_64C_IP_C)
+void MUMPS_CALL
+MUMPS_ICOPY_32TO64_64C_IP_C(MUMPS_INT *inouttab, MUMPS_INT8 *sizetab);
+#define MUMPS_ICOPY_64TO32_64C_IP_C \
+    F_SYMBOL(icopy_64to32_64c_ip_c,ICOPY_64TO32_64C_IP_C)
+void MUMPS_CALL
+MUMPS_ICOPY_64to32_64C_IP_C(MUMPS_INT8 *inouttab, MUMPS_INT8 *sizetab);
 #endif /* MUMPS_COMMON_H */

@@ -1,20 +1,24 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
 C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
-      SUBROUTINE ZMUMPS_ASS_ROOT( NROW_SON, NCOL_SON, INDROW_SON, 
+      SUBROUTINE ZMUMPS_ASS_ROOT( root, KEEP50,
+     &                     NROW_SON, NCOL_SON, INDROW_SON, 
      &                     INDCOL_SON, NSUPCOL, VAL_SON, VAL_ROOT,
      &                     LOCAL_M, LOCAL_N,
      &                     RHS_ROOT, NLOC_ROOT, CBP )
+      USE ZMUMPS_STRUC_DEF, ONLY : ZMUMPS_ROOT_STRUC
       IMPLICIT NONE
+      TYPE (ZMUMPS_ROOT_STRUC) :: root
+      INTEGER, INTENT(IN) :: KEEP50
       INTEGER NCOL_SON, NROW_SON, NSUPCOL
       INTEGER, intent(in) :: CBP   
       INTEGER INDROW_SON( NROW_SON ), INDCOL_SON( NCOL_SON )
@@ -23,16 +27,28 @@ C
       COMPLEX(kind=8) VAL_ROOT( LOCAL_M, LOCAL_N )
       INTEGER NLOC_ROOT
       COMPLEX(kind=8) RHS_ROOT( LOCAL_M, NLOC_ROOT )
-      INTEGER I, J
+      INTEGER I, J, INDROW, INDCOL, IPOSROOT, JPOSROOT
       IF (CBP .EQ. 0) THEN
         DO I = 1, NROW_SON
+          INDROW = INDROW_SON(I)
+          IPOSROOT = (root%NPROW*((INDROW-1)/root%MBLOCK)+root%MYROW)
+     &             * root%MBLOCK + mod(INDROW-1,root%MBLOCK) + 1
           DO J = 1, NCOL_SON-NSUPCOL
-          VAL_ROOT( INDROW_SON( I ), INDCOL_SON( J ) ) =
-     &    VAL_ROOT( INDROW_SON( I ), INDCOL_SON( J ) ) + VAL_SON(J,I)
+          INDCOL = INDCOL_SON(J)
+          IF (KEEP50.NE.0) THEN
+            JPOSROOT = (root%NPCOL*((INDCOL-1)/root%NBLOCK)+root%MYCOL)
+     &               * root%NBLOCK + mod(INDCOL-1,root%NBLOCK) + 1
+            IF (IPOSROOT < JPOSROOT) THEN
+              CYCLE
+            ENDIF
+          ENDIF
+          VAL_ROOT( INDROW, INDCOL ) =
+     &    VAL_ROOT( INDROW, INDCOL ) + VAL_SON(J,I)
           END DO
           DO J = NCOL_SON-NSUPCOL+1, NCOL_SON
-            RHS_ROOT( INDROW_SON( I ), INDCOL_SON(J)) =
-     &      RHS_ROOT(INDROW_SON(I),INDCOL_SON(J)) + VAL_SON(J,I)
+            INDCOL = INDCOL_SON(J)
+            RHS_ROOT( INDROW, INDCOL ) =
+     &      RHS_ROOT( INDROW, INDCOL ) + VAL_SON(J,I)
           ENDDO
         END DO
       ELSE
@@ -57,7 +73,7 @@ C
      &    NSTK, COMP, IFLAG, IERROR, NBPROCFILS,
      &    IPOOL, LPOOL, LEAF, NBFIN, SLAVEF,
      &    OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &    FILS, PTRARW, PTRAIW,
+     &    FILS, DAD, PTRARW, PTRAIW,
      &    INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,TRANSPOSE_ASM,
      &    ND, FRERE,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
@@ -67,9 +83,10 @@ C
       USE ZMUMPS_OOC        
       USE ZMUMPS_BUF
       USE ZMUMPS_LOAD
+      USE ZMUMPS_STRUC_DEF, ONLY : ZMUMPS_ROOT_STRUC
+      USE ZMUMPS_DYNAMIC_MEMORY_M, ONLY : ZMUMPS_DM_SET_DYNPTR
       IMPLICIT NONE
-      INCLUDE 'zmumps_root.h'
-      INTEGER KEEP(500), ICNTL(40)
+      INTEGER KEEP(500), ICNTL(60)
       INTEGER(8) KEEP8(150)
       DOUBLE PRECISION  DKEEP(230)
       TYPE (ZMUMPS_ROOT_STRUC) :: root
@@ -106,7 +123,7 @@ C
       INTEGER NBFIN, SLAVEF
       DOUBLE PRECISION OPASSW, OPELIW
       INTEGER PROCNODE_STEPS( KEEP(28) )
-      INTEGER ITLOC( N + KEEP(253) ), FILS( N )
+      INTEGER ITLOC( N + KEEP(253) ), FILS( N ), DAD(KEEP(28))
       COMPLEX(kind=8) :: RHS_MUMPS(KEEP(255))
       INTEGER ND( KEEP(28) ), FRERE( KEEP(28) )
       INTEGER(8), INTENT(IN) :: PTRARW( LPTRAR ), PTRAIW( LPTRAR )
@@ -114,6 +131,8 @@ C
       COMPLEX(kind=8) DBLARR( KEEP8(26) )
       INTEGER ISTEP_TO_INIV2(KEEP(71)), 
      &        TAB_POS_IN_PERE(SLAVEF+2,max(1,KEEP(56)))
+      COMPLEX(kind=8), DIMENSION(:), POINTER :: SONA_PTR
+      INTEGER(8) :: LSONA_PTR, POSSONA_PTR
       INTEGER allocok
       INTEGER, ALLOCATABLE, DIMENSION(:) :: PTRROW,  PTRCOL
       INTEGER, ALLOCATABLE, DIMENSION(:) :: NSUPROW, NSUPCOL
@@ -348,7 +367,7 @@ C
       JCOL  = root%MYCOL
       IROW  = root%MYROW
       IF ( root%yes ) THEN
-        if (IROW .ne. root%MYROW .or. JCOL.ne.root%MYCOL) then
+         if (IROW .ne. root%MYROW .or. JCOL.ne.root%MYCOL) then
         write(*,*) ' error in grid position buildandsendcbroot'
         CALL MUMPS_ABORT()
         end if
@@ -356,7 +375,8 @@ C
      &       PTLUST_S(STEP(IROOT)).EQ.0) THEN
            CALL ZMUMPS_ROOT_ALLOC_STATIC(root, IROOT, N, IW, LIW,
      &               A, LA,
-     &               FILS, MYID, PTRAIW, PTRARW, INTARR, DBLARR,
+     &               FILS, DAD, MYID, SLAVEF, PROCNODE_STEPS,
+     &               PTRAIW, PTRARW, INTARR, DBLARR,
      &               LRLU, IPTRLU,
      &               IWPOS, IWPOSCB, PTRIST, PTRAST,
      &               STEP, PIMASTER, PAMASTER, ITLOC, RHS_MUMPS,
@@ -396,6 +416,10 @@ C
               ENDIF
           END IF
         END IF
+        CALL ZMUMPS_DM_SET_DYNPTR( IW(PTRI(STEP(ISON))+XXS), A, LA,
+     &      PTRR(STEP(ISON)), IW(PTRI(STEP(ISON))+XXD),
+     &      IW(PTRI(STEP(ISON))+XXR),
+     &      SONA_PTR, POSSONA_PTR, LSONA_PTR )
        IF (KEEP(60) .NE. 0 ) THEN
          LOCAL_M = root%SCHUR_LLD
          LOCAL_N = root%SCHUR_NLOC
@@ -408,7 +432,7 @@ C
      &        NBCOL, NBROW,
      &        IW( PTRI(STEP(ISON)) + SHIFT_LIST_COL_SON ),
      &        IW( PTRI(STEP(ISON)) + SHIFT_LIST_ROW_SON ),
-     &        LDA, A( PTRR( STEP(ISON)) + SHIFT_VAL_SON ),
+     &        LDA, SONA_PTR( POSSONA_PTR + SHIFT_VAL_SON ),
      &        ROW_INDEX_LIST( PTRROW( IROW + 1 ) ),
      &        COL_INDEX_LIST( PTRCOL( JCOL + 1 ) ),
      &        NRLOCAL,
@@ -436,7 +460,7 @@ C
      &        NBCOL, NBROW,
      &        IW( PTRI(STEP(ISON)) + SHIFT_LIST_COL_SON ),
      &        IW( PTRI(STEP(ISON)) + SHIFT_LIST_ROW_SON ),
-     &        LDA, A( PTRR( STEP(ISON)) + SHIFT_VAL_SON ),
+     &        LDA, SONA_PTR( POSSONA_PTR + SHIFT_VAL_SON ),
      &        ROW_INDEX_LIST( PTRROW( IROW + 1 ) ),
      &        COL_INDEX_LIST( PTRCOL( JCOL + 1 ) ),
      &        NRLOCAL,
@@ -452,7 +476,7 @@ C
         DO JCOL = 0, root%NPCOL - 1
           PDEST = IROW * root%NPCOL + JCOL
           IF ( (root%MYROW.eq.IROW.and.root%MYCOL.eq.JCOL) .and.
-     &      MYID.ne.PDEST) THEN
+     &         MYID.ne.PDEST) THEN
             write(*,*) 'error: myrow,mycol=',root%MYROW,root%MYCOL
             write(*,*) ' MYID,PDEST=',MYID,PDEST
             CALL MUMPS_ABORT()
@@ -471,7 +495,8 @@ C
      &          LRLU, IPTRLU,
      &          IWPOS, IWPOSCB, PTRIST, PTRAST,
      &          STEP, PIMASTER, PAMASTER, KEEP(216),LRLUS,
-     &          KEEP(IXSZ), COMP, DKEEP(97), MYID)
+     &          KEEP(IXSZ), COMP, DKEEP(97),
+     &          MYID, SLAVEF, PROCNODE_STEPS, DAD)
                 IF ( LRLU .NE. LRLUS ) THEN
                   WRITE(*,*) MYID,": pb compress in",
      &                            "ZMUMPS_BUILD_AND_SEND_CB_ROOT"
@@ -479,18 +504,23 @@ C
                   CALL MUMPS_ABORT()
                 END IF
               END IF
-              CALL ZMUMPS_BUF_SEND_CONTRIB_TYPE3( N, ISON,
+              CALL ZMUMPS_DM_SET_DYNPTR(
+     &        IW(PTRI(STEP(ISON))+XXS), A, LA,
+     &        PTRR(STEP(ISON)), IW(PTRI(STEP(ISON))+XXD),
+     &        IW(PTRI(STEP(ISON))+XXR),
+     &        SONA_PTR, POSSONA_PTR, LSONA_PTR )
+              CALL ZMUMPS_BUF_SEND_CONTRIB_TYPE3_I( N, ISON,
      &        NBCOL, NBROW,
      &        IW( PTRI(STEP(ISON)) + SHIFT_LIST_COL_SON ),
      &        IW( PTRI(STEP(ISON)) + SHIFT_LIST_ROW_SON ),
-     &        LDA, A( PTRR(STEP(ISON)) + SHIFT_VAL_SON ),
+     &        LDA, SONA_PTR( POSSONA_PTR + SHIFT_VAL_SON ),
      &        TAG,
      &        ROW_INDEX_LIST( PTRROW( IROW + 1 ) ),
      &        COL_INDEX_LIST( PTRCOL( JCOL + 1 ) ),
      &        NSUBSET_ROW, NSUBSET_COL,
      &        NSUPROW(IROW+1), NSUPCOL(JCOL+1),
      &        root%NPROW, root%NPCOL, root%MBLOCK,
-     &        root%RG2L_ROW, root%RG2L_COL,
+     &        root%RG2L_ROW(1), root%RG2L_COL(1),
      &        root%NBLOCK, PDEST,
      &        COMM, IERR, A( POSFAC ), LRLU, TRANSPOSE_ASM,
      &        SIZE_MSG, NBROWS_ALREADY_SENT, KEEP, BBPCBP )
@@ -508,7 +538,7 @@ C
      &            PIMASTER, PAMASTER, NSTK,
      &            COMP, IFLAG, IERROR, COMM, NBPROCFILS, IPOOL, LPOOL,
      &            LEAF, NBFIN, MYID, SLAVEF, root,
-     &            OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS,
+     &            OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD,
      &            PTRARW,PTRAIW,INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,
      &            ND, FRERE, LPTRAR, NELT, FRTPTR, FRTELT, 
      &            ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE.
@@ -571,7 +601,7 @@ C
         ELSE IF (IW(IOLDPS+XXS).EQ.S_NOLCLEANED38) THEN
           SHIFT_VAL_SON=0_8
           LDA = NELIM
-        ELSE
+       ELSE
           WRITE(*,*) MYID,
      &    ": internal error in ZMUMPS_SET_LDA_SHIFT_VAL_SON",
      &    IW(IOLDPS+XXS), "ISON=",ISON
@@ -587,8 +617,8 @@ C
      &   NSUBSET_ROW, NSUBSET_COL, NSUPROW, NSUPCOL,
      &   RG2L_ROW, RG2L_COL, TRANSPOSE_ASM,
      &   KEEP, RHS_ROOT, NLOC  )
+      USE ZMUMPS_STRUC_DEF, ONLY : ZMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'zmumps_root.h'
       INTEGER N, LOCAL_M, LOCAL_N
       COMPLEX(kind=8) VAL_ROOT( LOCAL_M, LOCAL_N )
       INTEGER NPCOL, NPROW, MBLOCK, NBLOCK
@@ -631,7 +661,7 @@ C
              JLOC_ROOT = NBLOCK
      &                * ( ( JPOS_ROOT - 1 ) / ( NBLOCK * NPCOL ) )
      &                + mod( JPOS_ROOT - 1, NBLOCK ) + 1
-              RHS_ROOT(ILOC_ROOT, JLOC_ROOT) =  
+             RHS_ROOT(ILOC_ROOT, JLOC_ROOT) =  
      &            RHS_ROOT(ILOC_ROOT, JLOC_ROOT) + VAL_SON( J, I )
           ENDDO
         END DO
@@ -648,6 +678,7 @@ C
               J         = SUBSET_COL( JSUB )
               JGLOB     = INDCOL_SON( J )
               JPOS_ROOT = RG2L_COL( JGLOB )
+              IF (KEEP(50).NE.0. AND. JPOS_ROOT .GT. IPOS_ROOT) CYCLE
               JLOC_ROOT = NBLOCK
      &                * ( ( JPOS_ROOT - 1 ) / ( NBLOCK * NPCOL ) )
      &                + mod( JPOS_ROOT - 1, NBLOCK ) + 1
@@ -719,8 +750,8 @@ C
      &  K50, K46, K51
      &     , K60, IDNPROW, IDNPCOL, IDMBLOCK, IDNBLOCK
      & )
+      USE ZMUMPS_STRUC_DEF, ONLY : ZMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'zmumps_root.h'
       INTEGER MYID, MYID_ROOT
       TYPE (ZMUMPS_ROOT_STRUC)::root
       INTEGER COMM_ROOT
@@ -805,10 +836,10 @@ C
       END SUBROUTINE ZMUMPS_INIT_ROOT_ANA
       SUBROUTINE ZMUMPS_INIT_ROOT_FAC( N, root, FILS, IROOT,
      &                                 KEEP, INFO )
+      USE ZMUMPS_STRUC_DEF, ONLY : ZMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'zmumps_root.h'
       TYPE ( ZMUMPS_ROOT_STRUC ):: root
-      INTEGER N, IROOT, INFO(40), KEEP(500)
+      INTEGER N, IROOT, INFO(80), KEEP(500)
       INTEGER FILS( N )
       INTEGER INODE, I, allocok
       IF ( associated( root%RG2L_ROW ) ) DEALLOCATE( root%RG2L_ROW )
@@ -1050,13 +1081,14 @@ C
       END SUBROUTINE ZMUMPS_GATHER_ROOT
       SUBROUTINE ZMUMPS_ROOT_ALLOC_STATIC(root, IROOT, N,
      &                  IW, LIW, A, LA,
-     &                  FILS, MYID, PTRAIW, PTRARW, INTARR, DBLARR,
+     &                  FILS, DAD, MYID, SLAVEF, PROCNODE_STEPS,
+     &                  PTRAIW, PTRARW, INTARR, DBLARR,
      &                  LRLU, IPTRLU,
      &                  IWPOS, IWPOSCB, PTRIST, PTRAST,
      &                  STEP, PIMASTER, PAMASTER, ITLOC, RHS_MUMPS,
      &                  COMP, LRLUS, IFLAG, KEEP,KEEP8,DKEEP,IERROR )
+      USE ZMUMPS_STRUC_DEF, ONLY : ZMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'zmumps_root.h'
       INTEGER MYID
       INTEGER KEEP(500)
       INTEGER(8) KEEP8(150)
@@ -1066,6 +1098,8 @@ C
       INTEGER IROOT, LIW, N, IWPOS, IWPOSCB
       INTEGER IW( LIW )
       COMPLEX(kind=8) A( LA )
+      INTEGER, INTENT(IN) :: SLAVEF
+      INTEGER, INTENT(IN) :: PROCNODE_STEPS(KEEP(28))
       INTEGER PTRIST(KEEP(28)), STEP(N)
       INTEGER(8) :: PTRAST(KEEP(28)), PAMASTER(KEEP(28))
       INTEGER PIMASTER(KEEP(28))
@@ -1073,7 +1107,7 @@ C
       COMPLEX(kind=8) :: RHS_MUMPS(KEEP(255))
       INTEGER COMP, IFLAG, IERROR
       INCLUDE 'mumps_headers.h'
-      INTEGER FILS( N )
+      INTEGER FILS( N ), DAD(KEEP(28))
       INTEGER(8), INTENT(IN) :: PTRAIW(N), PTRARW( N )
       INTEGER INTARR(KEEP8(27))
       COMPLEX(kind=8) DBLARR(KEEP8(26))
@@ -1124,7 +1158,8 @@ C
             CALL ZMUMPS_ALLOC_CB(.FALSE.,0_8,.FALSE.,.FALSE.,
      &                     MYID,N,KEEP,KEEP8,DKEEP,IW,LIW,A,LA,
      &                     LRLU, IPTRLU,
-     &                     IWPOS, IWPOSCB, PTRIST, PTRAST,
+     &                     IWPOS, IWPOSCB, SLAVEF, PROCNODE_STEPS, DAD,
+     &                     PTRIST, PTRAST,
      &                     STEP, PIMASTER, PAMASTER, LREQI_ROOT,
      &                     LREQA_ROOT, IROOT, S_NOTFREE, .TRUE., COMP,
      &                     LRLUS, IFLAG, IERROR
@@ -1139,8 +1174,8 @@ C
       SUBROUTINE ZMUMPS_ASM_RHS_ROOT
      &           ( N, FILS, root, KEEP, RHS_MUMPS, 
      &             IFLAG, IERROR )
+      USE ZMUMPS_STRUC_DEF, ONLY : ZMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'zmumps_root.h'
       INTEGER N, KEEP(500), IFLAG, IERROR
       INTEGER FILS(N)
       TYPE (ZMUMPS_ROOT_STRUC ) :: root

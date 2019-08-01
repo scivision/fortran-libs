@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -16,14 +16,14 @@ C
      &     NBPROCFILS, LRLU, IPTRLU, IWPOS, IWPOSCB,
      &     PTRIST, PTLUST, PTRFAC, PTRAST, STEP, PIMASTER, PAMASTER,
      &     COMP, LRLUS, IPOOL, LPOOL, LEAF,
-     &     FILS, MYID, PTRAIW, PTRARW, INTARR, DBLARR,
+     &     FILS, DAD, MYID, PTRAIW, PTRARW, INTARR, DBLARR,
      &     KEEP, KEEP8, DKEEP, IFLAG, IERROR, COMM, COMM_LOAD,
      &     ITLOC, RHS_MUMPS,
-     &     ND,PROCNODE_STEPS,SLAVEF )
+     &     ND,PROCNODE_STEPS, SLAVEF, OPASSW )
       USE ZMUMPS_LOAD
       USE ZMUMPS_OOC
+      USE ZMUMPS_STRUC_DEF, ONLY : ZMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'zmumps_root.h'
       TYPE (ZMUMPS_ROOT_STRUC ) :: root
       INTEGER    :: KEEP( 500 )
       INTEGER(8) :: KEEP8(150)
@@ -43,13 +43,15 @@ C
       COMPLEX(kind=8) :: RHS_MUMPS(KEEP(255))
       INTEGER BUFR( LBUFR_BYTES ), NBPROCFILS( KEEP(28) )
       INTEGER IW( LIW )
-      INTEGER ND(KEEP(28)), PROCNODE_STEPS(KEEP(28)),SLAVEF
+      INTEGER ND(KEEP(28)), PROCNODE_STEPS(KEEP(28))
+      INTEGER SLAVEF
       COMPLEX(kind=8) A( LA )
       INTEGER   MYID
-      INTEGER FILS( N )
+      INTEGER FILS( N ), DAD(KEEP(28))
       INTEGER(8), INTENT(IN) :: PTRAIW(N), PTRARW( N )
       INTEGER INTARR(KEEP8(27))
       COMPLEX(kind=8) DBLARR(KEEP8(26))
+      DOUBLE PRECISION OPASSW
         INCLUDE 'mpif.h'
         INTEGER IERR
         EXTERNAL MUMPS_PROCNODE
@@ -132,7 +134,8 @@ C
            IF (KEEP(60) == 0) THEN
             CALL ZMUMPS_ROOT_ALLOC_STATIC( root, IROOT, N,
      &                IW, LIW, A, LA,
-     &                FILS, MYID, PTRAIW, PTRARW, INTARR, DBLARR,
+     &                FILS, DAD, MYID, SLAVEF, PROCNODE_STEPS,
+     &                PTRAIW, PTRARW, INTARR, DBLARR,
      &                LRLU, IPTRLU,
      &                IWPOS, IWPOSCB, PTRIST, PTRAST,
      &                STEP, PIMASTER, PAMASTER, ITLOC, RHS_MUMPS,
@@ -166,14 +169,14 @@ C
          LREQA = int(NSUPROW,8) * int(NSUPCOL,8)
          IF ( (LREQA.NE.0_8) .AND.
      &       (PTRIST(STEP(IROOT)).LT.0).AND.
-     &       KEEP(60)==0) THEN
+     &        KEEP(60)==0) THEN
           WRITE(*,*) ' Error in ZMUMPS_PROCESS_CONTRIB_TYPE3'
           CALL MUMPS_ABORT()
          ENDIF
          CALL ZMUMPS_ALLOC_CB(.FALSE.,0_8,.FALSE.,.FALSE.,
      &     MYID,N,KEEP,KEEP8,DKEEP,IW,LIW,A, LA,
-     &     LRLU, IPTRLU, IWPOS, IWPOSCB, PTRIST,
-     &     PTRAST, STEP, PIMASTER, PAMASTER,
+     &     LRLU, IPTRLU, IWPOS, IWPOSCB, SLAVEF, PROCNODE_STEPS, DAD,
+     &     PTRIST, PTRAST, STEP, PIMASTER, PAMASTER,
      &     LREQI, LREQA, -1234, S_NOTFREE, .FALSE.,
      &     COMP, LRLUS, IFLAG, IERROR
      &          )
@@ -184,7 +187,8 @@ C
          CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &                   A( IPTRLU + 1_8 ), int(LREQA),
      &                   MPI_DOUBLE_COMPLEX, COMM, IERR )
-         CALL ZMUMPS_ASS_ROOT( NSUPROW, NSUPCOL,
+         OPASSW = OPASSW + LREQA 
+         CALL ZMUMPS_ASS_ROOT( root, KEEP(50), NSUPROW, NSUPCOL,
      &                     IW( IWPOSCB + 1 ), 
      &                     IW( IWPOSCB + NSUPROW + 1 ), NSUPCOL,
      &                     A( IPTRLU + 1_8 ),
@@ -196,8 +200,7 @@ C
          IPTRLU  = IPTRLU  + LREQA
          LRLU    = LRLU    + LREQA
          LRLUS   = LRLUS   + LREQA
-         KEEP8(70) = KEEP8(70) + LREQA
-         KEEP8(71) = KEEP8(71) + LREQA
+         KEEP8(69) = KEEP8(69) - LREQA
          CALL ZMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
      &                    LA-LRLUS,0_8,-LREQA,KEEP,KEEP8,LRLUS)
         ENDIF  
@@ -212,8 +215,8 @@ C
         IF (LREQA.NE.0_8) THEN
           CALL ZMUMPS_ALLOC_CB(.FALSE.,0_8,.FALSE.,.FALSE.,
      &     MYID,N,KEEP,KEEP8,DKEEP,IW,LIW,A, LA,
-     &     LRLU, IPTRLU, IWPOS, IWPOSCB, PTRIST,
-     &     PTRAST, STEP, PIMASTER, PAMASTER,
+     &     LRLU, IPTRLU, IWPOS, IWPOSCB, SLAVEF, PROCNODE_STEPS, DAD,
+     &     PTRIST, PTRAST, STEP, PIMASTER, PAMASTER,
      &     LREQI, LREQA, -1234, S_NOTFREE, .FALSE.,
      &     COMP, LRLUS, IFLAG, IERROR
      &          )
@@ -224,8 +227,10 @@ C
           CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &                   A( IPTRLU + 1_8 ), int(LREQA),
      &                   MPI_DOUBLE_COMPLEX, COMM, IERR )
+          OPASSW = OPASSW + LREQA 
           IF (KEEP(60).EQ.0) THEN
-            CALL ZMUMPS_ASS_ROOT( NBROWS_PACKET, NSUBSET_COL_EFF,
+            CALL ZMUMPS_ASS_ROOT( root, KEEP(50),
+     &                     NBROWS_PACKET, NSUBSET_COL_EFF,
      &                     IW( IWPOSCB + 1 ),
      &                     IW( IWPOSCB + NBROWS_PACKET + 1 ),
      &                     NSUPCOL_EFF,
@@ -234,7 +239,8 @@ C
      &                  root%RHS_ROOT(1,1), root%RHS_NLOC,
      &                  0)   
           ELSE
-            CALL ZMUMPS_ASS_ROOT( NBROWS_PACKET, NSUBSET_COL_EFF,
+            CALL ZMUMPS_ASS_ROOT( root, KEEP(50),
+     &                     NBROWS_PACKET, NSUBSET_COL_EFF,
      &                     IW( IWPOSCB + 1 ),
      &                     IW( IWPOSCB + NBROWS_PACKET + 1 ),
      &                     NSUPCOL_EFF,
@@ -248,8 +254,7 @@ C
           IPTRLU  = IPTRLU  + LREQA
           LRLU    = LRLU    + LREQA
           LRLUS   = LRLUS   + LREQA
-          KEEP8(70) = KEEP8(70) + LREQA
-          KEEP8(71) = KEEP8(71) + LREQA
+          KEEP8(69) = KEEP8(69) - LREQA
           CALL ZMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
      &                    LA-LRLUS,0_8,-LREQA,KEEP,KEEP8,LRLUS)
         ENDIF

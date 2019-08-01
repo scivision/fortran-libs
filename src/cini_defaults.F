@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -44,7 +44,7 @@ C     flag -i8 is used, in which case, K34 = 8 and K10 = 1
 C
 C
       INTEGER, INTENT(OUT) :: K34, K35, K10, K16
-      INTEGER SIZE_INT, SIZE_REAL_OR_DOUBLE ! Type must match MUMPS_INT 
+      INTEGER(8) :: SIZE_INT, SIZE_REAL_OR_DOUBLE ! matches MUMPS_INT8
       INTEGER I(2)
       REAL R(2) ! Will be DOUBLE PRECISION if 0
       CALL MUMPS_SIZE_C(I(1),I(2),SIZE_INT)
@@ -75,8 +75,8 @@ C  Default values for the elements are set in this routine.
 C
       REAL    DKEEP(230)
       REAL    CNTL(15), RINFO(40), RINFOG(40)
-      INTEGER ICNTL(40), KEEP(500), SYM, PAR, NSLAVES, MYID
-      INTEGER INFO(40), INFOG(40)
+      INTEGER ICNTL(60), KEEP(500), SYM, PAR, NSLAVES, MYID
+      INTEGER INFO(80), INFOG(80)
       INTEGER(8) KEEP8(150)
       INTEGER LWK_USER
 C
@@ -124,7 +124,7 @@ C     Default value is sqrt(macheps).
 C     Values less than zero are treated as sqrt(macheps).
 C
 C  CNTL(3) is only used combined with null pivot row
-C     detection (ICNTL(24) .eq. 1) and to Rank-Revealing (RR) option.
+C     detection (ICNTL(24) .eq. 1)
 C     It must be set to the absolute threshold for numerical pivoting.
 C     Default value is 0.0. 
 C     Let A_{preproc} be the preprocessed matrix to be factored (see
@@ -132,36 +132,13 @@ C       equation in the user's guide).
 C     A pivot is considered to be null if the infinite norm of its row/column
 C     is smaller than a threshold. Let MACHEPS be the machine precision and 
 C     ||.|| be the infinite norm.
-C    The computed threshold value for postponing pivots in case of RR on root
+C     The computed threshold value for postponing pivots in case of RR on root
 C     is stored in "SEUIL" and then "SEUIL_LDLT_NIV2"
 C     which are identical in current version.
 C     This absolute threshold value is stored in DKEEP(9).
 C
 C     The absolute value to detect a null pivot (when ICNTL(24) .NE.0) 
-C     is stored in DKEEP(1) and must be smaller than
-C     SEUIL when combined with RR on root.
-C
-C     IF (ICNTL(16).NE.0) THEN 
-C      RR on root is active 
-C      IF  (CNTL3 .LT. ZERO) THEN
-C          SEUIL = abs(CNTL(3))
-C      ELSE IF  (CNTL3 .GT. ZERO) THEN
-C          SEUIL = CNTL3*ANORMINF
-C      ELSE  !  (CNTL(3) .EQ. ZERO) THEN
-C          SEUIL = N*EPS*ANORMINF  ! standard articles
-C      ENDIF
-C      IF (ICNTL(24).NE.0) THEN
-C       null pivot detection
-C       IF (CNTL(6).GT.0.AND.CNTL(6).LT.1) THEN
-C         we want DKEEP(1) < SEUIL
-C         DKEEP(1) = SEUIL*CNTL(6) ! ideally it could be SEUIL*CNTL(6)
-C       ELSE 
-C         DKEEP(1) = SEUIL* 0.01E0 
-C       ENDIF
-C      ENDIF
-C
-C     ELSE (ONLY NULL PIVOT detection is active) 
-C         we keep stratgy used in MUMPS_4.10
+C     is stored in DKEEP(1).
 C      IF CNTL(3)  > 0 THEN
 C          DKEEP(1) = CNTL(3)  ||A_{preproc}|| 
 C      ELSE IF CNTL(3)  = 0.0 THEN 
@@ -351,15 +328,16 @@ C     and unsymmetric matrices)
 C     Option 8 is similar to 7 but more rigourous and expensive to compute.
 C     77 Automatic choice of scaling value done. Proposed algo:
 C          if (sym=1) then
-C           default = 0
+C           option = 0
 C          else
 C           if distributed matrix entry then 
-C              default = 7
+C              option = 7
 C           else
-C               if (mc64 called or mc77 based matching) then
-C                 default=-2 and ordering is computed during analysis
+C               if (maximum transversal is called
+C                    and makes use of numerical values) then
+C                 option=-2 and ordering is computed during analysis
 C               else
-C                 default = 7
+C                 option = 7
 C               endif
 C           endif
 C          endif
@@ -387,7 +365,7 @@ C     If ICNTL(11) is negative, zero or greater than 2 no estimate
 C     is returned.
 C
 C
-C  ICNTL(12) has default value 0 and define the strategy for 
+C  ICNTL(12) has default value 0 and defines the strategy for 
 C     LDLT orderings
 C     0 : automatic choice
 C     1 : usual ordering (nothing done)
@@ -410,10 +388,10 @@ C     then the ordering used is QAMD
 C
 C     - ICNTL(12) has a higher priority than ICNTL(6) and ICNTL(8)
 C     thus if ICNTL(12) = 2 then ICNTL(6) is automatically
-C     set to a value between 1-6
-C     if ICNTL(12) = 3 then ICNTL(6) is automatically
-C     set to 5 and ICNTL(6) is set to -2 (we need the scaling  factors
-C     to define free and constrained variables)
+C     considered as if it was set to a value between 1-6
+C     if ICNTL(12) = 3 then ICNTL(6) is considered as if 
+C     set to 5 and ICNTL(8) as if set to -2 (we need the scaling
+C     factors to define free and constrained variables)
 C
 C  ICNTL(13) has default value 0 and allows for selecting Type 3 node.
 C            IF ICNTL(13).GT. 0 scalapack is forbidden. Otherwise,
@@ -428,20 +406,20 @@ C             ENDIF
 C            If ICNTL(13) .EQ. -1 then splitting of the root
 C            is done whatever the nb of procs is.
 C
-C            Authorizing extra root spliting 
-C            during analysis might be interesting
-C            to further split the root node
-C            (combined for example with 
-C             null pivot detection option ICNTL(24)=1 OR ICNTL(16))
 C             
 C            To summarize:
 C               -1         : root splitting and scalapack on
 C               0  or < -1 : root splitting off and sclalapack on
 C               > 0        : scalapack off
 C
-C  ICNTL(14) has default value 20 (or 30, or 5 depending on NSLAVES,
-C            SYM,...) and is the value for memory relaxation 
+C  ICNTL(14) has default value 20 (5 if NSLAVES=1 and SYM=1)
+C            and is the value for memory relaxation 
 C            so called "PERLU" in the following.
+C
+C
+C  ICNTL(16) : number of OpenMP threads asked by the user.
+C
+C  ICNTL(17) not used in this version
 C
 C  ICNTL(18) has default value 0 and is only accessed by the host during
 C      the analysis phase if the matrix is assembled (ICNTL(5))= 0).
@@ -509,7 +487,7 @@ C    factorization phase.
 C    Values of ICNTL(21) different from 0 and 1 are currently treated as 0.
 C
 C   ICNTL(22) (saved in KEEP(201) controls the OOC setting (0=incore, 1 =OOC)
-C    It has default value 0 (incore). 
+C    It has default value 0 (incore).Out-of-range values are treated as 1.
 C    If set before analysis then special setting and massage of the tree 
 C    might be done (so far only extra splitting  CUTNODES) is performed.
 C    It is then accessed by the host
@@ -569,20 +547,21 @@ C
 C     If ICNTL(26)=1, then only a forward substitution is performed,
 C     and a reduced RHS will be computed and made available in
 C     REDRHS(i+(k-1)*LREDRHS), i=1, ..., SIZE_SCHUR, k=1, ..., NRHS.
-C     If ICNTL(26)=2, then REDRHS(i+(k-1)*LREDRHS),i=1, SIZE_SCHUR, k=1,NRHS is
-C     considered to be the solution corresponding to the Schur
-C     variables. It is injected in CMUMPS, that computes the solution
-C     on the "internal" problem during the backward substitution.
+C     If ICNTL(26)=2, then REDRHS(i+(k-1)*LREDRHS),i=1, SIZE_SCHUR, 
+C     k=1,NRHS is considered to be the solution corresponding to the 
+C     Schur variables. It is injected in CMUMPS, that computes the 
+C     solution on the "internal" problem during the backward 
+C     substitution.
 C
 C ICNTL(27)  controls the blocking factor for multiple right-hand-sides
-C during the solution phase. 
-C It influences both the memory used (see INFOG(30-31)) and 
-C the solution time
-C (Larger values of ICNTL(27) leads to larger memory requirements). 
-C Its tuning can be critical when
-C the factors are written on disk (out-of core, ICNTL(22)=1). 
-C A negative value indicates that  automatic setting is performed by the solver. 
-C Default value is -24.  
+C     during the solution phase. 
+C     It influences both the memory used (see INFOG(30-31)) and 
+C     the solution time
+C     (Larger values of ICNTL(27) leads to larger memory requirements). 
+C     Its tuning can be critical when
+C     the factors are written on disk (out-of core, ICNTL(22)=1). 
+C     A negative value indicates that  automatic setting is 
+C     performed by the solver.
 C
 C
 C   ICNTL(28) decides whether parallel or sequential analysis should be used. Three
@@ -672,24 +651,53 @@ C            For all other values, the determinant is computed. Note that
 C            null pivots and static pivots are excluded from the
 C            computation of the determinant.
 C
+C   ICNTL(34) Must be set before a call to MUMPS with JOB=-2 in case
+C             the save/restore feature was used and user wants to clean
+C             save/restore files (and possibly OOC files). 
+C             ICTNL(34)=0 => user wants to be able to restore instance later
+C             ICTNL(34)=1 => user will not restore the instance again (clean
+C                            to be done)
 C
-C    ICNTL(35) : Block low rank (BLR) factorization 
+C    ICNTL(35) : Block Low-Rank (BLR) functionality, 
+C                need be set before analysis
 C             Default value is 0
-C             0 = BLR is not activated
-C             1 = BLR activated with grouping based
-C                  on inherited clustering done during analysis
+C             0: FR factorization and FR solve
+C             1: Automatic BLR option setting (=> 2)
+C             2: BLR factorization + BLR Solve
+C                => keep BLR factors only
+C             3: BLR factorization + FR Solve
 C             Other values are treated as zero
-C      Note that this functionality is currently incompatible with elemental matrices 
-C      (ICNTL(5) = 1) and with forward elimination during factorization (ICNTL(32) = 1).
+C      Note that this functionality is currently incompatible 
+C      with elemental matrices (ICNTL(5) = 1) and with
+C      forward elimination during factorization (ICNTL(32) = 1)
 C
-C   ICNTL(38) not used in this version
+C    ICNTL(36) : Block Low-Rank variant choice
+C             Default value is 0
+C             0: UFSC variant, no recompression: Compress step is
+C             performed after the Solve; the low-rank updates are not
+C             recompressed
+C             1: UCFS variant, no recompression: Compress step is
+C             performed before the Solve; pivoting strategy is adapted
+C             to pe performed on low-rank blocks; the low-rank updates are not
+C             recompressed
+C      
 C
+C    ICNTL(38): Compression rate of LU factors, can be set before 
+C               analysis/factorization
+C               Between 0 and 1000; other values ares treated as 0; 
+C               ICNTL(38)/10 is a percentage representing the typical
+C               compressed factors compression of the factor matrices 
+C               in BLR fronts: 
+C               ICNTL(38)/10= compressed/uncompressed factors × 100.
+C               Default value: 333 
+C               (when factors of BLR fronts are compressed, 
+C               their size is 33.3% of their full- rank size).
 C=========================
 C  ARRAYS FOR INFORMATION
 C========================
 C 
 C-----
-C INFO is an INTEGER array of length 40 that need not be 
+C INFO is an INTEGER array of length 80 that need not be 
 C     set by the user.
 C-----
 C 
@@ -717,7 +725,7 @@ C  INFO(7)  Minimum value of integer working array IS (old MAXIS)
 C     estimated by the analysis phase
 C     to run the numerical factorization.
 C  
-C  INFO(8)  Minimum value of real/complex arry S (old MAXS) 
+C  INFO(8)  Minimum value of real/complex array S (old MAXS) 
 C     estimated by the analysis phase
 C     to run the numerical factorization.
 C  
@@ -733,9 +741,10 @@ C  used as a lower bound if the user wishes to provide ICNTL(23).
 C ---------------------------------------
 C Statistics produced after factorization
 C ---------------------------------------
-C  INFO(9)  Size of the real space used to store the LU factors.
+C  INFO(9)  Size of the real space used to store the LU factors possibly 
+C                 including BLR compressed factors
 C  
-C  INFO(10)  Size of the integer space used to store the LU factors.
+C  INFO(10)  Size of the integer space used to store the LU factors
 C  
 C  INFO(11)  Order of largest frontal matrix.
 C  
@@ -749,9 +758,6 @@ C  INFO(18)  On exit to factorization:
 C              Local number of null pivots (ICNTL(24)=1) 
 C              on the local processor even on master. 
 C              (local size of array PIVNUL_LIST).
-C              Note that it does not include null pivots 
-C              that might have been 
-C              further detected on the root (ICNTL(16).NE.0).
 C
 C  INFO(19) - after analysis: 
 C           Estimated size of the main internal integer workarray IS
@@ -796,6 +802,8 @@ C      Note that in the unsymmetric case, INFO(27)=INFO(9).
 C      In the symmetric case, however, INFO(27) < INFO(9).
 C      The total number of entries over all processors is
 C      available in INFOG(29).
+C
+C FIXME describe INFO(28-35)
 C
 C -------------------------------------------------------------
 C -------------------------------------------------------------
@@ -885,9 +893,9 @@ C     uninitialized values should be 0
       LWK_USER = 0
       KEEP(1:500) = 0
       KEEP8(1:150)= 0_8
-      INFO(1:40)  = 0
-      INFOG(1:40) = 0
-      ICNTL(1:40) = 0
+      INFO(1:80)  = 0
+      INFOG(1:80) = 0
+      ICNTL(1:60) = 0
       RINFO(1:40) = 0.0E0
       RINFOG(1:40)= 0.0E0
       CNTL(1:15)  = 0.0E0
@@ -971,17 +979,12 @@ C     ICNTL(13) = 1 : Root parallelism off
 C     Default value for the memory relaxation
       IF (SYM.eq.1.AND.NSLAVES.EQ.1) THEN 
         ICNTL(14) = 5  ! it should work with 0
-      ELSE IF (NSLAVES .GT. 4) THEN
-        ICNTL(14) = 30
       ELSE
         ICNTL(14) = 20
       END IF
-C     Minimum size of the null space 
-      ICNTL(15) = 0
-C     Do not look for rank/null space basis
-      ICNTL(16) = 0
-C     Max size of null space
-      ICNTL(17) = 0
+      IF (NSLAVES.GT.4) ICNTL(14) = ICNTL(14) + 5
+      IF (NSLAVES.GT.8) ICNTL(14) = ICNTL(14) + 5
+      IF (NSLAVES.GT.16) ICNTL(14)= ICNTL(14) + 5
 C     Distributed matrix entry
       ICNTL(18) = 0
 C     Schur  (default is not active)
@@ -1003,10 +1006,12 @@ C     analysis strategy: 0=auto, 1=sequential, 2=parallel
 C     tool used for parallel ordering computation :
 C     0 = auto, 1 = PT-SCOTCH, 2 = ParMETIS
       ICNTL(29) = 0
-C     --------- Non documented ICNTL options
-C     Old or new symbolic factorization
-      ICNTL(39) = 1
-      ICNTL(40)  = 0 
+C     Default BLR compression rate of factors (33.3%)
+      ICNTL(38) = 333
+      ICNTL(55) = 0
+      ICNTL(56) = 0
+      ICNTL(57) = 0
+      ICNTL(58) = 1
 C===================================
 C Default values for some components 
 C of KEEP array
@@ -1016,12 +1021,13 @@ C      KEEP(11) = 2147483646
       KEEP(11) = huge(KEEP(11))
       KEEP(24) = 18
       KEEP(68) = 0
+      KEEP(30) = 2000
       KEEP(36) = 1
       KEEP(1) = 5
       KEEP(7)  = 150
       KEEP(8)  = 120
-      KEEP(57) = 500
-      KEEP(58) = 250
+      KEEP(57) = 2000
+      KEEP(58) = 1000
       IF ( SYM .eq. 0 ) THEN
         KEEP(4)  = 32
         KEEP(3)  = 96
@@ -1069,7 +1075,6 @@ C     Forcing proportional is ok with strategy 5
       KEEP(76) = 2
       KEEP(77) = 30
       KEEP(79) = 0  ! old splitting
-      !write(6,*) ' TEMPORARY new splitting active, K79=', KEEP(79)
       IF (NSLAVES.GT.4) THEN
           KEEP(78)=max(
      &       int(log(real(NSLAVES))/log(real(2))) - 2 
@@ -1105,6 +1110,8 @@ C     Forcing proportional is ok with strategy 5
       KEEP(99)=4  ! new OOC -> asynchronous + buffer
 #endif
       KEEP(100)=0
+C     strategy for MUMPS_BLOC2_GET_NSLAVESMIN
+      KEEP(119)=0
       KEEP(204)=0
       KEEP(205)=0
       KEEP(209)=-1
@@ -1114,6 +1121,9 @@ C     Forcing proportional is ok with strategy 5
       KEEP(121)=-999999
 #endif
       KEEP(122)=15
+#if ! defined(NODYNAMICCB)
+       KEEP(141)=1 ! min needed
+#endif
       KEEP(206)=1 
       KEEP(211)=2
       IF (NSLAVES .EQ. 2) THEN
@@ -1124,7 +1134,7 @@ C     Forcing proportional is ok with strategy 5
       KEEP(217)=0
       KEEP(215)=0
       KEEP(216)=1
-      KEEP(218)=50
+      KEEP(218)=250
       KEEP(219)=1
       IF (KEEP(50).EQ.2) THEN
         KEEP(227)= max(2,32)
@@ -1139,11 +1149,7 @@ C     Forcing proportional is ok with strategy 5
       DKEEP(4) = -1.0E0
       DKEEP(5) = -1.0E0
       DKEEP(10) = 1000.0E0  ! > 0 : GAP 
-      IF(NSLAVES.LE.8)THEN
-         KEEP(238)=12
-      ELSE
-         KEEP(238)=7
-      ENDIF
+      KEEP(238)=14
       KEEP(234)= 1
       KEEP(235)=-1
       DKEEP(3)=-5.0E0
@@ -1154,7 +1160,7 @@ C     Forcing proportional is ok with strategy 5
       KEEP(250) = 1
       KEEP(261) = 1
       KEEP(262) = 0
-      KEEP(263) = 0
+      KEEP(263) = 1
       KEEP(266) = 0
       KEEP(267) = 0
       KEEP(350) = 1
@@ -1165,31 +1171,37 @@ C     Forcing proportional is ok with strategy 5
       KEEP(363) = 512
       KEEP(364) = 32768
       KEEP(420) =  4*KEEP(6)   ! if KEEP(6)=32 then 128
+#if defined(GEMMT_AVAILABLE)
+      KEEP(421) = -1
+#endif
+C     Default size of KEEP(424) is defined below.
+C     It does not depend on arithmetic,
+C     it is related to L1 cache size: 250 * 64 bytes
+C     is about half of the cache size (32768 bytes).
+C     This leaves space in cache for the destination,
+C     of size 250*sizeof(arith). (4k bytes for z)
+C     At each new block of size KEEP(424), there is
+C     probably a cache miss on the pivot.
+      KEEP(424) = 250
+      KEEP(464) = 333
+      KEEP(465) = 200
+      KEEP(466) = 1
       KEEP(468) = 3
-      KEEP(469) = 1
-      KEEP(470) = 1
+      KEEP(469) = 3
       KEEP(471) = -1
-      KEEP(480) = 0
       KEEP(479) = 1
-      KEEP(478) = 0
-      KEEP(474) = 0
-      KEEP(481) = 0
-      KEEP(482) = 0  
+      KEEP(480) = 3
       KEEP(472) = 1
-      KEEP(473) = 0
-      KEEP(475) = 0
       KEEP(476) = 50  
       KEEP(477) = 100  
       KEEP(483) = 50  
       KEEP(484) = 50  
-      KEEP(485) = 1 ! (1 promote factors)
       KEEP(487) = 1
       IF (KEEP(472).EQ.1) THEN
         KEEP(488) = 512
       ELSE
         KEEP(488) =  8*KEEP(6)   ! if KEEP(6)=32 then 256
       ENDIF
-      KEEP(489) = 0
       KEEP(490) = 128
       KEEP(491) = 1000
       KEEP(492) = 1
@@ -1198,6 +1210,9 @@ C     Forcing proportional is ok with strategy 5
       KEEP(496) = 1
       KEEP(495) = -1
       KEEP(497) = -1
+C     Allow more BLAS 3 in type 1 nodes when possible
+      KEEP(378) = 1
+C
       RETURN
       END SUBROUTINE CMUMPSID
       SUBROUTINE CMUMPS_SET_KEEP72(id, LP)
@@ -1213,6 +1228,11 @@ C     Forcing proportional is ok with strategy 5
          id%KEEP(6)=2
          id%KEEP(9)=3
          id%KEEP(39)=300
+         id%KEEP(7) = 3
+         id%KEEP(8) = 2
+         id%KEEP(57)= 3
+         id%KEEP(58)= 2
+         id%KEEP(63)=3
          id%CNTL(1)=0.1E0  
          id%KEEP(213) = 101  
          id%KEEP(85)=2
@@ -1231,6 +1251,7 @@ C     Forcing proportional is ok with strategy 5
          id%KEEP(491) = 5
          id%ICNTL(27)=-3
          id%KEEP(227)=3
+         id%KEEP(30) = 1000
       ELSE IF (id%KEEP(72)==2) THEN
          id%KEEP(85)=2            ! default is 
          id%KEEP(85)=-10000         ! default is 160 

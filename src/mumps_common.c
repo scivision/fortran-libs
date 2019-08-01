@@ -1,11 +1,11 @@
 /*
  *
- *  This file is part of MUMPS 5.1.2, released
- *  on Mon Oct  2 07:37:01 UTC 2017
+ *  This file is part of MUMPS 5.2.1, released
+ *  on Fri Jun 14 14:46:05 UTC 2019
  *
  *
- *  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
- *  University of Bordeaux.
+ *  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
  *  released under the CeCILL-C license:
@@ -78,4 +78,29 @@ void MUMPS_CALL
 MUMPS_NULLIFY_C_UNS_PERM()
 {
     MUMPS_UNS_PERM = 0;
+}
+void MUMPS_CALL
+MUMPS_ICOPY_32TO64_64C_IP_C(MUMPS_INT *inouttab, MUMPS_INT8 *sizetab)
+/* Copies in-place *sizetab int values starting at address inouttab
+   into *sizetab int64_t values starting at the same address.
+*/
+{
+   MUMPS_INT8 i8; /* signed integer needed for reversed loop below */
+   for (i8=*sizetab-1; i8 >=0; i8--)
+     {
+       /* outtab8[i8]=(MUMPS_INT8)intab4[i8]; */
+       ((MUMPS_INT8 *)inouttab)[i8]=(MUMPS_INT)inouttab[i8];
+     }
+}
+void MUMPS_CALL
+MUMPS_ICOPY_64TO32_64C_IP_C(MUMPS_INT8 *inouttab, MUMPS_INT8 *sizetab)
+/* Copies in-place *sizetab int64_t values starting at address inouttab
+   into *sizetab int values starting at the same address */
+{
+   MUMPS_INT8 i8;
+   for (i8=0; i8 < *sizetab; i8++)
+     {
+       /*       outtab4[i8]=(MUMPS_INT)intab8[i8]; */
+       ((MUMPS_INT *)inouttab)[i8]=(MUMPS_INT)inouttab[i8];
+     }
 }

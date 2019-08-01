@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -370,7 +370,7 @@ C
           IF (NFRONT_EFF.EQ.NFRONT-KEEP(253)) EXIT
         ENDDO
         IF (NFRONT_EFF.NE.NFRONT-KEEP(253) .AND.
-     &      .NOT. (KEEP(376).EQ.1 .AND. KEEP(79) .GE.1)) THEN
+     &       .NOT. (KEEP(376).EQ.1 .AND. KEEP(79) .GE.1)) THEN
           write(6,*) MYID, ': INODE', INODE, ' of type 4 ', 
      &             ' not yet fully assembled ', 
      &             ' NFRONT_EFF, NFRONT =',  NFRONT_EFF, NFRONT
@@ -454,7 +454,7 @@ C
               ENDIF
             ENDDO
           ELSE
-              IF (.not. NIV1) THEN
+             IF (.not. NIV1) THEN
                 WRITE(*,*) "Internal error 1 in MUMPS_ELT_BUILD_SORT"
                 CALL MUMPS_ABORT() 
               ENDIF

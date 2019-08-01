@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -17,7 +17,7 @@ C
       INTEGER N, NSCA
       INTEGER(8), INTENT(IN) :: NZ8
       INTEGER IRN(NZ8), ICN(NZ8)
-      INTEGER ICNTL(40), INFO(40)
+      INTEGER ICNTL(60), INFO(80)
       REAL, INTENT(IN) :: ASPK(NZ8)
       REAL COLSCA(*), ROWSCA(*)
       INTEGER(8), INTENT(IN) :: LWK8
@@ -151,7 +151,7 @@ C
       INTEGER(8), INTENT(IN)  :: NZ8
       REAL,    INTENT(IN)  :: VAL(NZ8)
       REAL,       INTENT(OUT) :: CNOR(N)
-      REAL,       INTENT(OUT) :: COLSCA(N)
+      REAL,       INTENT(INOUT) :: COLSCA(N)
       INTEGER,    INTENT(IN)  :: IRN(NZ8), ICN(NZ8)
       INTEGER,    INTENT(IN)  :: MPRINT
       REAL VDIAG

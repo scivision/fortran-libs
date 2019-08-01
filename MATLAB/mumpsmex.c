@@ -393,7 +393,7 @@ void mexFunction(int nlhs, mxArray *plhs[ ],
     
 
       EXTRACT_FROM_MATLAB_TOVAL(JOB,dmumps_par->job);
-      EXTRACT_FROM_MATLAB_TOARR(ICNTL_IN,dmumps_par->icntl,int,40);
+      EXTRACT_FROM_MATLAB_TOARR(ICNTL_IN,dmumps_par->icntl,int,60);
       EXTRACT_FROM_MATLAB_TOARR(CNTL_IN,dmumps_par->cntl,double,15);
       EXTRACT_FROM_MATLAB_TOPTR(PERM_IN,(dmumps_par->perm_in),int,((int)n));
 
@@ -546,7 +546,7 @@ void mexFunction(int nlhs, mxArray *plhs[ ],
     }
   }
   if(nlhs > 0){
-    EXTRACT_FROM_C_TO_MATLAB( INFO_OUT  ,(dmumps_par->infog),40);
+    EXTRACT_FROM_C_TO_MATLAB( INFO_OUT  ,(dmumps_par->infog),80);
     EXTRACT_FROM_C_TO_MATLAB( RINFO_OUT ,(dmumps_par->rinfog),40);
     /* A-1 on output */
     if ( dmumps_par->icntl[30-1] != 0 && dosolve ) {
@@ -606,7 +606,7 @@ void mexFunction(int nlhs, mxArray *plhs[ ],
     EXTRACT_FROM_C_TO_MATLAB( PIVNUL_LIST,dmumps_par->pivnul_list,dmumps_par->infog[27]);
     EXTRACT_FROM_C_TO_MATLAB( PERM_OUT   ,dmumps_par->sym_perm,dmumps_par->n);
     EXTRACT_FROM_C_TO_MATLAB( UNS_PERM   ,dmumps_par->uns_perm,dmumps_par->n);
-    EXTRACT_FROM_C_TO_MATLAB( ICNTL_OUT  ,dmumps_par->icntl,40);
+    EXTRACT_FROM_C_TO_MATLAB( ICNTL_OUT  ,dmumps_par->icntl,60);
     EXTRACT_FROM_C_TO_MATLAB( CNTL_OUT   ,dmumps_par->cntl,15);
     EXTRACT_FROM_C_TO_MATLAB( ROWSCA_OUT ,dmumps_par->rowsca,dmumps_par->n);
     EXTRACT_FROM_C_TO_MATLAB( COLSCA_OUT ,dmumps_par->colsca,dmumps_par->n);

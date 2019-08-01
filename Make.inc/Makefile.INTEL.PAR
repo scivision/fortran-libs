@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.1.2, released
-#  on Mon Oct  2 07:37:01 UTC 2017
+#  This file is part of MUMPS 5.2.1, released
+#  on Fri Jun 14 14:46:05 UTC 2019
 #
 #Begin orderings
 
@@ -93,7 +93,7 @@ LIBOTHERS = -lpthread
 CDEFS   = -DAdd_
 
 #Begin Optimized options
-OPTF    = -O -nofor_main -DBLR_MT -qopenmp # or -openmp for old compilers
+OPTF    = -O -nofor_main -DBLR_MT -qopenmp -DGEMMT_AVAILABLE
 OPTL    = -O -nofor_main -qopenmp
 OPTC    = -O -qopenmp
 #End Optimized options

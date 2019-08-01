@@ -1,11 +1,9 @@
 README
 ************************************************************************
-*  This MATLAB interface to MUMPS is provided to you free of charge    *
-*  and is part of the MUMPS package (see ../LICENSE for the            *
-*  conditions of use), http://mumps-solver.org                         *
-*  public domain. Up-to-date copies can be obtained from the Web       *
-*  pages        http://mumps.enseeiht.fr/         or                   *
-*  		http://graal.ens-lyon.fr/MUMPS                         *
+*  This MATLAB interface to MUMPS is part of the MUMPS package         *
+*  (see ../LICENSE for the conditions of use) *
+*  Up-to-date copies of MUMPS can be obtained from the web             *
+*  page http://mumps-solver.org                                        *
 *                                                                      *
 *  THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY	       *
 *  EXPRESSED OR IMPLIED.  ANY USE IS AT YOUR OWN RISK.                 *
@@ -14,7 +12,7 @@ README
 *                                                                      *
 *   [2006] Aurelia Fevre, Jean-Yves L'Excellent and Stephane Pralet    *
 *   MATLAB and Scilab interfaces to MUMPS. LIP Report RR2006-06.       *
-*   Also available as an INRIA and an ENSEEIHT-IRIT Technical Report.  *
+*   Also available as INRIA and ENSEEIHT-IRIT Technical Reports.       *
 *                                                                      *
 ************************************************************************
 
@@ -96,7 +94,7 @@ README
  in sequential for double precision and double complex versions.
  For example it does not support:
   - other versions (single precision arithmetic, parallel version...)
-  - elemental format
+  - elemental format for the input matrix
 
 ******************************************************************************
 

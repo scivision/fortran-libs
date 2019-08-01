@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -23,15 +23,15 @@ C
      &    NBFIN, MYID, SLAVEF,
      &
      &    OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &    FILS, PTRARW, PTRAIW,
+     &    FILS, DAD, PTRARW, PTRAIW,
      &    INTARR, DBLARR, ICNTL, KEEP, KEEP8, DKEEP, ND)
       USE DMUMPS_LOAD
       USE DMUMPS_OOC        
+      USE DMUMPS_STRUC_DEF, ONLY : DMUMPS_ROOT_STRUC
       IMPLICIT NONE
       INCLUDE 'mpif.h'
-      INCLUDE 'dmumps_root.h'
       TYPE (DMUMPS_ROOT_STRUC) :: root
-      INTEGER KEEP(500), ICNTL(40)
+      INTEGER KEEP(500), ICNTL(60)
       INTEGER(8) KEEP8(150)
       DOUBLE PRECISION DKEEP(230)
       INTEGER TOT_ROOT_SIZE, TOT_CONT_TO_RECV
@@ -54,7 +54,7 @@ C
       INTEGER IPOOL( LPOOL )
       INTEGER MYID, SLAVEF, NBFIN
       DOUBLE PRECISION OPASSW, OPELIW
-      INTEGER ITLOC(N+KEEP(253)), FILS(N)
+      INTEGER ITLOC(N+KEEP(253)), FILS(N), DAD(KEEP(28))
       INTEGER(8), INTENT(IN) :: PTRARW(N), PTRAIW(N)
       DOUBLE PRECISION :: RHS_MUMPS(KEEP(255))
       INTEGER INTARR(KEEP8(27))
@@ -93,7 +93,7 @@ C
       IF (KEEP(60) .NE. 0) THEN
         IF (root%yes) THEN
         IF ( NEW_LOCAL_M .NE. root%SCHUR_MLOC .OR.
-     &       NEW_LOCAL_N .NE. root%SCHUR_NLOC ) THEN
+     &          NEW_LOCAL_N .NE. root%SCHUR_NLOC ) THEN
           WRITE(*,*) "Internal error 1 in DMUMPS_PROCESS_ROOT2SLAVE"
           CALL MUMPS_ABORT()
         ENDIF
@@ -109,7 +109,8 @@ C
      &           LRLU, IPTRLU,
      &           IWPOS, IWPOSCB, PTRIST, PTRAST,
      &           STEP, PIMASTER, PAMASTER, KEEP(216),LRLUS,
-     &           KEEP(IXSZ),COMP,DKEEP(97),MYID )
+     &           KEEP(IXSZ),COMP,DKEEP(97),
+     &           MYID, SLAVEF, PROCNODE_STEPS, DAD )
            IF ( LRLU .NE. LRLUS ) THEN
                   WRITE(*,*) 'PB1 compress root2slave:LRLU,LRLUS=',
      &            LRLU, LRLUS
@@ -127,7 +128,8 @@ C
           IWPOS = IWPOS + LREQI
           POSHEAD = PTLUST( STEP(IROOT))
           IW( POSHEAD + XXI )=LREQI
-          CALL MUMPS_STOREI8( LREQA, IW(POSHEAD + XXR))
+          CALL MUMPS_STOREI8( LREQA, IW(POSHEAD + XXR) )
+          CALL MUMPS_STOREI8( 0_8, IW(POSHEAD + XXD) )
           IW( POSHEAD + XXS )=-9999
           IW(POSHEAD+XXS+1:POSHEAD+KEEP(IXSZ)-1)=-99999
           IW( POSHEAD +KEEP(IXSZ)) = 0
@@ -145,31 +147,17 @@ C
         LREQI = 6+KEEP(IXSZ)
       END IF
       LREQA = int(NEW_LOCAL_M, 8) * int(NEW_LOCAL_N, 8)
-      IF ( LRLU . LT. LREQA .OR.
-     &     IWPOS + LREQI - 1. GT. IWPOSCB )THEN
-           IF ( LRLUS .LT. LREQA ) THEN
-             IFLAG  = -9
-             CALL MUMPS_SET_IERROR(LREQA - LRLUS, IERROR)
-             GOTO 700
-           END IF
-           CALL DMUMPS_COMPRE_NEW( N, KEEP(28), IW, LIW, A, LA,
+      CALL DMUMPS_GET_SIZE_NEEDED( 
+     &           LREQI , LREQA, .FALSE.,
+     &           KEEP(1), KEEP8(1),
+     &           N, KEEP(28), IW, LIW, A, LA,
      &           LRLU, IPTRLU,
      &           IWPOS, IWPOSCB, PTRIST, PTRAST,
      &           STEP, PIMASTER, PAMASTER, KEEP(216), LRLUS,
-     &           KEEP(IXSZ), COMP, DKEEP(97), MYID )
-           IF ( LRLU .NE. LRLUS ) THEN
-                  WRITE(*,*) 'PB2 compress root2slave:LRLU,LRLUS=',
-     &            LRLU, LRLUS
-                  IFLAG = -9
-                  CALL MUMPS_SET_IERROR(LREQA - LRLUS, IERROR)
-                  GOTO 700
-           END IF
-           IF ( IWPOS + LREQI - 1 .GT. IWPOSCB ) THEN
-              IFLAG  = -8
-              IERROR = IWPOS + LREQI - 1 - IWPOSCB
-              GOTO 700
-           END IF
-      END IF
+     &           KEEP(IXSZ), COMP, DKEEP(97),
+     &           MYID, SLAVEF, PROCNODE_STEPS, DAD, 
+     &           IFLAG, IERROR )
+      IF (IFLAG.LT.0) GOTO 700
       PTLUST(STEP( IROOT )) = IWPOS
       IWPOS           = IWPOS + LREQI
       IF (LREQA.EQ.0_8) THEN
@@ -183,15 +171,14 @@ C
       LRLU   = LRLU  - LREQA
       LRLUS  = LRLUS - LREQA
       KEEP8(67) = min(KEEP8(67), LRLUS)
-      KEEP8(70) = KEEP8(70) - LREQA
-      KEEP8(68) = min(KEEP8(70), KEEP8(68))
-      KEEP8(71) = KEEP8(71) - LREQA
-      KEEP8(69) = min(KEEP8(71), KEEP8(69))
+      KEEP8(69) = KEEP8(69) + LREQA
+      KEEP8(68) = max(KEEP8(69), KEEP8(68))
       CALL DMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
      &          LA-LRLUS,0_8,LREQA,KEEP,KEEP8,LRLUS)
       POSHEAD = PTLUST( STEP(IROOT))
       IW( POSHEAD + XXI )     = LREQI
       CALL MUMPS_STOREI8( LREQA, IW(POSHEAD + XXR))
+      CALL MUMPS_STOREI8( 0_8, IW(POSHEAD + XXD))
       IW( POSHEAD + XXS ) = S_NOTFREE
       IW(POSHEAD+XXS+1:POSHEAD+KEEP(IXSZ)-1)=-99999
       IW( POSHEAD + KEEP(IXSZ) ) = 0
@@ -214,7 +201,7 @@ C
         OLD_LOCAL_M =  IW( PTRIST(STEP( IROOT )) + 1  + KEEP(IXSZ))
         IF ( TOT_ROOT_SIZE .eq. root%ROOT_SIZE ) THEN
           IF ( LREQA .NE. int(OLD_LOCAL_M,8) * int(OLD_LOCAL_N,8) )
-     &    THEN
+     &          THEN
              write(*,*) 'error 1 in PROCESS_ROOT2SLAVE',
      &       OLD_LOCAL_M, OLD_LOCAL_N
              CALL MUMPS_ABORT()
@@ -230,8 +217,7 @@ C
         END IF
         IF ( PTRIST( STEP( IROOT ) ) .GT. 0 ) THEN
            IPOS_SON= PTRIST( STEP(IROOT))
-           CALL DMUMPS_FREE_BLOCK_CB(.FALSE., MYID, N, IPOS_SON,
-     &          PAMASTER(STEP(IROOT)),
+           CALL DMUMPS_FREE_BLOCK_CB_STATIC(.FALSE., MYID, N, IPOS_SON,
      &          IW, LIW, LRLU, LRLUS, IPTRLU,
      &          IWPOSCB, LA, KEEP,KEEP8, .FALSE.
      &         )

@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -15,6 +15,7 @@ C
      &   MYID,N, KEEP,KEEP8,DKEEP,
      &   IW, LIW, A, LA,
      &   LRLU, IPTRLU,IWPOS,IWPOSCB,
+     &   SLAVEF, PROCNODE_STEPS, DAD,
      &   PTRIST,PTRAST,STEP,PIMASTER,PAMASTER,
      &   LREQ, LREQCB, NODE_ARG, STATE_ARG, SET_HEADER,
      &   COMP, LRLUS, IFLAG, IERROR )
@@ -30,6 +31,8 @@ C
       DOUBLE PRECISION DKEEP(230)
       INTEGER IW(LIW),PTRIST(KEEP(28))
       INTEGER STEP(N), PIMASTER(KEEP(28))
+      INTEGER, INTENT(IN) :: SLAVEF
+      INTEGER, INTENT(IN) :: PROCNODE_STEPS(KEEP(28)), DAD(KEEP(28))
       INTEGER MYID, IXXP
       COMPLEX(kind=8) A(LA)
       LOGICAL INPLACE, PROCESS_BANDE, SSARBR, SET_HEADER
@@ -38,7 +41,7 @@ C
       INTEGER INODE_LOC,NPIV,NASS,NROW,NCB
       INTEGER ISIZEHOLE
       INTEGER(8) :: MEM_GAIN, RSIZEHOLE, LREQCB_EFF, LREQCB_WISHED
-      LOGICAL DONE
+      INTEGER(8) :: DYN_SIZE
       IF ( INPLACE ) THEN
         LREQCB_EFF = MIN_SPACE_IN_PLACE
         IF ( MIN_SPACE_IN_PLACE > 0_8 ) THEN
@@ -53,7 +56,7 @@ C
       IF (IWPOSCB.EQ.LIW) THEN
         IF (LREQ.NE.KEEP(IXSZ).OR.LREQCB.NE.0_8
      &      .OR. .NOT. SET_HEADER) THEN
-          WRITE(*,*) "Internal error in ZMUMPS_ALLOC_CB",
+          WRITE(*,*) "Internal error in ZMUMPS_ALLOC_CB ",
      &      SET_HEADER, LREQ, LREQCB
           CALL MUMPS_ABORT()
         ENDIF
@@ -67,12 +70,15 @@ C
         IWPOSCB=IWPOSCB-KEEP(IXSZ)
         IW(IWPOSCB+1+XXI)=KEEP(IXSZ)
         CALL MUMPS_STOREI8(0_8,IW(IWPOSCB+1+XXR))
+        CALL MUMPS_STOREI8(0_8,IW(IWPOSCB+1+XXD))
         IW(IWPOSCB+1+XXN)=-919191
         IW(IWPOSCB+1+XXS)=S_NOTFREE
         IW(IWPOSCB+1+XXP)=TOP_OF_STACK
         RETURN
       ENDIF
-      IF (KEEP(214).EQ.1.AND.
+      CALL MUMPS_GETI8( DYN_SIZE, IW(IWPOSCB+1 + XXD))
+      IF (DYN_SIZE .EQ. 0_8
+     &    .AND. KEEP(214).EQ.1.AND.
      &    KEEP(216).EQ.1.AND.
      &    IWPOSCB.NE.LIW) THEN
        IF (IW(IWPOSCB+1 + XXS).EQ.S_NOLCBNOCONTIG.OR.
@@ -114,54 +120,44 @@ C
      &  PTRAST(STEP(INODE_LOC))+MEM_GAIN+RSIZEHOLE
        ENDIF
       ENDIF
-      DONE =.FALSE.
-      IF ((IPTRLU.LT.LREQCB_WISHED).OR.(LRLU.LT.LREQCB_WISHED)) THEN
-        IF (LRLUS.LT.LREQCB_EFF) THEN
-          GOTO 620
-        ELSE
+      IF (LRLU.LT.LREQCB_WISHED)THEN
+         IF (LREQCB_EFF.LT.LREQCB_WISHED) THEN
           CALL ZMUMPS_COMPRE_NEW(N,KEEP(28),IW,LIW,A,LA,
      &                    LRLU,IPTRLU,IWPOS,IWPOSCB,
      &                    PTRIST,PTRAST,
      &                    STEP, PIMASTER,PAMASTER,KEEP(216),LRLUS,
-     &                    KEEP(IXSZ), COMP, DKEEP(97), MYID)
-          IF ( LRLU .NE. LRLUS ) THEN
-            WRITE(*,*) 'PB compress... ZMUMPS_ALLOC_CB',
-     &      'LRLU,LRLUS=',LRLU,LRLUS
-            GOTO 620
-          END IF
-          DONE = .TRUE.
-        ENDIF
+     &                    KEEP(IXSZ), COMP, DKEEP(97), MYID,
+     &                    SLAVEF, PROCNODE_STEPS, DAD)
+         ENDIF
       ENDIF
-      IF (IWPOSCB-IWPOS+1 .LT. LREQ) THEN
-       IF (DONE) GOTO 600
-                 CALL ZMUMPS_COMPRE_NEW(N,KEEP(28),IW,LIW,A,LA,
+      CALL ZMUMPS_GET_SIZE_NEEDED 
+     &                   (LREQ, LREQCB_EFF, .FALSE.,
+     &                    KEEP(1), KEEP8(1),
+     &                    N,KEEP(28),IW,LIW,A,LA,
      &                    LRLU,IPTRLU,IWPOS,IWPOSCB,
      &                    PTRIST,PTRAST,
      &                    STEP, PIMASTER,PAMASTER,KEEP(216),LRLUS,
-     &                    KEEP(IXSZ), COMP, DKEEP(97), MYID)
-                 IF ( LRLU .NE. LRLUS ) THEN
-                   WRITE(*,*) 'PB compress... ZMUMPS_ALLOC_CB',
-     &             'LRLU,LRLUS=',LRLU,LRLUS
-                   GOTO 620
-                 END IF
-          IF (IWPOSCB-IWPOS+1 .LT. LREQ) GOTO 600
-      ENDIF
+     &                    KEEP(IXSZ), COMP, DKEEP(97), MYID,
+     &                    SLAVEF, PROCNODE_STEPS, DAD, 
+     &                    IFLAG, IERROR)
+      IF (IFLAG.LT.0) GOTO 650
       IXXP=IWPOSCB+XXP+1
       IF (IXXP.GT.LIW) THEN
-        WRITE(*,*) "Internal error 3 in ZMUMPS_ALLOC_CB",IXXP
+        WRITE(*,*) "Internal error 3 in ZMUMPS_ALLOC_CB ",IXXP
       ENDIF
       IF (IW(IXXP).GT.0) THEN
-        WRITE(*,*) "Internal error 2 in ZMUMPS_ALLOC_CB",IW(IXXP),IXXP
+        WRITE(*,*) "Internal error 2 in ZMUMPS_ALLOC_CB ",IW(IXXP),IXXP
       ENDIF
       IWPOSCB = IWPOSCB - LREQ
       IF (SET_HEADER) THEN
         IW(IXXP)= IWPOSCB + 1
+        IW(IWPOSCB+1:IWPOSCB+1+KEEP(IXSZ))=-99999 
         IW(IWPOSCB+1+XXI)=LREQ
         CALL MUMPS_STOREI8(LREQCB, IW(IWPOSCB+1+XXR))
+        CALL MUMPS_STOREI8(0_8, IW(IWPOSCB+1+XXD))
         IW(IWPOSCB+1+XXS)=STATE_ARG
         IW(IWPOSCB+1+XXN)=NODE_ARG
         IW(IWPOSCB+1+XXP)=TOP_OF_STACK
-        IW(IWPOSCB+1+XXP+1:IWPOSCB+1+KEEP(IXSZ))=-99999 
 #if ! defined(NO_XXNBPR)
         IW(IWPOSCB+1+XXNBPR)=0 
 #endif
@@ -170,10 +166,8 @@ C
       LRLU   = LRLU - LREQCB
       LRLUS  = LRLUS - LREQCB_EFF
       KEEP8(67) = min(LRLUS, KEEP8(67))
-      KEEP8(70) = KEEP8(70) - LREQCB_EFF
-      KEEP8(68) = min(KEEP8(70), KEEP8(68))
-      KEEP8(71) = KEEP8(71) - LREQCB_EFF 
-      KEEP8(69) = min(KEEP8(71), KEEP8(69))
+      KEEP8(69) = KEEP8(69) + LREQCB_EFF
+      KEEP8(68) = max(KEEP8(69), KEEP8(68))
 #if ! defined(OLD_LOAD_MECHANISM)
       CALL ZMUMPS_LOAD_MEM_UPDATE(SSARBR,PROCESS_BANDE,
      &              LA-LRLUS,0_8,LREQCB_EFF,KEEP,KEEP8,LRLUS)
@@ -186,11 +180,6 @@ C
      &              LA-LRLUS,0_8,LREQCB_EFF,KEEP,KEEP8,LRLUS)
 #endif
 #endif
-      RETURN
- 600  IFLAG  = -8
-      IERROR = LREQ
-      RETURN
- 620  IFLAG  = -9
-      CALL MUMPS_SET_IERROR(LREQCB_EFF - LRLUS, IERROR)
+ 650  CONTINUE
       RETURN
       END SUBROUTINE ZMUMPS_ALLOC_CB

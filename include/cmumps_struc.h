@@ -1,10 +1,10 @@
 !
-!  This file is part of MUMPS 5.1.2, released
-!  on Mon Oct  2 07:37:01 UTC 2017
+!  This file is part of MUMPS 5.2.1, released
+!  on Fri Jun 14 14:46:05 UTC 2019
 !
 !
-!  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-!  University of Bordeaux.
+!  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+!  Mumps Technologies, University of Bordeaux.
 !
 !  This version of MUMPS is provided to you free of charge. It is
 !  released under the CeCILL-C license:
@@ -83,22 +83,26 @@
         COMPLEX, DIMENSION(:), POINTER :: RHS, REDRHS
         COMPLEX, DIMENSION(:), POINTER :: RHS_SPARSE
         COMPLEX, DIMENSION(:), POINTER :: SOL_loc
+        COMPLEX, DIMENSION(:), POINTER :: RHS_loc
         INTEGER, DIMENSION(:), POINTER :: IRHS_SPARSE
         INTEGER, DIMENSION(:), POINTER :: IRHS_PTR
         INTEGER, DIMENSION(:), POINTER :: ISOL_loc
-        INTEGER ::  LRHS, NRHS, NZ_RHS, LSOL_loc, LREDRHS
-        INTEGER ::  pad5
+        INTEGER, DIMENSION(:), POINTER :: IRHS_loc
+        INTEGER :: LRHS, NRHS, NZ_RHS, Nloc_RHS, LRHS_loc, LREDRHS
+        INTEGER :: LSOL_loc, pad5
 !    ----------------------------
 !    Control parameters,
 !    statistics and output data
 !    ---------------------------
-        INTEGER ::  ICNTL(40)
-        INTEGER ::  INFO(40) 
-        INTEGER :: INFOG(40)
+        INTEGER ::  ICNTL(60)
+        INTEGER ::  INFO(80) 
+        INTEGER :: INFOG(80)
         REAL ::  COST_SUBTREES
         REAL ::  CNTL(15)
         REAL ::  RINFO(40)
         REAL ::  RINFOG(40)
+! The options array for metis/parmetis
+        INTEGER ::  METIS_OPTIONS(40)
 !    ---------------------------------------------------------
 !    Permutations computed during analysis:
 !       SYM_PERM: Symmetric permutation 
@@ -246,9 +250,9 @@
         INTEGER, POINTER, DIMENSION(:) :: LRGROUPS
         INTEGER :: NBGRP,pad13
 !    Pointer encoding for FDM_F data
-        CHARACTER(LEN=1), DIMENSION(:), POINTER :: FDM_F_ENCODING
+        CHARACTER, DIMENSION(:), POINTER :: FDM_F_ENCODING
 !    Pointer array encoding BLR factors pointers
-        CHARACTER(LEN=1), DIMENSION(:), POINTER :: BLRARRAY_ENCODING
+        CHARACTER, DIMENSION(:), POINTER :: BLRARRAY_ENCODING
 !    Multicore
         INTEGER :: LPOOL_AFTER_L0_OMP, LPOOL_BEFORE_L0_OMP
         INTEGER :: L_PHYS_L0_OMP
@@ -269,6 +273,8 @@
         INTEGER, DIMENSION(:), POINTER :: PTR_LEAFS_L0_OMP
 ! Mapping of the subtrees
         INTEGER, DIMENSION(:), POINTER :: L0_OMP_MAPPING
+! Mpi to omp - mumps agile
+        INTEGER, DIMENSION(:), POINTER :: MPITOOMP_PROCS_MAP
 ! for RR on root
         REAL, DIMENSION(:), POINTER :: SINGULAR_VALUES
         INTEGER ::  NB_SINGULAR_VALUES

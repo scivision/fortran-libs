@@ -1,5 +1,5 @@
 ===========================================
-MUMPS 5.1.2 INSTALLATION
+MUMPS 5.2.1 INSTALLATION
 ===========================================
 
 Pre-requisites
@@ -13,7 +13,8 @@ If you want to use MUMPS on a multicore machine, you need:
 -> a multithreaded BLAS library
 -> the LAPACK library
 -> additional gains can be expected compiling/linking with OpenMP
-   (see userguide)
+   (see userguide, sections "Combining MPI and multithreaded parallelism"
+    and "Enabling the BLR functionality at installation")
 
 If you want to use the parallel (distributed memory MPI based) version, 
 you need:
@@ -34,8 +35,8 @@ Installation
 
 The following steps can be applied.
 
-% tar zxvf MUMPS_5.1.2.tar.gz
-% cd MUMPS_5.1.2
+% tar zxvf MUMPS_5.2.1.tar.gz
+% cd MUMPS_5.2.1
 
 You then need to build a file called Makefile.inc corresponding
 to your architecture. A few examples are available in the
@@ -247,6 +248,19 @@ also rely on 64-bit integers.
   In order to have MUMPS working correcly with such MPI versions, please
   try adding -DWORKAROUNDINTELILP64MPI2INTEGER to the OPTF variable of
   your Makefile.inc
+
+
+Using BLAS extension GEMMT
+--------------------------
+
+If the BLAS library includes the GEMMT level-3 BLAS
+extension, we strongly recommend to use it.
+-DGEMMT_AVAILABLE should then be added to the OPTF variable of your Makefile.inc. 
+This can significantly improve the performance of the factorization of
+symmetric matrices.  To be compatible, the GEMMT signature should be the
+same as the one described at
+
+https://software.intel.com/en-us/mkl-developer-reference-fortran-gemmt.
 
 
 Platform dependencies

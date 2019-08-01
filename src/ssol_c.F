@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -12,13 +12,11 @@ C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE SMUMPS_SOL_C(root, N, A, LA, IW, LIW, W, LWC, 
      & IWCB, LIWW, NRHS, NA, LNA, NE_STEPS, W2,
-     & MTYPE, ICNTL, FROM_PP,
-     & STEP, FRERE, DAD, FILS, PTRIST, PTRFAC, IW1, LIW1,
-     & PTRACB, LIWK_PTRACB, PROCNODE_STEPS, SLAVEF,
+     & MTYPE, ICNTL, FROM_PP, STEP, FRERE, DAD, FILS, PTRIST, PTRFAC,
+     & IW1, LIW1, PTRACB, LIWK_PTRACB, PROCNODE_STEPS, SLAVEF,
      & INFO, KEEP,KEEP8, DKEEP, COMM_NODES, MYID,
-     & MYID_NODES, BUFR, LBUFR, LBUFR_BYTES,
-     & ISTEP_TO_INIV2, TAB_POS_IN_PERE,
-     & IBEG_ROOT_DEF, IEND_ROOT_DEF,
+     & MYID_NODES, BUFR, LBUFR, LBUFR_BYTES, ISTEP_TO_INIV2,
+     & TAB_POS_IN_PERE, IBEG_ROOT_DEF, IEND_ROOT_DEF,
      & IROOT_DEF_RHS_COL1, PTR_RHS_ROOT, LPTR_RHS_ROOT,
      & SIZE_ROOT, MASTER_ROOT,
      & RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD, POSINRHSCOMP_BWD
@@ -32,9 +30,9 @@ C
      & , DO_NBSPARSE , PTR_RHS_BOUNDS, LPTR_RHS_BOUNDS
      & )
       USE SMUMPS_OOC
-      USE MUMPS_SOL_ES
+      USE SMUMPS_SOL_ES
+      USE SMUMPS_STRUC_DEF, ONLY : SMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'smumps_root.h'
 #if defined(V_T)
       INCLUDE 'VT.inc'
 #endif
@@ -42,7 +40,7 @@ C
       INTEGER(8) :: LA
       INTEGER(8) :: LWC
       INTEGER    :: N,LIW,MTYPE,LIW1,LIWW,LNA
-      INTEGER ICNTL(40),INFO(40), KEEP(500)
+      INTEGER ICNTL(60),INFO(80), KEEP(500)
       INTEGER(8) KEEP8(150)
       INTEGER IW(LIW),IW1(LIW1),NA(LNA),NE_STEPS(KEEP(28)),IWCB(LIWW)
       INTEGER STEP(N), FRERE(KEEP(28)), FILS(N), PTRIST(KEEP(28)),
@@ -189,7 +187,7 @@ C
       IF (FROM_PP) THEN
         Exploit_Sparsity = .FALSE.
         DO_PRUN          = .FALSE.
-        IF ( AM1 ) THEN
+           IF ( AM1 ) THEN
           WRITE(*,*) "Internal error 2 in SMUMPS_SOL_C"
           CALL MUMPS_ABORT()
         ENDIF
@@ -290,7 +288,7 @@ C
               ENDIF
             ENDDO            
          ENDIF                  
-         CALL MUMPS_CHAIN_PRUN_NODES( 
+         CALL SMUMPS_CHAIN_PRUN_NODES( 
      &        .FALSE.,
      &        DAD, KEEP(28),
      &        STEP, N,
@@ -319,7 +317,7 @@ C
          END IF
          CALL MUMPS_PROPINFO(ICNTL, INFO, COMM_NODES, MYID )
          IF(INFO(1).LT.0) GOTO 500
-         CALL MUMPS_CHAIN_PRUN_NODES( 
+         CALL SMUMPS_CHAIN_PRUN_NODES( 
      &        .TRUE.,
      &        DAD, KEEP(28),
      &        STEP, N,
@@ -337,15 +335,15 @@ C
          ELSE
          OOC_FCT_TYPE_TMP = -5959 
          ENDIF
-         CALL MUMPS_CHAIN_PRUN_NODES_STATS(
-     &        MYID_NODES, N, KEEP(28), KEEP(201), KEEP8(31),
+         CALL SMUMPS_CHAIN_PRUN_NODES_STATS(
+     &        MYID_NODES, N, KEEP(28), KEEP(201), KEEP(485), KEEP8(31), 
      &        STEP, Pruned_List, nb_prun_nodes, OOC_FCT_TYPE_TMP
      &   )
          IF (DO_NBSPARSE) THEN
            nb_sparse = max(1,KEEP(497))
            MODE_RHS_BOUNDS = 0 
            IF (Exploit_Sparsity) MODE_RHS_BOUNDS = 2
-           CALL MUMPS_INITIALIZE_RHS_BOUNDS(
+           CALL SMUMPS_INITIALIZE_RHS_BOUNDS(
      &      STEP, N,
      &      IRHS_PTR, NBCOL_INBLOC, IRHS_SPARSE, NZ_RHS,
      &      JBEG_RHS, PERM_RHS, SIZE_PERM_RHS, KEEP(242), KEEP(243),
@@ -353,11 +351,11 @@ C
      &      PTR_RHS_BOUNDS, KEEP(28),
      &      nb_sparse, MYID_NODES,
      &      MODE_RHS_BOUNDS) 
-           CALL MUMPS_PROPAGATE_RHS_BOUNDS(
+           CALL SMUMPS_PROPAGATE_RHS_BOUNDS(
      &      Pruned_Leaves, nb_prun_leaves,
      &      STEP, N, Pruned_SONS,
      &      DAD, PTR_RHS_BOUNDS, KEEP(28),
-     &      MYID_NODES, COMM_NODES,
+     &      MYID_NODES, COMM_NODES, KEEP(485),
      &      IW, LIW, PTRIST,KEEP(IXSZ),OOC_FCT_TYPE_TMP,0,
      &      KEEP(50), KEEP(38))
          END IF
@@ -374,7 +372,7 @@ C
         IF (DOFORWARD .OR. DOROOT_FWD_OOC) THEN
            CALL SMUMPS_SOLVE_INIT_OOC_FWD(PTRFAC,KEEP(28),MTYPE,
      &                                A,LA,DOFORWARD,IERR)
-          IF(IERR.LT.0)THEN
+           IF(IERR.LT.0)THEN
             INFO(1)=IERR
             INFO(2)=0
             CALL MUMPS_ABORT()
@@ -520,7 +518,7 @@ C
          ENDDO
         ENDIF
         IF ( Exploit_Sparsity ) THEN
-           CALL MUMPS_TREE_PRUN_NODES( 
+           CALL SMUMPS_TREE_PRUN_NODES( 
      &     .FALSE.,
      &     DAD, NE_STEPS, FRERE, KEEP(28),
      &     FILS, STEP, N,
@@ -549,7 +547,7 @@ C
            END IF
            CALL MUMPS_PROPINFO(ICNTL, INFO, COMM_NODES, MYID )
            IF(INFO(1).LT.0) GOTO 500
-           CALL MUMPS_TREE_PRUN_NODES( 
+           CALL SMUMPS_TREE_PRUN_NODES( 
      &     .TRUE.,
      &     DAD, NE_STEPS, FRERE, KEEP(28),
      &     FILS, STEP, N,
@@ -568,7 +566,7 @@ C
            ELSE
              OOC_FCT_TYPE_TMP = -5959 
            ENDIF
-           CALL MUMPS_TREE_PRUN_NODES_STATS(
+           CALL SMUMPS_TREE_PRUN_NODES_STATS(
      &          MYID_NODES, N, KEEP(28), KEEP(201),
      &          KEEP8(31), STEP,
      &          Pruned_List,
@@ -607,7 +605,7 @@ C
             IOLDPS = PTRIST(STEP(KEEP(38)))
             LOCAL_M = IW( IOLDPS + 2 + KEEP(IXSZ))
             LOCAL_N = IW( IOLDPS + 1 + KEEP(IXSZ))
-            IF (KEEP(201).GT.0) THEN
+            IF (KEEP(201).GT.0) THEN 
               CALL SMUMPS_SOLVE_GET_OOC_NODE(
      &           KEEP(38),PTRFAC,KEEP,A,LA,
      &           STEP,KEEP8,N,DUMMY_BOOL,IERR)
@@ -634,7 +632,7 @@ C
      &       PTR_RHS_ROOT(1),
      &       root%TOT_ROOT_SIZE, A( IAPOS ),
      &       INFO(1), MTYPE, KEEP(50), FROM_PP)
-            IF(KEEP(201).GT.0)THEN
+            IF(KEEP(201).GT.0)THEN 
               CALL SMUMPS_FREE_FACTORS_FOR_SOLVE(KEEP(38),
      &             PTRFAC,KEEP(28),A,LA,.FALSE.,IERR)
               IF(IERR.LT.0)THEN
@@ -686,7 +684,7 @@ C
           ENDIF
         ENDIF                    
         IF ( AM1 ) THEN
-         CALL MUMPS_CHAIN_PRUN_NODES( 
+         CALL SMUMPS_CHAIN_PRUN_NODES( 
      &        .FALSE.,
      &        DAD, KEEP(28),
      &        STEP, N,
@@ -715,7 +713,7 @@ C
          END IF
          CALL MUMPS_PROPINFO(ICNTL, INFO, COMM_NODES, MYID )
          IF(INFO(1).LT.0) GOTO 500
-         CALL MUMPS_CHAIN_PRUN_NODES( 
+         CALL SMUMPS_CHAIN_PRUN_NODES( 
      &        .TRUE.,
      &        DAD, KEEP(28),
      &        STEP, N,
@@ -732,13 +730,13 @@ C
           ELSE
            OOC_FCT_TYPE_TMP = -5959 
           ENDIF
-          CALL MUMPS_CHAIN_PRUN_NODES_STATS(
-     &    MYID_NODES, N, KEEP(28), KEEP(201), KEEP8(31),
+          CALL SMUMPS_CHAIN_PRUN_NODES_STATS(
+     &    MYID_NODES, N, KEEP(28), KEEP(201), KEEP(485), KEEP8(31),
      &    STEP, Pruned_List, nb_prun_nodes, OOC_FCT_TYPE_TMP
      &    )
           IF (DO_NBSPARSE_BWD) THEN
             nb_sparse = max(1,KEEP(497))
-            CALL MUMPS_INITIALIZE_RHS_BOUNDS(
+            CALL SMUMPS_INITIALIZE_RHS_BOUNDS(
      &       STEP, N,
      &       IRHS_PTR, NBCOL_INBLOC, IRHS_SPARSE, NZ_RHS,
      &       JBEG_RHS, PERM_RHS, SIZE_PERM_RHS, KEEP(242), KEEP(243),
@@ -746,11 +744,11 @@ C
      &       PTR_RHS_BOUNDS, KEEP(28),
      &       nb_sparse, MYID_NODES,
      &       1) 
-            CALL MUMPS_PROPAGATE_RHS_BOUNDS(
+            CALL SMUMPS_PROPAGATE_RHS_BOUNDS(
      &       Pruned_Leaves, nb_prun_leaves,
      &       STEP, N, Pruned_SONS,
      &       DAD, PTR_RHS_BOUNDS, KEEP(28),
-     &       MYID_NODES, COMM_NODES,
+     &       MYID_NODES, COMM_NODES, KEEP(485),
      &       IW, LIW, PTRIST,KEEP(IXSZ),OOC_FCT_TYPE_TMP,1,
      &       KEEP(50), KEEP(38))
          END IF
@@ -792,6 +790,10 @@ C
            SIZE_TO_PROCESS = 1
            IF (allocated(TO_PROCESS)) DEALLOCATE(TO_PROCESS) 
            ALLOCATE (TO_PROCESS(SIZE_TO_PROCESS), stat=I)
+           IF(I.GT.0) THEN
+              WRITE(*,*)'Problem with allocation of TO_PROCESS'
+              CALL MUMPS_ABORT()
+           END IF
            TO_PROCESS(:) = .TRUE.
            CALL SMUMPS_SOL_S( N, A, LA, IW, LIW, W(1), LWC,
      &          NRHS,
@@ -836,7 +838,8 @@ C
      &          ISTEP_TO_INIV2, TAB_POS_IN_PERE, IW1(IPANEL_POS),
      &          LPANEL_POS, TO_PROCESS, SIZE_TO_PROCESS
      &        , PTR_RHS_BOUNDS, LPTR_RHS_BOUNDS, DO_NBSPARSE_BWD
-     &         , FROM_PP)
+     &         , FROM_PP
+     &          )
         ENDIF
 #if defined(V_T)
         CALL VTEND(back_soln,ierr)
@@ -920,12 +923,11 @@ C
      &        MYID_NODES, TYPE_PARAL, N2RECV
       INTEGER LIELL, IPOS, NPIV, MAXNPIV_estim, MAXSurf
       INTEGER :: STATUS(MPI_STATUS_SIZE)
-      INTEGER :: IERR
+      INTEGER :: IERR, allocok
       PARAMETER(MASTER=0)
       LOGICAL I_AM_SLAVE
       INTEGER RECORD_SIZE_P_1, SIZE1, SIZE2
       INTEGER POS_BUF, N2SEND, IPOSINRHSCOMP
-      INTEGER SK38, SK20
       INTEGER :: JCOL_RHS
       INTEGER :: K242
 !$    LOGICAL :: OMP_FLAG
@@ -950,11 +952,11 @@ C
              K242 = KEEP(242)
 !$           NOMP = OMP_GET_MAX_THREADS()
 !$           OMP_FLAG = .FALSE.
-!$           CHUNK = N/2
-!$           IF (NRHS * N .GE. KEEP(363)) THEN
+!$           CHUNK = max(N/2,1)
+!$           IF (int(NRHS,8) * int(N,8) .GE. int(KEEP(363),8)) THEN
 !$             OMP_FLAG = .TRUE.
 !$         CHUNK=int((int(N,8)*int(NRHS,8)+int(NOMP-1,8))/int(NOMP,8))
-!$             CHUNK = min(CHUNK,N/KEEP(362))
+!$             CHUNK = min(CHUNK,(N+KEEP(362)-1)/KEEP(362))
 !$             CHUNK = max(KEEP(363)/2,CHUNK)
 !$           ENDIF
 !$OMP PARALLEL FIRSTPRIVATE(JBEG_RHS,N,K242)
@@ -1011,11 +1013,11 @@ C
              K242 = KEEP(242)
 !$           NOMP = OMP_GET_MAX_THREADS()
 !$           OMP_FLAG = .FALSE.
-!$           CHUNK = N/2
+!$           CHUNK = max(N/2,1)
 !$           IF (NRHS * N .GE. KEEP(363)) THEN
 !$             OMP_FLAG = .TRUE.
 !$         CHUNK=int((int(N,8)*int(NRHS,8)+int(NOMP-1,8))/int(NOMP,8))
-!$             CHUNK = min(CHUNK,N/KEEP(362))
+!$             CHUNK = min(CHUNK,(N+KEEP(362)-1)/KEEP(362))
 !$             CHUNK = max(KEEP(363)/2,CHUNK)
 !$           ENDIF
 !$OMP PARALLEL FIRSTPRIVATE(JBEG_RHS,N,K242)
@@ -1084,10 +1086,14 @@ C
       ENDIF
 #endif
       IF (MYID.EQ.MASTER) THEN
-        ALLOCATE(IROWlist(KEEP(247)))
+         ALLOCATE(IROWlist(KEEP(247)),stat=allocok)
+         IF(allocok.GT.0) THEN
+            WRITE(*,*)'Problem with allocation of IROWlist'
+            CALL MUMPS_ABORT()
+         ENDIF
       ENDIF
       IF (NSLAVES .EQ. 1 .AND. TYPE_PARAL .EQ. 1) THEN
-        CALL MUMPS_ABORT()
+         CALL MUMPS_ABORT()
       ENDIF
       SIZE1=0
       CALL MPI_PACK_SIZE(MAXNPIV_estim+2,MPI_INTEGER, COMM, 
@@ -1106,34 +1112,13 @@ C
       N2SEND   =0
       N2RECV   =N
       POS_BUF  =0
-      IF (KEEP(38).NE.0) THEN
-        SK38=STEP(KEEP(38))
-      ELSE
-        SK38=0
-      ENDIF
-      IF (KEEP(20).NE.0) THEN
-        SK20=STEP(KEEP(20))
-      ELSE
-        SK20=0
-      ENDIF
       IF (I_AM_SLAVE) THEN
         POS_BUF = 0
         DO ISTEP = 1, KEEP(28)
           IF (MYID_NODES == MUMPS_PROCNODE(PROCNODE_STEPS(ISTEP),
      &          NSLAVES)) THEN
-              IF ( ISTEP.EQ.SK38 .OR. ISTEP.EQ.SK20 ) THEN
-                    IPOS = PTRIST(ISTEP)+KEEP(IXSZ) 
-                    NPIV  = IW(IPOS+3)
-                    LIELL = IW(IPOS) + NPIV
-                    IPOS= PTRIST(ISTEP)+5+KEEP(IXSZ)
-              ELSE
-                  IPOS = PTRIST(ISTEP) + 2+ KEEP(IXSZ)
-                  LIELL = IW(IPOS-2)+IW(IPOS+1)
-                  IPOS= IPOS+1
-                  NPIV = IW(IPOS)
-                  IPOS= IPOS+1
-                  IPOS= IPOS+1+IW( PTRIST(ISTEP) + 5 +KEEP(IXSZ))
-              END IF
+              CALL MUMPS_SOL_GET_NPIV_LIELL_IPOS( ISTEP, KEEP,
+     &        NPIV, LIELL, IPOS, IW, LIW, PTRIST, STEP, N)
               IF (MTYPE.eq.1 .AND. KEEP(50).EQ.0) THEN
                    J1=IPOS+1+LIELL
               ELSE
@@ -1583,7 +1568,8 @@ C
       SUBROUTINE SMUMPS_DISTSOL_INDICES(MTYPE, ISOL_LOC,
      &             PTRIST, KEEP,KEEP8,
      &             IW, LIW_PASSED, MYID_NODES, N, STEP,
-     &             PROCNODE, NSLAVES, scaling_data, LSCAL)
+     &             PROCNODE, NSLAVES, scaling_data, LSCAL
+     &             )
       IMPLICIT NONE
       INTEGER MTYPE, MYID_NODES, N, NSLAVES
       INTEGER KEEP(500)
@@ -1604,35 +1590,13 @@ C
       EXTERNAL MUMPS_PROCNODE
       INTEGER ISTEP, K
       INTEGER J1, IPOS, LIELL, NPIV, JJ
-      INTEGER SK38,SK20
       INCLUDE 'mumps_headers.h'
-      IF (KEEP(38).NE.0) THEN
-        SK38=STEP(KEEP(38))
-      ELSE
-        SK38=0
-      ENDIF
-      IF (KEEP(20).NE.0) THEN
-        SK20=STEP(KEEP(20))
-      ELSE
-        SK20=0
-      ENDIF
       K=0
       DO ISTEP=1, KEEP(28)
           IF ( MYID_NODES == MUMPS_PROCNODE( PROCNODE(ISTEP),
      &                   NSLAVES)) THEN
-              IF ( ISTEP.EQ.SK38 .OR. ISTEP.EQ.SK20 ) THEN
-                    IPOS = PTRIST(ISTEP)+KEEP(IXSZ)
-                    LIELL = IW(IPOS+3)
-                    NPIV = LIELL
-                    IPOS= PTRIST(ISTEP)+5+KEEP(IXSZ)
-              ELSE
-                  IPOS = PTRIST(ISTEP) + 2 + KEEP(IXSZ)
-                  LIELL = IW(IPOS-2)+IW(IPOS+1)
-                  IPOS= IPOS+1
-                  NPIV = IW(IPOS)
-                  IPOS= IPOS+1
-                  IPOS= IPOS+1+IW( PTRIST(ISTEP) + 5 + KEEP(IXSZ))
-              END IF
+              CALL MUMPS_SOL_GET_NPIV_LIELL_IPOS( ISTEP, KEEP,
+     &        NPIV, LIELL, IPOS, IW, LIW_PASSED, PTRIST, STEP, N)
               IF (MTYPE.eq.1 .AND. KEEP(50).EQ.0) THEN
                    J1=IPOS+1+LIELL
               ELSE
@@ -1767,7 +1731,7 @@ C
               ENDDO
             ENDIF
 !$            OMP_FLAG = ( JEND-JEMPTY.GE.KEEP(362) .AND.
-!$   &                     (NPIV*(JEND-JEMPTY+1) .GE. KEEP(363)/2 ) )
+!$   &                     (NPIV*(JEND-JEMPTY) .GE. KEEP(363)/2 ) )
 !$OMP PARALLEL DO PRIVATE(JCOL,JCOL_PERM,KLOC,JJ,IPOSINRHSCOMP) 
 !$OMP&         IF(OMP_FLAG)
             DO JCOL = JEMPTY+1, JEND
@@ -1821,7 +1785,7 @@ C
       INCLUDE 'mumps_tags.h'
       INTEGER NSLAVES, N, MYID, COMM, LIW, MTYPE
       INTEGER NRHS, LRHS, NCOL_RHS,  LRHSCOMP, NCOL_RHSCOMP
-      INTEGER ICNTL(40), INFO(40)
+      INTEGER ICNTL(60), INFO(80)
       REAL, intent(in)  :: RHS (LRHS, NCOL_RHS)
 #if defined(RHSCOMP_BYROWS)
       REAL, intent(out) :: RHSCOMP(NCOL_RHSCOMP, LRHSCOMP)
@@ -1850,23 +1814,12 @@ C
       INTEGER :: IERR
       PARAMETER(MASTER=0)
       LOGICAL I_AM_SLAVE
-      INTEGER SK38, SK20
 !$    INTEGER :: CHUNK, NOMP
 !$    LOGICAL :: OMP_FLAG
       INCLUDE 'mumps_headers.h'
       INTEGER MUMPS_PROCNODE
       EXTERNAL MUMPS_PROCNODE
       TYPE_PARAL = KEEP(46)
-      IF (KEEP(38).NE.0) THEN
-        SK38=STEP(KEEP(38))
-      ELSE
-        SK38=0
-      ENDIF
-      IF (KEEP(20).NE.0) THEN
-        SK20=STEP(KEEP(20))
-      ELSE
-        SK20=0
-      ENDIF
       I_AM_SLAVE = MYID .ne. 0 .OR. TYPE_PARAL .eq. 1
       IF ( TYPE_PARAL == 1 ) THEN
         MYID_NODES = MYID
@@ -1961,8 +1914,7 @@ C
         ENDIF
       ENDIF
       IF (I_AM_SLAVE) THEN
-        IF (MYID.NE.MASTER) 
-     &       THEN
+        IF (MYID.NE.MASTER) THEN
          IF (NB_FS_IN_RHSCOMP_F.LT.LRHSCOMP) THEN
 #if defined(RHSCOMP_BYROWS)
            DO I = NB_FS_IN_RHSCOMP_F +1, LRHSCOMP
@@ -1982,19 +1934,8 @@ C
         DO ISTEP = 1, KEEP(28)
           IF (MYID_NODES == MUMPS_PROCNODE(PROCNODE_STEPS(ISTEP),
      &          NSLAVES)) THEN
-              IF ( ISTEP.EQ.SK38 .OR. ISTEP.EQ.SK20 ) THEN
-                  IPOS = PTRIST(ISTEP) 
-                  LIELL = IW(IPOS+3+KEEP(IXSZ))
-                  NPIV = LIELL
-                  IPOS= PTRIST(ISTEP)+5+KEEP(IXSZ)
-              ELSE
-                  IPOS = PTRIST(ISTEP) + 2+ KEEP(IXSZ)
-                  LIELL = IW(IPOS-2)+IW(IPOS+1)
-                  IPOS= IPOS+1
-                  NPIV = IW(IPOS)
-                  IPOS= IPOS+1
-                  IPOS= IPOS+1+IW( PTRIST(ISTEP) + 5 +KEEP(IXSZ))
-              END IF
+             CALL MUMPS_SOL_GET_NPIV_LIELL_IPOS( ISTEP, KEEP,
+     &       NPIV, LIELL, IPOS, IW, LIW, PTRIST, STEP, N )
               IF (MTYPE.eq.1 .OR. KEEP(50).NE.0) THEN
                    J1=IPOS+1
               ELSE
@@ -2128,43 +2069,20 @@ C
       INTEGER, intent(out):: NBENT_RHSCOMP, NB_FS_IN_RHSCOMP
       INTEGER ISTEP
       INTEGER NPIV
-      INTEGER SK38, SK20, IPOS, LIELL
+      INTEGER IPOS, LIELL
       INTEGER JJ, J1, JCOL
       INTEGER IPOSINRHSCOMP, IPOSINRHSCOMP_COL
       INCLUDE 'mumps_headers.h'
       INTEGER MUMPS_PROCNODE
       EXTERNAL MUMPS_PROCNODE
-      IF (KEEP(38).NE.0) THEN
-        SK38=STEP(KEEP(38))
-      ELSE
-        SK38=0
-      ENDIF
-      IF (KEEP(20).NE.0) THEN 
-        SK20=STEP(KEEP(20))
-      ELSE
-        SK20=0
-      ENDIF
       POSINRHSCOMP_ROW = 0
       IF (POSINRHSCOMP_COL_ALLOC) POSINRHSCOMP_COL = 0
       IPOSINRHSCOMP   = 1     
       DO ISTEP = 1, KEEP(28)
         IF (MYID_NODES == MUMPS_PROCNODE(PROCNODE_STEPS(ISTEP),
      &     NSLAVES)) THEN
-           IPOS = PTRIST(ISTEP)
-           NPIV = IW(IPOS+3+KEEP(IXSZ))
-           IF ( ISTEP.EQ.SK38 .OR. ISTEP.EQ.SK20 ) THEN
-                  IPOS = PTRIST(ISTEP)
-                  LIELL = IW(IPOS+3+KEEP(IXSZ))
-                  NPIV = LIELL
-                  IPOS= PTRIST(ISTEP)+5+KEEP(IXSZ)
-           ELSE
-                  IPOS = PTRIST(ISTEP) + 2+ KEEP(IXSZ)
-                  LIELL = IW(IPOS-2)+IW(IPOS+1)
-                  IPOS= IPOS+1
-                  NPIV = IW(IPOS)
-                  IPOS= IPOS+1
-                  IPOS= IPOS+1+IW( PTRIST(ISTEP) + 5 +KEEP(IXSZ))
-           ENDIF
+           CALL MUMPS_SOL_GET_NPIV_LIELL_IPOS( ISTEP, KEEP, NPIV, LIELL,
+     &     IPOS, IW, LIW, PTRIST, STEP, N )
            IF (MTYPE.eq.1 .OR. KEEP(50).NE.0) THEN
                    J1=IPOS+1
            ELSE
@@ -2192,21 +2110,8 @@ C
       DO ISTEP = 1, KEEP(28)
         IF (MYID_NODES == MUMPS_PROCNODE(PROCNODE_STEPS(ISTEP),
      &     NSLAVES)) THEN
-           IPOS = PTRIST(ISTEP)
-           NPIV = IW(IPOS+3+KEEP(IXSZ))
-           IF ( ISTEP.EQ.SK38 .OR. ISTEP.EQ.SK20 ) THEN
-                  IPOS = PTRIST(ISTEP)
-                  LIELL = IW(IPOS+3+KEEP(IXSZ))
-                  NPIV = LIELL
-                  IPOS= PTRIST(ISTEP)+5+KEEP(IXSZ)
-           ELSE
-                  IPOS = PTRIST(ISTEP) + 2+ KEEP(IXSZ)
-                  LIELL = IW(IPOS-2)+IW(IPOS+1)
-                  IPOS= IPOS+1
-                  NPIV = IW(IPOS)
-                  IPOS= IPOS+1
-                  IPOS= IPOS+1+IW( PTRIST(ISTEP) + 5 +KEEP(IXSZ))
-           ENDIF
+           CALL MUMPS_SOL_GET_NPIV_LIELL_IPOS( ISTEP, KEEP,
+     &     NPIV, LIELL, IPOS, IW, LIW, PTRIST, STEP, N )
            IF (MTYPE.eq.1 .OR. KEEP(50).NE.0) THEN
                    J1=IPOS+1
            ELSE
@@ -2279,7 +2184,7 @@ C
       INTEGER I, JAM1
       INTEGER ISTEP, OLDISTEP
       INTEGER NPIV
-      INTEGER SK38, SK20, IPOS, LIELL
+      INTEGER IPOS, LIELL
       INTEGER JJ, J1, JCOL, ABSJCOL
       INTEGER IPOSINRHSCOMP_ROW, IPOSINRHSCOMP_COL
       INTEGER NBENT_RHSCOMP_ROW, NBENT_RHSCOMP_COL
@@ -2291,16 +2196,6 @@ C
         WRITE(*,*)'BUILD_POSINRHSCOMP_SPARSE available for A-1 only !'
         CALL MUMPS_ABORT()
       END IF
-      IF (KEEP(38).NE.0) THEN
-        SK38=STEP(KEEP(38))
-      ELSE
-        SK38=0
-      ENDIF
-      IF (KEEP(20).NE.0) THEN
-        SK20=STEP(KEEP(20))
-      ELSE
-        SK20=0
-      ENDIF
       POSINRHSCOMP_ROW = 0
       IF (POSINRHSCOMP_COL_ALLOC) POSINRHSCOMP_COL = 0
       IPOSINRHSCOMP_ROW = 0
@@ -2317,21 +2212,8 @@ C
         DO WHILE(GO_UP) 
           IF(MYID_NODES.EQ.
      &      MUMPS_PROCNODE(PROCNODE_STEPS(ISTEP),NSLAVES)) THEN
-            IPOS = PTRIST(ISTEP)
-            NPIV = IW(IPOS+3+KEEP(IXSZ))
-            IF ( ISTEP.EQ.SK38 .OR. ISTEP.EQ.SK20 ) THEN
-              IPOS = PTRIST(ISTEP)
-              LIELL = IW(IPOS+3+KEEP(IXSZ))
-              NPIV = LIELL
-              IPOS= PTRIST(ISTEP)+5+KEEP(IXSZ)
-            ELSE
-              IPOS = PTRIST(ISTEP) + 2+ KEEP(IXSZ)
-              LIELL = IW(IPOS-2)+IW(IPOS+1)
-              IPOS= IPOS+1
-              NPIV = IW(IPOS)
-              IPOS= IPOS+1
-              IPOS= IPOS+1+IW( PTRIST(ISTEP) + 5 +KEEP(IXSZ))
-            ENDIF
+            CALL MUMPS_SOL_GET_NPIV_LIELL_IPOS( ISTEP, KEEP,
+     &      NPIV, LIELL, IPOS, IW, LIW, PTRIST, STEP, N )
             IF (MTYPE.eq.1 .OR. KEEP(50).NE.0) THEN
               J1=IPOS+1
             ELSE
@@ -2378,21 +2260,8 @@ C
           DO WHILE(GO_UP) 
             IF(MYID_NODES.EQ.
      &        MUMPS_PROCNODE(PROCNODE_STEPS(ISTEP),NSLAVES)) THEN
-              IPOS = PTRIST(ISTEP)
-              NPIV = IW(IPOS+3+KEEP(IXSZ))
-              IF ( ISTEP.EQ.SK38 .OR. ISTEP.EQ.SK20 ) THEN
-                IPOS = PTRIST(ISTEP)
-                LIELL = IW(IPOS+3+KEEP(IXSZ))
-                NPIV = LIELL
-                IPOS= PTRIST(ISTEP)+5+KEEP(IXSZ)
-              ELSE
-                IPOS = PTRIST(ISTEP) + 2+ KEEP(IXSZ)
-                LIELL = IW(IPOS-2)+IW(IPOS+1)
-                IPOS= IPOS+1
-                NPIV = IW(IPOS)
-                IPOS= IPOS+1
-                IPOS= IPOS+1+IW( PTRIST(ISTEP) + 5 +KEEP(IXSZ))
-              ENDIF
+              CALL MUMPS_SOL_GET_NPIV_LIELL_IPOS( ISTEP, KEEP,
+     &        NPIV, LIELL, IPOS, IW, LIW, PTRIST, STEP, N )
               IF (MTYPE.eq.1 .OR. KEEP(50).NE.0) THEN
                 J1=IPOS+1
               ELSE
@@ -2434,6 +2303,7 @@ C
         END DO 
       END IF 
       NB_FS_IN_RHSCOMP_TOT = IPOSINRHSCOMP_COL
+            IF (NSLAVES.NE.1) THEN
       DO I = 1, NBCOL_INBLOC
         IF ((IRHS_PTR(I+1)-IRHS_PTR(I)).EQ.0) CYCLE 
         IF (KEEP(242).NE.0) THEN 
@@ -2446,21 +2316,8 @@ C
         DO WHILE(GO_UP) 
           IF(MYID_NODES.EQ.
      &      MUMPS_PROCNODE(PROCNODE_STEPS(ISTEP),NSLAVES)) THEN
-            IPOS = PTRIST(ISTEP)
-            NPIV = IW(IPOS+3+KEEP(IXSZ))
-            IF ( ISTEP.EQ.SK38 .OR. ISTEP.EQ.SK20 ) THEN
-              IPOS = PTRIST(ISTEP)
-              LIELL = IW(IPOS+3+KEEP(IXSZ))
-              NPIV = LIELL
-              IPOS= PTRIST(ISTEP)+5+KEEP(IXSZ)
-            ELSE
-              IPOS = PTRIST(ISTEP) + 2+ KEEP(IXSZ)
-              LIELL = IW(IPOS-2)+IW(IPOS+1)
-              IPOS= IPOS+1
-              NPIV = IW(IPOS)
-              IPOS= IPOS+1
-              IPOS= IPOS+1+IW( PTRIST(ISTEP) + 5 +KEEP(IXSZ))
-            ENDIF
+            CALL MUMPS_SOL_GET_NPIV_LIELL_IPOS( ISTEP, KEEP,
+     &      NPIV, LIELL, IPOS, IW, LIW, PTRIST, STEP, N )
             IF (MTYPE.eq.1 .OR. KEEP(50).NE.0) THEN
               J1=IPOS+1
             ELSE
@@ -2498,21 +2355,8 @@ C
           DO WHILE(GO_UP) 
             IF(MYID_NODES.EQ.
      &        MUMPS_PROCNODE(PROCNODE_STEPS(ISTEP),NSLAVES)) THEN
-              IPOS = PTRIST(ISTEP)
-              NPIV = IW(IPOS+3+KEEP(IXSZ))
-              IF ( ISTEP.EQ.SK38 .OR. ISTEP.EQ.SK20 ) THEN
-                IPOS = PTRIST(ISTEP)
-                LIELL = IW(IPOS+3+KEEP(IXSZ))
-                NPIV = LIELL
-                IPOS= PTRIST(ISTEP)+5+KEEP(IXSZ)
-              ELSE
-                IPOS = PTRIST(ISTEP) + 2+ KEEP(IXSZ)
-                LIELL = IW(IPOS-2)+IW(IPOS+1)
-                IPOS= IPOS+1
-                NPIV = IW(IPOS)
-                IPOS= IPOS+1
-                IPOS= IPOS+1+IW( PTRIST(ISTEP) + 5 +KEEP(IXSZ))
-              ENDIF
+              CALL MUMPS_SOL_GET_NPIV_LIELL_IPOS( ISTEP, KEEP,
+     &        NPIV, LIELL, IPOS, IW, LIW, PTRIST, STEP, N )
               IF (MTYPE.eq.1 .OR. KEEP(50).NE.0) THEN
                 J1=IPOS+1
               ELSE
@@ -2547,6 +2391,7 @@ C
         END DO 
        DAD=ABS(DAD)
       END IF
+      ENDIF
       NBENT_RHSCOMP_ROW = IPOSINRHSCOMP_ROW
       NBENT_RHSCOMP_COL = IPOSINRHSCOMP_COL
       NBENT_RHSCOMP = max(NBENT_RHSCOMP_ROW,NBENT_RHSCOMP_COL)

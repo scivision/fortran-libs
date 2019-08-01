@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -118,7 +118,7 @@ C
       DOUBLE PRECISION A( LA )
       TYPE (DMUMPS_ROOT_STRUC) :: root
       INTEGER PROCNODE_STEPS(KEEP(28)), PERM( N ), STEP( N )
-      INTEGER INFO( 40 ), ICNTL(40)
+      INTEGER INFO( 80 ), ICNTL(60)
       INTEGER MUMPS_PROCNODE, MUMPS_TYPENODE, numroc, 
      &        MUMPS_TYPESPLIT
       EXTERNAL MUMPS_PROCNODE, MUMPS_TYPENODE, numroc, 
@@ -343,7 +343,7 @@ C
         TYPESPLIT  = MUMPS_TYPESPLIT( PROCNODE_STEPS(ISTEP),
      &                               SLAVEF )
         T4_MASTER_CONCERNED = .FALSE.
-        T4MASTER               = -9999
+        T4MASTER            = -9999
         IF (TYPE_NODE.EQ.2) THEN
          INIV2         = ISTEP_TO_INIV2(ISTEP)
          IF ( (TYPESPLIT.EQ.5).OR.(TYPESPLIT.EQ.6)) THEN
@@ -479,8 +479,8 @@ C
      &  PTRAIW, PTRARW, PERM, STEP, ARROW_ROOT, END_MSG_2_RECV,
      &  PROCNODE_STEPS, A, LA, PTR_ROOT, LOCAL_M, LOCAL_N, IW4, root,
      &  KEEP,KEEP8 )
+      USE DMUMPS_STRUC_DEF, ONLY : DMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'dmumps_root.h'
       TYPE (DMUMPS_ROOT_STRUC) :: root
       INTEGER ISEND, JSEND, DEST, NBRECORDS, SLAVEF, COMM, MYID, N
       INTEGER KEEP(500)
@@ -597,8 +597,8 @@ C
      &             SLAVEF, ARROW_ROOT,
      &             PTRAIW, PTRARW, PERM, STEP,
      &             INTARR, LINTARR, DBLARR, LDBLARR )
+      USE DMUMPS_STRUC_DEF, ONLY : DMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'dmumps_root.h'
       TYPE (DMUMPS_ROOT_STRUC) :: root
       INTEGER NBRECORDS, N, ARROW_ROOT, MYID, SLAVEF
       INTEGER BUFI( NBRECORDS * 2 + 1 )
@@ -649,7 +649,7 @@ C
           IROW_GRID = mod( ( IPOSROOT - 1 )/root%MBLOCK, root%NPROW )
           JCOL_GRID = mod( ( JPOSROOT - 1 )/root%NBLOCK, root%NPCOL )
           IF ( IROW_GRID .NE. root%MYROW .OR.
-     &       JCOL_GRID .NE. root%MYCOL ) THEN
+     &         JCOL_GRID .NE. root%MYCOL ) THEN
             WRITE(*,*) MYID,':INTERNAL Error: recvd root arrowhead '
             WRITE(*,*) MYID,':not belonging to me. IARR,JARR=',IARR,JARR
             WRITE(*,*) MYID,':IROW_GRID,JCOL_GRID=',IROW_GRID,JCOL_GRID

@@ -1,11 +1,11 @@
 /*
  *
- *  This file is part of MUMPS 5.1.2, released
- *  on Mon Oct  2 07:37:01 UTC 2017
+ *  This file is part of MUMPS 5.2.1, released
+ *  on Fri Jun 14 14:46:05 UTC 2019
  *
  *
- *  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
- *  University of Bordeaux.
+ *  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
  *  released under the CeCILL-C license:
@@ -28,7 +28,7 @@ extern "C" {
 
 #ifndef MUMPS_VERSION
 /* Protected in case headers of other arithmetics are included */
-#define MUMPS_VERSION "5.1.2"
+#define MUMPS_VERSION "5.2.1"
 #endif
 #ifndef MUMPS_VERSION_MAX_LEN
 #define MUMPS_VERSION_MAX_LEN 30
@@ -42,7 +42,7 @@ typedef struct {
 
     MUMPS_INT      sym, par, job;
     MUMPS_INT      comm_fortran;    /* Fortran communicator */
-    MUMPS_INT      icntl[40];
+    MUMPS_INT      icntl[60];
     MUMPS_INT      keep[500];
     SMUMPS_REAL    cntl[15];
     SMUMPS_REAL    dkeep[230];
@@ -86,12 +86,12 @@ typedef struct {
     MUMPS_INT rowsca_from_mumps;
 
     /* RHS, solution, ouptput data and statistics */
-    SMUMPS_COMPLEX *rhs, *redrhs, *rhs_sparse, *sol_loc;
-    MUMPS_INT      *irhs_sparse, *irhs_ptr, *isol_loc;
-    MUMPS_INT      nrhs, lrhs, lredrhs, nz_rhs, lsol_loc;
+    SMUMPS_COMPLEX *rhs, *redrhs, *rhs_sparse, *sol_loc, *rhs_loc;
+    MUMPS_INT      *irhs_sparse, *irhs_ptr, *isol_loc, *irhs_loc;
+    MUMPS_INT      nrhs, lrhs, lredrhs, nz_rhs, lsol_loc, nloc_rhs, lrhs_loc;
     MUMPS_INT      schur_mloc, schur_nloc, schur_lld;
     MUMPS_INT      mblock, nblock, nprow, npcol;
-    MUMPS_INT      info[40],infog[40];
+    MUMPS_INT      info[80],infog[80];
     SMUMPS_REAL    rinfo[40], rinfog[40];
 
     /* Null space */
@@ -119,6 +119,9 @@ typedef struct {
     /* For save/restore feature */
     char save_dir[256];
     char save_prefix[256];
+
+    /* Metis options */
+    MUMPS_INT metis_options[40];
 } SMUMPS_STRUC_C;
 
 

@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -22,10 +22,10 @@ C
      &    IFLAG, IERROR, 
      &    IPOOL, LPOOL, LEAF, MYID, SLAVEF,
      &    KEEP, KEEP8, DKEEP,
-     &    COMM,COMM_LOAD,FILS,ND )
+     &    COMM, COMM_LOAD, FILS, DAD, ND )
       USE ZMUMPS_LOAD
+      USE ZMUMPS_STRUC_DEF, ONLY : ZMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'zmumps_root.h'
       TYPE (ZMUMPS_ROOT_STRUC) :: ROOT
       INTEGER INODE, NELIM, NSLAVES 
       INTEGER KEEP( 500 )
@@ -51,7 +51,7 @@ C
       INTEGER LPOOL, LEAF
       INTEGER IPOOL( LPOOL )
       INTEGER MYID, SLAVEF
-      INTEGER COMM,COMM_LOAD,ND(KEEP(28)),FILS(N)
+      INTEGER COMM, COMM_LOAD, ND(KEEP(28)), FILS(N), DAD(KEEP(28))
       INTEGER IROOT, TYPE_INODE, DEB_ROW, DEB_COL,
      &        NOINT
       INTEGER(8) :: NOREAL
@@ -83,7 +83,7 @@ C
        NOREAL= 0_8
        CALL ZMUMPS_ALLOC_CB(.FALSE.,0_8,.FALSE.,.FALSE.,
      &   MYID,N,KEEP,KEEP8,DKEEP,IW,LIW, A, LA,
-     &   LRLU, IPTRLU,IWPOS,IWPOSCB,
+     &   LRLU, IPTRLU,IWPOS,IWPOSCB, SLAVEF, PROCNODE_STEPS, DAD,
      &   PTRIST,PTRAST,STEP, PIMASTER, PAMASTER,
      &   NOINT, NOREAL, INODE, S_NOTFREE, .TRUE.,
      &   COMP, LRLUS, IFLAG, IERROR

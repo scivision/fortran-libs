@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -195,8 +195,9 @@ C
       SIZE_OF_BLOCK=0_8
       ALLOCATE(id%OOC_NB_FILES(OOC_NB_FILE_TYPE), stat=allocok)
       IF (allocok .GT. 0) THEN
-         IF (ICNTL1.GT.0)
-     &   WRITE(ICNTL1,*) 'PB allocation in CMUMPS_INIT_OOC'
+         IF (ICNTL1.GT.0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in CMUMPS_INIT_OOC'
+         ENDIF
          id%INFO(1) = -13
          id%INFO(2) = OOC_NB_FILE_TYPE
          RETURN
@@ -212,8 +213,9 @@ C
       ALLOCATE(I_CUR_HBUF_NEXTPOS(OOC_NB_FILE_TYPE),
      &     stat=allocok)
       IF (allocok .GT. 0) THEN
-         IF (ICNTL1.GT.0)
-     &   WRITE(ICNTL1,*) 'PB allocation in CMUMPS_INIT_OOC'
+         IF (ICNTL1.GT.0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in CMUMPS_INIT_OOC'
+         ENDIF
          id%INFO(1) = -13
          id%INFO(2) = OOC_NB_FILE_TYPE
          RETURN
@@ -241,8 +243,9 @@ C
       ALLOCATE(FILE_FLAG_TAB(OOC_NB_FILE_TYPE),
      &     stat=allocok)
       IF (allocok .GT. 0) THEN
-         IF (ICNTL1 .GT. 0)
-     &   WRITE(ICNTL1,*) 'PB allocation in CMUMPS_INIT_OOC'
+         IF (ICNTL1 .GT. 0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in CMUMPS_INIT_OOC'
+         ENDIF
          id%INFO(1) = -13
          id%INFO(2) = OOC_NB_FILE_TYPE
          RETURN
@@ -318,7 +321,7 @@ C
         ENDIF
         IF(I_CUR_HBUF_NEXTPOS(OOC_FCT_TYPE).GT.KEEP_OOC(28))THEN
              WRITE(*,*)MYID_OOC,': Internal error (37) in OOC '
-           CALL MUMPS_ABORT()
+             CALL MUMPS_ABORT()
         ENDIF
         OOC_INODE_SEQUENCE(I_CUR_HBUF_NEXTPOS(OOC_FCT_TYPE),
      &       OOC_FCT_TYPE)=INODE
@@ -359,7 +362,7 @@ C
             ENDIF
             IF(I_CUR_HBUF_NEXTPOS(OOC_FCT_TYPE).GT.KEEP_OOC(28))THEN
              WRITE(*,*)MYID_OOC,': Internal error (38) in OOC '
-               CALL MUMPS_ABORT()
+             CALL MUMPS_ABORT()
             ENDIF
             OOC_INODE_SEQUENCE(I_CUR_HBUF_NEXTPOS(OOC_FCT_TYPE),
      &           OOC_FCT_TYPE)=INODE
@@ -696,8 +699,9 @@ C
       ALLOCATE(IO_REQ(id%KEEP(28)),
      &     stat=allocok)
       IF (allocok .GT. 0) THEN
-         IF (ICNTL1.GT.0)
-     &   WRITE(ICNTL1,*) 'PB allocation in CMUMPS_OOC_INIT_SOLVE'
+         IF (ICNTL1.GT.0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in CMUMPS_OOC_INIT_SOLVE'
+         ENDIF
          id%INFO(1) = -13
          id%INFO(2) = id%KEEP(28)
          RETURN
@@ -739,16 +743,18 @@ C
      &     INODE_TO_POS(KEEP_OOC(28)),
      &     stat=allocok)
       IF (allocok .GT. 0) THEN
-         IF (ICNTL1.GT.0)
-     &   WRITE(ICNTL1,*) 'PB allocation in CMUMPS_OOC_INIT_SOLVE'
+         IF (ICNTL1.GT.0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in CMUMPS_OOC_INIT_SOLVE'
+         ENDIF
          id%INFO(1) = -13
          id%INFO(2) = id%KEEP(28)+(MAX_NB_NODES_FOR_ZONE*NB_Z)
          RETURN
       ENDIF
       ALLOCATE(OOC_STATE_NODE(KEEP_OOC(28)),stat=allocok)
       IF (allocok .GT. 0) THEN
-         IF (ICNTL1.GT.0)
-     &   WRITE(ICNTL1,*) 'PB allocation in CMUMPS_OOC_INIT_SOLVE'
+         IF (ICNTL1.GT.0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in CMUMPS_OOC_INIT_SOLVE'
+         ENDIF
          id%INFO(1) = -13
          id%INFO(2) = id%KEEP(28)
          RETURN
@@ -763,8 +769,9 @@ C
      &     POS_HOLE_T(NB_Z),POS_HOLE_B(NB_Z),
      &     stat=allocok)
       IF (allocok .GT. 0) THEN
-         IF (ICNTL1.GT.0)
-     &   WRITE(ICNTL1,*) 'PB allocation in CMUMPS_OOC_INIT_SOLVE'
+         IF (ICNTL1.GT.0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in CMUMPS_OOC_INIT_SOLVE'
+         ENDIF
          id%INFO(1) = -13
          id%INFO(2) = 9*(NB_Z+1)
          RETURN
@@ -781,8 +788,9 @@ C
       REQ_TO_ZONE=-9999
       REQ_ID=-9999
       IF (allocok .GT. 0) THEN
-         IF (ICNTL1.GT.0)
-     &   WRITE(ICNTL1,*) 'PB allocation in CMUMPS_OOC_INIT_SOLVE'
+         IF (ICNTL1.GT.0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in CMUMPS_OOC_INIT_SOLVE'
+         ENDIF
          id%INFO(1) = -13
          id%INFO(2) = 6*(NB_Z+1)
          RETURN
@@ -1119,7 +1127,7 @@ C
              WRITE(*,*)MYID_OOC,': Internal error (39) in OOC ',
      &                 ' Invalid Flag Value in ', 
      &                 ' CMUMPS_UPDATE_READ_REQ_NODE',FLAG
-               CALL MUMPS_ABORT()
+             CALL MUMPS_ABORT()
             ENDIF
          ENDIF
          IF(POS_IN_MEM(CURRENT_POS_T(ZONE)).NE.0)THEN
@@ -1131,7 +1139,7 @@ C
      &                 PDEB_SOLVE_Z(ZONE),
      &                 POS_IN_MEM(CURRENT_POS_T(ZONE)),
      &                 POS_IN_MEM(PDEB_SOLVE_Z(ZONE))
-                  CALL MUMPS_ABORT()
+             CALL MUMPS_ABORT()
                ENDIF
             ENDIF
          ENDIF
@@ -1140,7 +1148,7 @@ C
              WRITE(*,*)MYID_OOC,': Internal error (41) in OOC ',
      &           ' LRLUS_SOLVE must be (1) > 0',
      &           LRLUS_SOLVE(ZONE)
-            CALL MUMPS_ABORT()
+             CALL MUMPS_ABORT()
          ENDIF
          I=I+1
          IF(FLAG.EQ.1)THEN
@@ -1218,7 +1226,7 @@ C
       POS_IN_MEM(TMP)=-INODE
       PTRFAC(STEP_OOC(INODE))=-PTRFAC(STEP_OOC(INODE))
       IF (KEEP_OOC(237).eq.0) THEN
-       IF(OOC_STATE_NODE(STEP_OOC(INODE)).NE.PERMUTED)THEN
+         IF(OOC_STATE_NODE(STEP_OOC(INODE)).NE.PERMUTED)THEN
          WRITE(*,*)MYID_OOC,': INTERNAL ERROR (53) in OOC',INODE,
      &        OOC_STATE_NODE(STEP_OOC(INODE))
          CALL MUMPS_ABORT()
@@ -1375,7 +1383,7 @@ C
       INTEGER INODE
       IF ( (KEEP_OOC(237).EQ.0)
      &     .AND. (KEEP_OOC(235).EQ.0) ) THEN
-       IF(OOC_STATE_NODE(STEP_OOC(INODE)).NE.NOT_USED)THEN
+      IF(OOC_STATE_NODE(STEP_OOC(INODE)).NE.NOT_USED)THEN
          WRITE(*,*)MYID_OOC,': INTERNAL ERROR (51) in OOC',INODE,
      &        OOC_STATE_NODE(STEP_OOC(INODE))
          CALL MUMPS_ABORT()
@@ -1794,7 +1802,7 @@ C
                  WRITE(*,*)MYID_OOC,': Internal error (15) in OOC ',
      &                               ERR_STR_OOC(1:DIM_ERR_STR_OOC)
                  CALL MUMPS_ABORT() 
-                  RETURN
+                 RETURN
                ENDIF
                REQ_ACT=REQ_ACT-1
                CALL CMUMPS_SOLVE_UPDATE_POINTERS(
@@ -1838,7 +1846,7 @@ C
             IF(IERR.LT.0)THEN
                WRITE(*,*)MYID_OOC,': Internal error (18) in OOC ',
      &                            ERR_STR_OOC(1:DIM_ERR_STR_OOC)
-               CALL MUMPS_ABORT() 
+               CALL MUMPS_ABORT()
                RETURN
             ENDIF
             REQ_ACT=REQ_ACT-1
@@ -1852,7 +1860,7 @@ C
       CURRENT_POS_B(ZONE)=POS_HOLE_B(ZONE)
  50   CONTINUE
       IF((POS_HOLE_B(ZONE).EQ.-9999).AND.
-     &   (LRLU_SOLVE_B(ZONE).NE.0_8))THEN
+     &     (LRLU_SOLVE_B(ZONE).NE.0_8))THEN
          WRITE(*,*)MYID_OOC,': Internal error (19) in OOC ',
      &             'CMUMPS_GET_BOTTOM_AREA_SPACE'
          CALL MUMPS_ABORT()
@@ -2028,7 +2036,7 @@ C
                     WRITE(*,*)MYID_OOC,': Internal error (26) in OOC ',
      &                      ' CMUMPS_FREE_SPACE_FOR_SOLVE',TMP_NODE,
      &                       J,I-1,(N_OOC+1)*NB_Z
-                        CALL MUMPS_ABORT()
+                    CALL MUMPS_ABORT()
                      ENDIF
                   ENDIF
                   DO K8=1_8,
@@ -2815,8 +2823,10 @@ C
       ENDIF
       ALLOCATE(id%OOC_FILE_NAMES(SIZE,350),stat=IERR)
       IF (IERR .GT. 0) THEN
-         IF (ICNTL1.GT.0)
-     &   WRITE(ICNTL1,*) 'PB allocation in CMUMPS_STRUC_STORE_FILE_NAME'
+         IF (ICNTL1.GT.0) THEN
+            WRITE(ICNTL1,*) 'PB allocation in ',
+     &           'CMUMPS_STRUC_STORE_FILE_NAME'
+         ENDIF
          IERR=-1
          IF(id%INFO(1).GE.0)THEN
             id%INFO(1) = -13
@@ -2831,10 +2841,11 @@ C
       ALLOCATE(id%OOC_FILE_NAME_LENGTH(SIZE),stat=IERR)
       IF (IERR .GT. 0) THEN
          IERR=-1
-         IF(id%INFO(1).GE.0)THEN
-            IF (ICNTL1.GT.0)
-     &      WRITE(ICNTL1,*)
-     &      'PB allocation in CMUMPS_STRUC_STORE_FILE_NAME'
+         IF(id%INFO(1).GE.0) THEN
+            IF (ICNTL1.GT.0) THEN
+               WRITE(ICNTL1,*)
+     &              'PB allocation in CMUMPS_STRUC_STORE_FILE_NAME'
+            ENDIF
             id%INFO(1) = -13
             id%INFO(2) = SIZE
             RETURN
@@ -2865,9 +2876,10 @@ C
       IF (IERR .GT. 0) THEN
          IERR=-1
          IF(id%INFO(1).GE.0)THEN
-            IF (ICNTL1.GT.0)
-     &      WRITE(ICNTL1,*)
-     &      'PB allocation in CMUMPS_OOC_OPEN_FILES_FOR_SOLVE'
+            IF (ICNTL1.GT.0) THEN
+               WRITE(ICNTL1,*)
+     &              'PB allocation in CMUMPS_OOC_OPEN_FILES_FOR_SOLVE'
+            ENDIF
             id%INFO(1) = -13
             id%INFO(2) = OOC_NB_FILE_TYPE
             RETURN
@@ -3237,10 +3249,10 @@ C
         LorUSIZE_OF_BLOCK = - LorUSIZE_OF_BLOCK - 1_8
       ENDIF
       IF (LAST_CALL) THEN
-        IF (.NOT.MonBloc%Last) THEN
+         IF (.NOT.MonBloc%Last) THEN
           WRITE(6,*) ' Internal error in CMUMPS_OOC_STORE_LorU ', 
      &               ' LAST and LAST_CALL are incompatible '
-         CALL MUMPS_ABORT()
+          CALL MUMPS_ABORT()
         ENDIF
         LorUSIZE_OF_BLOCK = - LorUSIZE_OF_BLOCK - 1_8
         ICUR      = I_CUR_HBUF_NEXTPOS(TYPEF) - 1
@@ -3258,7 +3270,7 @@ C
             LorUSIZE_OF_BLOCK = ADDR_LAST -
      &                          OOC_VADDR(STEP_OOC(INODE_CUR),TYPEF)
           ELSE
-            IF (ICUR .LE. 1) THEN
+             IF (ICUR .LE. 1) THEN
               WRITE(*,*) "Internal error in CMUMPS_OOC_STORE_LorU"
               WRITE(*,*) "Did not find current node in sequence"
               CALL MUMPS_ABORT()

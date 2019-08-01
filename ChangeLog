@@ -2,6 +2,47 @@
 = ChangeLog =
 -------------
 
+Changes from 5.2.0 to 5.2.1
+* Fixed a minor "Internal error in CMUMPS_DM_FREEALLDYNAMICCB"
+* Default value of ICNTL(14) for MPI executions independent 
+  of SYM + slightly less aggressive than for 5.2.0
+* Avoided accesses to uninitialized data in symmetric (2D root, BLR)
+* Fixed some incorrect "out" intents for routine arguments
+* Avoided CHUNK=0 in OMP loops even if loop not parallelized (pgi)
+* Fixed COLSCA&ROWSCA declarations in [SDCZ]MUMPS_ANA_F
+* Avoided a possible segfault in presence of NaN's in pivot search
+* Minor update to userguide
+* Fixed MPI_IN_PLACE usage in libseq (preventing compiler optimization)
+
+
+Changes from 5.1.2 to 5.2.0
+* Memory gains due to low-rank factorization are now effective, low-rank solve
+* Internal dynamic storage possible in case S array is too small
+* Improved distributed memory usage and MPI granularity (some sym. matrices)
+* Improved granularity (and performance) for symmetric matrices; ability to
+  use [DSCZ]GEMMT kernel (BLAS extension) if available (see INSTALL)
+* A-1 functionality: improved performance due to solution gathering 
+* Memory peak for analysis reduced (distributed-entry, 64-bit orderings)
+* Time for analysis reduced by avoiding some preprocessing (when possible) 
+* Ability to save/restore an instance to/from disk
+* INFO and INFOG dimension extended from 40 to 80
+* METIS_OPTIONS introduced for METIS users to define some specific Metis options
+* MUMPS can be asked to call omp_set_num_threads with a value provided in ICNTL(16)
+* Fixed: INFO(16)/INFOG(21)/INFOG(22) did not take into account the extra memory
+  allocated due to memory allowed (ICNTL(23)>0); INFOG(8) was not correclty set
+* Initialize only lower-diagonal part for workers in symmetric type 2 fronts
+* Workaround a segfault at beg. of facto due to a gfortran-8 bug
+* Fixed a bug in weighted matching algorithm when all matrix values are 0
+* Portability: include stdint.h instead of int_types.h
+* Forced some initializations to make C interface more valgrind-friendly
+* Workaround intel 2017 vectorization bug in pivot search (symmetric+MPI+large matrices)
+* Stop trying to send messages on COMM_LOAD in case of error (risk of deadlock)
+* Avoided most array creation by compiler due to Fortran pointers
+* Avoid two cases of int. overflow (KEEP(66), A-1 with large ICNTL(27))
+* Fixed a bug with compressed ordering (ICNTL(12)=2) (regression from 5.0.0)
+  and suppress compress ordering only in case of automatic setting
+
+
 Changes from 5.1.1 to 5.1.2
 * Corrected an overestimation of memory (regression from 5.1.0)
 * Corrected/extended WORKAROUNDINTELILP64MPI2INTEGER mechanism (see INSTALL)
@@ -557,6 +598,9 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.2.1            : June 2019
+Release 5.2.0            : April 2019
+Release 5.1.2            : October 2017
 Release 5.1.1            : March 2017
 Release 5.1.0            : Feb 2017, internal release (limited diffusion)
 Release 5.0.2            : July 2016

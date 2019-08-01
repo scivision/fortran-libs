@@ -1,21 +1,27 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
 C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE ZMUMPS_SIZEFREEINREC(IW,LREC,SIZE_FREE,XSIZE)
+      IMPLICIT NONE
       INTEGER, intent(in) :: LREC, XSIZE
       INTEGER, intent(in) :: IW(LREC)
       INTEGER(8), intent(out):: SIZE_FREE
+      INTEGER(8) :: SIZE_STA, SIZE_DYN 
       INCLUDE 'mumps_headers.h'
-      IF (IW(1+XXS).EQ.S_NOLCBCONTIG .OR.
+      CALL MUMPS_GETI8( SIZE_STA,IW(1+XXR) )
+      CALL MUMPS_GETI8( SIZE_DYN,IW(1+XXD) )
+      IF ( SIZE_DYN .GT. 0) THEN
+        SIZE_FREE = SIZE_STA
+      ELSE IF (IW(1+XXS).EQ.S_NOLCBCONTIG .OR.
      &    IW(1+XXS).EQ.S_NOLCBNOCONTIG) THEN
         SIZE_FREE=int(IW(1+XSIZE+2),8)*int(IW(1+XSIZE+3),8)
       ELSE IF (IW(1+XXS).EQ.S_NOLCBCONTIG38 .OR.
@@ -24,11 +30,39 @@ C
      &            IW(1+XSIZE + 3) -
      &          ( IW(1+XSIZE + 4)
      &          - IW(1+XSIZE + 3) ), 8)
+      ELSE IF (IW(1+XXS).EQ.S_NOLNOCB) THEN
+        SIZE_FREE = SIZE_STA
       ELSE
         SIZE_FREE=0_8
       ENDIF
       RETURN
       END SUBROUTINE ZMUMPS_SIZEFREEINREC
+      SUBROUTINE ZMUMPS_CAN_RECORD_BE_COMPRESSED(
+     &           RECORD_CAN_BE_COMPRESSED, IW, XSIZE, KEEP216)
+      IMPLICIT NONE
+      LOGICAL, INTENT(out) :: RECORD_CAN_BE_COMPRESSED
+      INTEGER, INTENT(in) :: XSIZE, KEEP216
+      INTEGER, INTENT(in) :: IW(XSIZE)
+      INCLUDE 'mumps_headers.h'
+      INTEGER(8) :: SIZE_DYN, SIZE_STA
+      CALL MUMPS_GETI8( SIZE_STA, IW(1+XXR))
+      CALL MUMPS_GETI8( SIZE_DYN, IW(1+XXD))
+      IF (IW(1+XXS) .EQ. S_FREE) THEN
+           RECORD_CAN_BE_COMPRESSED = .TRUE.
+      ELSE IF ( SIZE_DYN .GT. 0_8 .AND. SIZE_STA .GT. 0_8) THEN
+           RECORD_CAN_BE_COMPRESSED = .TRUE.
+      ELSE IF ( IW(1+XXS) .EQ. S_NOLNOCB) THEN
+           RECORD_CAN_BE_COMPRESSED = .TRUE.
+      ELSE
+           RECORD_CAN_BE_COMPRESSED =
+     &         ( IW(1+XXS) .EQ. S_NOLCBNOCONTIG .OR.
+     &           IW(1+XXS) .EQ. S_NOLCBCONTIG .OR.
+     &           IW(1+XXS) .EQ. S_NOLCBNOCONTIG38 .OR.
+     &           IW(1+XXS) .EQ. S_NOLCBCONTIG38 )
+     &           .AND. KEEP216.NE.3
+      ENDIF
+      RETURN
+      END SUBROUTINE ZMUMPS_CAN_RECORD_BE_COMPRESSED
       SUBROUTINE ZMUMPS_MOVETONEXTRECORD
      &(IW,LIW,IXXP,ICURRENT,NEXT, RCURRENT,ISIZE2SHIFT)
       IMPLICIT NONE
@@ -80,18 +114,24 @@ C
       SUBROUTINE ZMUMPS_COMPRE_NEW(N,KEEP28,IW,LIW,A,LA,
      &       LRLU,IPTRLU,IWPOS,
      &       IWPOSCB,PTRIST,PTRAST,STEP,PIMASTER,PAMASTER,
-     &       KEEP216,LRLUS,XSIZE, COMP, ACC_TIME, MYID)
+     &       KEEP216,LRLUS,XSIZE, COMP, ACC_TIME, MYID,
+     &       SLAVEF, PROCNODE_STEPS, DAD)
+      USE ZMUMPS_DYNAMIC_MEMORY_M, ONLY: ZMUMPS_DM_PAMASTERORPTRAST
       IMPLICIT NONE
-      INTEGER(8) :: LA, LRLU, IPTRLU, LRLUS
-      INTEGER N,LIW,KEEP28,
-     &        IWPOS,IWPOSCB,KEEP216,XSIZE
-      INTEGER(8) :: PTRAST(KEEP28), PAMASTER(KEEP28)
-      INTEGER IW(LIW),PTRIST(KEEP28),
-     &        STEP(N), PIMASTER(KEEP28)
-      COMPLEX(kind=8) A(LA)
-      INTEGER, INTENT(INOUT) :: COMP
-      DOUBLE PRECISION, INTENT(INOUT)    :: ACC_TIME
-      INTEGER, INTENT(IN)    :: MYID
+      INTEGER, INTENT(in)   :: N, LIW, KEEP28, KEEP216, XSIZE
+      INTEGER(8), INTENT(in)   :: LA
+      INTEGER(8), INTENT(inout):: LRLU, IPTRLU, LRLUS
+      INTEGER, INTENT(inout)   :: IWPOSCB
+      INTEGER :: IWPOS
+      INTEGER(8), INTENT(inout) :: PTRAST(KEEP28), PAMASTER(KEEP28)
+      INTEGER, INTENT(inout) :: IW(LIW),PTRIST(KEEP28),
+     &                          PIMASTER(KEEP28)
+      INTEGER, INTENT(in)    :: STEP(N), SLAVEF
+      INTEGER, INTENT(in)    :: PROCNODE_STEPS(KEEP28), DAD(KEEP28)
+      COMPLEX(kind=8), INTENT(inout) :: A(LA)
+      INTEGER, INTENT(inout) :: COMP
+      DOUBLE PRECISION, INTENT(inout)    :: ACC_TIME
+      INTEGER, INTENT(in)    :: MYID
       INCLUDE 'mumps_headers.h' 
       INTEGER ICURRENT, NEXT, STATE_NEXT
       INTEGER(8) :: RCURRENT
@@ -101,9 +141,14 @@ C
       INTEGER(8) :: RBEGCONTIG
       INTEGER(8) :: RBEG2SHIFT, REND2SHIFT
       INTEGER INODE
+      LOGICAL :: IS_PAMASTER, IS_PTRAST
       INTEGER(8) :: FREE_IN_REC
-      INTEGER(8) :: RCURRENT_SIZE
+      INTEGER(8) :: RCURRENT_SIZE, DYN_SIZE
+      LOGICAL :: RECORD_CAN_BE_COMPRESSED
       INTEGER IXXP
+      INTEGER, EXTERNAL :: MUMPS_TYPENODE
+      INTEGER, EXTERNAL :: MUMPS_PROCNODE
+      LOGICAL, EXTERNAL :: ZMUMPS_ISBAND
       EXTERNAL MPI_WTIME
       DOUBLE PRECISION MPI_WTIME
       DOUBLE PRECISION TIME_REF, TIME_COMP
@@ -120,14 +165,13 @@ C
       STATE_NEXT = IW(NEXT+XXS)
       IXXP = ICURRENT+XXP
   10     CONTINUE
-         IF ( STATE_NEXT .NE. S_FREE .AND.
-     &        (KEEP216.EQ.3.OR.
-     &         (STATE_NEXT .NE. S_NOLCBNOCONTIG .AND.
-     &          STATE_NEXT .NE. S_NOLCBCONTIG .AND.
-     &          STATE_NEXT .NE. S_NOLCBNOCONTIG38 .AND.
-     &          STATE_NEXT .NE. S_NOLCBCONTIG38))) THEN
+         CALL ZMUMPS_CAN_RECORD_BE_COMPRESSED(
+     &        RECORD_CAN_BE_COMPRESSED,
+     &        IW(NEXT), XSIZE, KEEP216)
+         IF ( .NOT. RECORD_CAN_BE_COMPRESSED ) THEN
             CALL ZMUMPS_MOVETONEXTRECORD(IW,LIW,
      &           IXXP, ICURRENT, NEXT, RCURRENT, ISIZE2SHIFT)
+            CALL MUMPS_GETI8(DYN_SIZE, IW(ICURRENT+XXD))
             CALL MUMPS_GETI8(RCURRENT_SIZE, IW(ICURRENT+XXR))
             IF (IBEGCONTIG < 0) THEN
               IBEGCONTIG=ICURRENT+IW(ICURRENT+XXI)-1
@@ -136,14 +180,27 @@ C
               RBEGCONTIG=RCURRENT+RCURRENT_SIZE-1_8
             ENDIF
             INODE=IW(ICURRENT+XXN)
-            IF (RSIZE2SHIFT .NE. 0_8) THEN
-                IF (PTRAST(STEP(INODE)).EQ.RCURRENT)
-     &            PTRAST(STEP(INODE))=
+#if ! defined(NODYNAMICCB)
+            IF ( DYN_SIZE .EQ. 0_8 ) THEN
+#endif
+              IF (RSIZE2SHIFT .NE. 0_8) THEN
+                CALL ZMUMPS_DM_PAMASTERORPTRAST( N, SLAVEF, MYID,
+     &          KEEP28,
+     &          INODE, IW(ICURRENT+XXS),
+     &          IW(ICURRENT+XXD:ICURRENT+XXD+1), STEP,
+     &          DAD, PROCNODE_STEPS, RCURRENT, PAMASTER, PTRAST,
+     &          IS_PAMASTER, IS_PTRAST )
+                IF (IS_PTRAST) THEN
+                  PTRAST(STEP(INODE))=
      &            PTRAST(STEP(INODE))+RSIZE2SHIFT
-                IF (PAMASTER(STEP(INODE)).EQ.RCURRENT)
-     &            PAMASTER(STEP(INODE))=
+                ELSE IF (IS_PAMASTER) THEN
+                  PAMASTER(STEP(INODE))=
      &            PAMASTER(STEP(INODE))+RSIZE2SHIFT
+                ENDIF
+              ENDIF
+#if ! defined(NODYNAMICCB)
             ENDIF
+#endif
             IF (ISIZE2SHIFT .NE. 0) THEN
                 IF (PTRIST(STEP(INODE)).EQ.ICURRENT)
      &            PTRIST(STEP(INODE))=
@@ -172,13 +229,10 @@ C
          RBEGCONTIG=-99999_8
   30     CONTINUE
          IF (NEXT.EQ. TOP_OF_STACK) GOTO 100
-         IF (STATE_NEXT .EQ. S_NOLCBCONTIG .OR.
-     &       STATE_NEXT .EQ. S_NOLCBNOCONTIG .OR.
-     &       STATE_NEXT .EQ. S_NOLCBCONTIG38 .OR.
-     &       STATE_NEXT .EQ. S_NOLCBNOCONTIG38) THEN
-           IF ( KEEP216.eq.3) THEN
-             WRITE(*,*) "Internal error 2 in ZMUMPS_COMPRE_NEW"
-           ENDIF
+         CALL ZMUMPS_CAN_RECORD_BE_COMPRESSED(
+     &        RECORD_CAN_BE_COMPRESSED, IW(NEXT), XSIZE, KEEP216)
+         IF ( STATE_NEXT .NE. S_FREE .AND.
+     &        RECORD_CAN_BE_COMPRESSED ) THEN
            IF (RBEGCONTIG > 0_8) GOTO 25
            CALL ZMUMPS_MOVETONEXTRECORD
      &       (IW,LIW,IXXP,ICURRENT,NEXT, RCURRENT,ISIZE2SHIFT)
@@ -189,12 +243,15 @@ C
      &                              LIW-ICURRENT+1,
      &                              FREE_IN_REC,
      &                              XSIZE)
-           IF (STATE_NEXT .EQ. S_NOLCBNOCONTIG) THEN
+           CALL MUMPS_GETI8(DYN_SIZE, IW(ICURRENT+XXD))
+           IF (DYN_SIZE .GT. 0_8) THEN
+           ELSE IF (STATE_NEXT .EQ. S_NOLCBNOCONTIG) THEN
              CALL ZMUMPS_MAKECBCONTIG(A,LA,RCURRENT,
      &            IW(ICURRENT+XSIZE+2),
      &            IW(ICURRENT+XSIZE),
      &            IW(ICURRENT+XSIZE)+IW(ICURRENT+XSIZE+3), 0,
      &            IW(ICURRENT+XXS),RSIZE2SHIFT) 
+             IW(ICURRENT+XXS) = S_NOLCLEANED   
            ELSE IF (STATE_NEXT .EQ. S_NOLCBNOCONTIG38) THEN
              CALL ZMUMPS_MAKECBCONTIG(A,LA,RCURRENT,
      &            IW(ICURRENT+XSIZE+2),
@@ -202,27 +259,53 @@ C
      &            IW(ICURRENT+XSIZE)+IW(ICURRENT+XSIZE+3),
      &            IW(ICURRENT+XSIZE+4)-IW(ICURRENT+XSIZE+3), 
      &            IW(ICURRENT+XXS),RSIZE2SHIFT) 
-           ELSE IF (RSIZE2SHIFT .GT.0_8) THEN
-             RBEG2SHIFT = RCURRENT + FREE_IN_REC
-             CALL MUMPS_GETI8(RCURRENT_SIZE, IW(ICURRENT+XXR))
-             REND2SHIFT = RCURRENT + RCURRENT_SIZE - 1_8
-             CALL ZMUMPS_RSHIFT(A, LA,
-     &                          RBEG2SHIFT, REND2SHIFT,
-     &                          RSIZE2SHIFT)
-           ENDIF
-           INODE=IW(ICURRENT+XXN)
-           IF (ISIZE2SHIFT.NE.0) THEN
-             PTRIST(STEP(INODE))=PTRIST(STEP(INODE))+ISIZE2SHIFT
-           ENDIF
-           PTRAST(STEP(INODE))=PTRAST(STEP(INODE))+RSIZE2SHIFT+
-     &                         FREE_IN_REC
-           CALL MUMPS_SUBTRI8TOARRAY(IW(ICURRENT+XXR),FREE_IN_REC)
-           IF (STATE_NEXT.EQ.S_NOLCBCONTIG.OR.
-     &         STATE_NEXT.EQ.S_NOLCBNOCONTIG) THEN
-             IW(ICURRENT+XXS)=S_NOLCLEANED
+             IW(ICURRENT+XXS) = S_NOLCLEANED38 
+           ELSE IF (STATE_NEXT.EQ.S_NOLNOCB) THEN
+             IW(ICURRENT+XXS) = S_NOLNOCBCLEANED
+           ELSE IF (STATE_NEXT .EQ. S_NOLCBCONTIG .OR.
+     &              STATE_NEXT .EQ. S_NOLCBCONTIG38) THEN
+             IF (STATE_NEXT .EQ. S_NOLCBCONTIG) THEN
+               IW(ICURRENT+XXS) = S_NOLCLEANED
+             ELSE IF (STATE_NEXT .EQ. S_NOLCBCONTIG38) THEN
+               IW(ICURRENT+XXS) = S_NOLCLEANED38
+             ENDIF
+             IF (RSIZE2SHIFT .GT.0_8) THEN
+               RBEG2SHIFT = RCURRENT + FREE_IN_REC
+               CALL MUMPS_GETI8(RCURRENT_SIZE, IW(ICURRENT+XXR))
+               REND2SHIFT = RCURRENT + RCURRENT_SIZE - 1_8
+               CALL ZMUMPS_RSHIFT(A, LA,
+     &                            RBEG2SHIFT, REND2SHIFT,
+     &                            RSIZE2SHIFT)
+             ENDIF
            ELSE
-             IW(ICURRENT+XXS)=S_NOLCLEANED38
+             WRITE(*,*) "Internal error 3 in ZMUMPS_COMPRE_NEW",
+     &       STATE_NEXT, DYN_SIZE, FREE_IN_REC
+             CALL MUMPS_ABORT()
            ENDIF
+           INODE = IW(ICURRENT+XXN)
+           IF ( DYN_SIZE .GT. 0_8 ) THEN
+             IF (PTRIST(STEP(INODE)).EQ.ICURRENT)
+     &            PTRIST(STEP(INODE))=
+     &            PTRIST(STEP(INODE))+ISIZE2SHIFT
+             IF (PIMASTER(STEP(INODE)).EQ.ICURRENT)
+     &            PIMASTER(STEP(INODE))=
+     &            PIMASTER(STEP(INODE))+ISIZE2SHIFT
+           ELSE IF (STATE_NEXT .EQ. S_NOLCBCONTIG .OR.
+     &         STATE_NEXT .EQ. S_NOLCBNOCONTIG .OR.
+     &         STATE_NEXT .EQ. S_NOLCBCONTIG38 .OR.
+     &         STATE_NEXT .EQ. S_NOLCBNOCONTIG38 .OR.
+     &         STATE_NEXT .EQ. S_NOLNOCB ) THEN
+             IF (ISIZE2SHIFT.NE.0) THEN
+               PTRIST(STEP(INODE))=PTRIST(STEP(INODE))+ISIZE2SHIFT
+             ENDIF
+             PTRAST(STEP(INODE))=PTRAST(STEP(INODE))+RSIZE2SHIFT+
+     &                           FREE_IN_REC
+           ELSE
+               WRITE(*,*) "Internal error 4 in ZMUMPS_COMPRE_NEW",
+     &         STATE_NEXT
+               CALL MUMPS_ABORT()
+           ENDIF
+           CALL MUMPS_SUBTRI8TOARRAY(IW(ICURRENT+XXR),FREE_IN_REC)
            RSIZE2SHIFT=RSIZE2SHIFT+FREE_IN_REC
            RBEGCONTIG=-9999_8
            IF (NEXT.EQ.TOP_OF_STACK) THEN
@@ -343,3 +426,129 @@ C
       ENDIF
       RETURN
       END SUBROUTINE ZMUMPS_MAKECBCONTIG
+      SUBROUTINE ZMUMPS_GET_SIZE_NEEDED(
+     &       SIZEI_NEEDED, SIZER_NEEDED, SKIP_TOP_STACK, 
+     &       KEEP, KEEP8,  
+     &       N,KEEP28,IW,LIW,A,LA,
+     &       LRLU,IPTRLU,IWPOS,
+     &       IWPOSCB,PTRIST,PTRAST,STEP,PIMASTER,PAMASTER,
+     &       KEEP216,LRLUS,XSIZE, COMP, ACC_TIME, MYID,
+     &       SLAVEF, PROCNODE_STEPS, DAD, 
+     &       IFLAG, IERROR  
+     &       )
+#if ! defined(NODYNAMICCB)
+      USE ZMUMPS_DYNAMIC_MEMORY_M, ONLY: ZMUMPS_DM_CBSTATIC2DYNAMIC
+#endif
+      IMPLICIT NONE
+      INTEGER,  INTENT(in)     :: SIZEI_NEEDED
+      INTEGER(8),  INTENT(in)  :: SIZER_NEEDED
+      LOGICAL, INTENT(in)      :: SKIP_TOP_STACK
+      INTEGER,   INTENT(in)    :: KEEP(500)
+      INTEGER(8), INTENT(inout):: KEEP8(150)
+      INTEGER, INTENT(in)      :: N, LIW, KEEP28, KEEP216, XSIZE
+      INTEGER(8), INTENT(in)   :: LA
+      INTEGER(8), INTENT(inout):: LRLU, IPTRLU, LRLUS
+      INTEGER, INTENT(inout)   :: IWPOSCB
+      INTEGER, INTENT(inout)   :: IWPOS
+      INTEGER(8), INTENT(inout) :: PTRAST(KEEP28), PAMASTER(KEEP28)
+      INTEGER, INTENT(inout) :: IW(LIW),PTRIST(KEEP28),
+     &                          PIMASTER(KEEP28)
+      INTEGER, INTENT(in)    :: STEP(N), SLAVEF 
+      INTEGER, INTENT(in)    :: PROCNODE_STEPS(KEEP28), DAD(KEEP28)
+      COMPLEX(kind=8), INTENT(inout) :: A(LA)
+      INTEGER, INTENT(inout) :: COMP
+      DOUBLE PRECISION, INTENT(inout)    :: ACC_TIME
+      INTEGER, INTENT(iN)    :: MYID
+      INTEGER, INTENT(inout)   :: IFLAG, IERROR
+      LOGICAL ZMUMPS_COMPRE_NEW_CALLED
+      ZMUMPS_COMPRE_NEW_CALLED = .FALSE.
+      IF (IWPOSCB-IWPOS+1 .LT. SIZEI_NEEDED) THEN
+          CALL ZMUMPS_COMPRE_NEW(N,KEEP28,IW,LIW,A,LA,
+     &       LRLU,IPTRLU,IWPOS,
+     &       IWPOSCB,PTRIST,PTRAST,STEP,PIMASTER,PAMASTER,
+     &       KEEP216,LRLUS,XSIZE, COMP, ACC_TIME, MYID,
+     &       SLAVEF, PROCNODE_STEPS, DAD)
+         IF ( LRLU .NE. LRLUS ) THEN
+            WRITE(*,*) 'Internal error 1 in ZMUMPS_GET_SIZE_NEEDED ',
+     &      'PB compress... ZMUMPS_ALLOC_CB ',
+     &      'LRLU,LRLUS=',LRLU,LRLUS
+            IFLAG = -9
+            GOTO 500
+          END IF
+          ZMUMPS_COMPRE_NEW_CALLED = .TRUE.
+          IF (IWPOSCB-IWPOS+1 .LT. SIZEI_NEEDED) THEN
+             IFLAG  = -8
+             IERROR = SIZEI_NEEDED
+             GOTO 500 
+          ENDIF
+      ENDIF
+      IF ( .NOT.ZMUMPS_COMPRE_NEW_CALLED.AND.
+     &     (LRLU.LT.SIZER_NEEDED).AND.
+     &     (LRLUS.GE.SIZER_NEEDED).AND.
+     &     (LRLU.NE.LRLUS)
+     &    ) THEN
+            CALL ZMUMPS_COMPRE_NEW(N,KEEP28,IW,LIW,A,LA,
+     &       LRLU,IPTRLU,IWPOS,
+     &       IWPOSCB,PTRIST,PTRAST,STEP,PIMASTER,PAMASTER,
+     &       KEEP216,LRLUS,XSIZE, COMP, ACC_TIME, MYID,
+     &       SLAVEF, PROCNODE_STEPS, DAD)
+             ZMUMPS_COMPRE_NEW_CALLED = .TRUE.
+            IF ( LRLU .NE. LRLUS ) THEN
+              WRITE(*,*) 'Internal error 2 ',
+     &        'in ZMUMPS_GET_SIZE_NEEDED ',
+     &        'PB compress... ZMUMPS_ALLOC_CB ',
+     &        'LRLU,LRLUS=',LRLU,LRLUS
+              IFLAG = -9
+              GOTO 500
+            END IF
+      ENDIF
+      IF (LRLUS.LT.SIZER_NEEDED) THEN
+#if ! defined(NODYNAMICCB)
+          IF (.NOT. ZMUMPS_COMPRE_NEW_CALLED) THEN
+            CALL ZMUMPS_COMPRE_NEW(N,KEEP28,IW,LIW,A,LA,
+     &       LRLU,IPTRLU,IWPOS,
+     &       IWPOSCB,PTRIST,PTRAST,STEP,PIMASTER,PAMASTER,
+     &       KEEP216,LRLUS,XSIZE, COMP, ACC_TIME, MYID,
+     &       SLAVEF, PROCNODE_STEPS, DAD)
+            IF ( LRLU .NE. LRLUS ) THEN
+              WRITE(*,*) 'Internal error 2 ',
+     &        'in ZMUMPS_GET_SIZE_NEEDED ',
+     &        'PB compress... ZMUMPS_ALLOC_CB ',
+     &        'LRLU,LRLUS=',LRLU,LRLUS
+              IFLAG = -9
+              GOTO 500
+            END IF
+          ENDIF
+          CALL ZMUMPS_DM_CBSTATIC2DYNAMIC(
+     &           SIZER_NEEDED, SKIP_TOP_STACK, 
+     &           MYID, N, SLAVEF,
+     &           KEEP, KEEP8,
+     &           IW, LIW, IWPOSCB, IWPOS,
+     &           A, LA, LRLU, IPTRLU, LRLUS, 
+     &           STEP, PTRAST, PAMASTER,
+     &           PROCNODE_STEPS, DAD, IFLAG, IERROR)
+          IF (IFLAG.LT.0) GOTO 500
+          IF (LRLU.LT.SIZER_NEEDED) THEN 
+            CALL ZMUMPS_COMPRE_NEW(N,KEEP28,IW,LIW,A,LA,
+     &       LRLU,IPTRLU,IWPOS,
+     &       IWPOSCB,PTRIST,PTRAST,STEP,PIMASTER,PAMASTER,
+     &       KEEP216,LRLUS,XSIZE, COMP, ACC_TIME, MYID,
+     &       SLAVEF, PROCNODE_STEPS, DAD)
+            IF ( LRLU .NE. LRLUS ) THEN
+              WRITE(*,*) 'Internal error 4 ',
+     &        'in ZMUMPS_GET_SIZE_NEEDED ',
+     &        'PB compress... ZMUMPS_ALLOC_CB ',
+     &        'LRLU,LRLUS=',LRLU,LRLUS
+              IFLAG = -9
+              GOTO 500
+            END IF
+          ENDIF
+#else 
+          IFLAG = -9
+          CALL MUMPS_SET_IERROR(SIZER_NEEDED-LRLUS, IERROR)
+          GOTO 500
+#endif
+      ENDIF
+500   CONTINUE
+      RETURN
+      END SUBROUTINE ZMUMPS_GET_SIZE_NEEDED

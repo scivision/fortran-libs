@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -21,7 +21,22 @@ C
       INTEGER IERR
       INTEGER MASTER
       PARAMETER ( MASTER = 0 )
-C
+C     Explicit needed because of pointer arguments
+      INTERFACE
+      SUBROUTINE ZMUMPS_FREE_ID_DATA_MODULES(id_FDM_F_ENCODING,
+     &  id_BLRARRAY_ENCODING, KEEP8)
+#     if defined(MUMPS_F2003)
+      CHARACTER, DIMENSION(:), POINTER, intent(inout) ::
+     &                                            id_BLRARRAY_ENCODING
+      CHARACTER, DIMENSION(:), POINTER, intent(inout) ::
+     &                                            id_FDM_F_ENCODING
+#     else
+      CHARACTER, DIMENSION(:), POINTER :: id_BLRARRAY_ENCODING
+      CHARACTER, DIMENSION(:), POINTER :: id_FDM_F_ENCODING
+#     endif
+      INTEGER(8), intent(inout) :: KEEP8(150)
+      END SUBROUTINE ZMUMPS_FREE_ID_DATA_MODULES
+      END INTERFACE
       I_AM_SLAVE = ( id%MYID .ne. MASTER .OR. id%KEEP(46) .NE. 0 )
 C     ----------------------------------
 C     Special stuff for implementations
@@ -347,6 +362,12 @@ c     ENDIF
            NULLIFY(id%LRGROUPS)
         ENDIF
 !     ENDIF
+      CALL ZMUMPS_FREE_ID_DATA_MODULES(id%FDM_F_ENCODING,
+     &  id%BLRARRAY_ENCODING, id%KEEP8(1))
+      IF (associated(id%MPITOOMP_PROCS_MAP)) THEN
+        DEALLOCATE(id%MPITOOMP_PROCS_MAP)
+        NULLIFY(id%MPITOOMP_PROCS_MAP)
+      ENDIF
         IF (associated(id%SINGULAR_VALUES)) THEN
            DEALLOCATE(id%SINGULAR_VALUES)
            NULLIFY(id%SINGULAR_VALUES)
@@ -416,3 +437,54 @@ C Mapping information used during solve
       END IF
       RETURN
       END SUBROUTINE ZMUMPS_END_DRIVER
+      SUBROUTINE ZMUMPS_FREE_ID_DATA_MODULES(id_FDM_F_ENCODING,
+     &  id_BLRARRAY_ENCODING, KEEP8)
+      USE MUMPS_FRONT_DATA_MGT_M, only : MUMPS_FDM_STRUC_TO_MOD,
+     &                                   MUMPS_FDM_END
+      USE ZMUMPS_LR_DATA_M, only : ZMUMPS_BLR_STRUC_TO_MOD,
+     &                             ZMUMPS_BLR_END_MODULE
+      IMPLICIT NONE
+C
+C     Purpose:
+C     =======
+C
+C     Free data from modules kept from one phase to the other
+C     and referenced through the main MUMPS structure, id.
+C
+C     Both id%FDM_F_ENCODING and id%BLRARRAY_ENCODING
+C     are concerned.
+C
+C
+C
+C     Arguments:
+C     =========
+C
+#     if defined(MUMPS_F2003)
+      CHARACTER, DIMENSION(:), POINTER, intent(inout) ::
+     &                                            id_BLRARRAY_ENCODING
+      CHARACTER, DIMENSION(:), POINTER, intent(inout) ::
+     &                                            id_FDM_F_ENCODING
+#     else
+      CHARACTER, DIMENSION(:), POINTER :: id_BLRARRAY_ENCODING
+      CHARACTER, DIMENSION(:), POINTER :: id_FDM_F_ENCODING
+#     endif
+      INTEGER(8), intent(inout) :: KEEP8(150)
+C
+      IF (associated(id_FDM_F_ENCODING)) THEN
+C       Allow access to FDM_F data for BLR_END_MODULE
+        CALL MUMPS_FDM_STRUC_TO_MOD('F', id_FDM_F_ENCODING)
+        IF (associated(id_BLRARRAY_ENCODING)) THEN
+C         Pass id_BLRARRAY_ENCODING control to module
+C         and terminate BLR module of current instance
+          CALL ZMUMPS_BLR_STRUC_TO_MOD(id_BLRARRAY_ENCODING)
+          CALL ZMUMPS_BLR_END_MODULE(0, KEEP8, 
+     &                               LRSOLVE_ACT_OPT=.TRUE.)
+        ENDIF
+C       ---------------------------------------
+C       FDM data structures are still allocated
+C       in the module and should be freed
+C       ---------------------------------------
+        CALL MUMPS_FDM_END('F')
+      ENDIF
+      RETURN
+      END SUBROUTINE ZMUMPS_FREE_ID_DATA_MODULES

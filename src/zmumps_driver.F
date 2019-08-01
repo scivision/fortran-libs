@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -20,6 +20,7 @@ C
       USE MUMPS_MEMORY_MOD
       USE ZMUMPS_STRUC_DEF
       USE ZMUMPS_STATIC_PTR_M ! For Schur pointer
+      USE ZMUMPS_SAVE_RESTORE
 C      
 !$    USE OMP_LIB
 C
@@ -73,6 +74,34 @@ C
 C
 C References :
 C -----------
+C
+C  P. Amestoy, J.-Y. L'Excellent, G. Moreau, On exploiting sparsity of 
+C    multiple right-hand sides in sparse direct solvers,
+C    SIAM Journal on Scientific Computing, to appear (2019)
+C
+C  G. Moreau, PhD Thesis, ENS-Lyon, University of Lyon,  
+C    On the solution phase of direct methods for sparse linear systems
+C    with multiple sparse right-hand sides, December 10th, 2018 
+C
+C  P. Amestoy, A. Buttari, J.-Y. L'Excellent and T. Mary, 
+C    Performance and scalability of the block low-rank multifrontal 
+C    factorization on multicore architectures, 
+C    ACM Transactions on Mathematical Software (2018)
+C
+C  T. Mary, PhD Thesis, University of Toulouse,
+C    Block Low-Rank multifrontal solvers: complexity, performance, and 
+C    scalability, November 2017.
+C
+C  S. de la Kethulle de Ryhove, P. Jaysaval and D.V. Shantsev, 
+C    P. R. Amestoy, J.-Y. L'Excellent and T. Mary, 
+C    Large-scale 3D Controlled source EM modeling with a 
+C    Block Low-Rank MUMPS solver, Geophysical Journal International,
+C    volume 209, number 3, pages 1558-1571.
+C
+C  P. Amestoy, A. Buttari, J.-Y. L'Excellent and T. Mary, 
+C    On the complexity of the Block Low-Rank multifrontal factorization, 
+C    SIAM Journal on Scientific Computing, volume 39, 
+C    number 4, pages A1710-A1740 (2017).
 C
 C  P. Amestoy, R. Brossier, A. Buttari, J.-Y. L'Excellent, T. Mary,
 C   L. Metivier, A. Miniussi, and S. Operto.
@@ -247,7 +276,7 @@ C There is only one entry:
 * 
 * The driver routine ZMUMPS offers similar functionalities to other 
 * sparse direct solvers, depending on the value of one of 
-* its parameters (JOB).  These are:
+* its parameters (JOB).  The main ones are:
 *
 * (i)  JOB = -1 
 C    initializes an instance of the package. This must be
@@ -300,15 +329,19 @@ C
 * This is particularly beneficial in the context of an 
 * out-of-core factorization.
 *
+* (v) JOB = -2 frees all internal data allocated by the package.
+*
 * A call with JOB=3 must be preceded by a call with JOB=2,
-* which in turn must be preceded by a call with JOB=1.  Since
-* the information passed from one call to the next is not
+* which in turn must be preceded by a call with JOB=1, which
+* in turn must be preceded by a call with JOB=-1. Since the
+* information passed from one call to the next is not
 * corrupted by the second, several calls with JOB=2 for matrices
 * with the same sparsity pattern but different values may follow
 * a single call with JOB=1, and similarly several calls with JOB=3 
 * can be used for different right-hand sides.
-* Other values for the parameter JOB can invoke combinations of these
-* three basic operations.
+* Values 4, 5, 6 for the parameter JOB can invoke combinations
+* of the three basic operations corresponding to JOB=1, 2 or 3.
+* 
 C
 *********
 C     --------------------------------------
@@ -481,12 +514,12 @@ C  that contains control parameters and must be set by the user. Default
 C  values for the components may be set by a call to ZMUMPS(JOB=-1)
 C  Details of the control parameters are given in ZMUMPSID.
 C
-C ICNTL is an INTEGER array of length 40
+C ICNTL is an INTEGER array of length 60
 C  that contains control parameters and must be set by the user. Default
 C  values for the components may be set by a call to ZMUMPS(JOB=-1)
 C  Details of the control parameters are given in ZMUMPSID.
 C
-C INFO is an INTEGER array of length 40 that need not be set by the
+C INFO is an INTEGER array of length 80 that need not be set by the
 C  user.  On return from ZMUMPS, a value of zero for INFO(1)
 C  indicates that the subroutine has performed successfully. 
 C  Details of the control parameters are given in ZMUMPSID.
@@ -562,8 +595,14 @@ C     Local copy of JOB
       INTEGER, DIMENSION(:), ALLOCATABLE :: UNS_PERM_INV
 C     TIMINGS
       DOUBLE PRECISION TIMEG, TIMETOTAL
+      INTEGER(8) :: FILE_SIZE,STRUC_SIZE
+      INTEGER:: ICNTL16_LOC
+!$    INTEGER:: PREVIOUS_OMP_THREADS_NUM
       NOERRORBEFOREPERM = .FALSE.
       UNS_PERM_DONE = .FALSE.
+      LANA  = .FALSE.
+      LFACTO = .FALSE.
+      LSOLVE = .FALSE.
       JOB  = id%JOB
 C
 C     Initialize error return codes to 0.
@@ -596,15 +635,7 @@ C     Default setting for printing
       LPOK  = .TRUE.
       PROK  = .FALSE.
       PROKG = .FALSE.
-C     -----------------------------
-C     Check if number of threads is
-C     the same on all processes
-C     -----------------------------
-!$    NOMP = OMP_GET_MAX_THREADS()
-!$    CALL MPI_ALLREDUCE(NOMP,NOMPMIN,1,MPI_INTEGER,MPI_MIN,
-!$   &                   id%COMM,IERR)
-!$    CALL MPI_ALLREDUCE(NOMP,NOMPMAX,1,MPI_INTEGER,MPI_MAX,
-!$   &                   id%COMM,IERR)
+      ICNTL16_LOC = 0
 C     -------------------------
 C     Check if value of JOB is
 C     the same on all processes
@@ -621,7 +652,8 @@ C     -------------------------
 C   
 C     Check value of JOB and previous value of JOB
 C
-      IF (JOB.LT.-2.OR.JOB.EQ.0.OR.JOB.GT.6) THEN 
+      IF ((JOB.LT.-3.OR.JOB.EQ.0.OR.JOB.GT.8)
+     &  ) THEN
 C       Out of range value
         id%INFO(1) = -3 
         id%INFO(2) = JOB
@@ -640,28 +672,56 @@ C      Warning: non initialized value
         GOTO 499
        END IF
       END IF
+      IF(JOB.NE.-1) THEN
+C     Always allow JOB=-1
+         IF((JOB.GT.-2).AND.(id%KEEP(140).EQ.1)) then
+C     If restore failed (keep(140)=1), the only allowed jobs (except -1)
+C     are -2 or -3
+            id%INFO(1) = -3 
+            id%INFO(2) = JOB
+            GOTO 499
+         END IF
+      ENDIF
 C     ----------------------------------
 C     Initialize, LANA, LFACTO, LSOLVE
 C     LANA indicates if analysis must be performed
 C     LFACTO indicates if factorization must be performed
 C     LSOLVE indicates if solution must be performed
 C     ----------------------------------
-      LANA  = .FALSE.
-      LFACTO = .FALSE.
-      LSOLVE = .FALSE.
       IF ((JOB.EQ.1).OR.(JOB.EQ.4).OR.
      &    (JOB.EQ.6))               LANA  = .TRUE.
       IF ((JOB.EQ.2).OR.(JOB.EQ.4).OR.
      &    (JOB.EQ.5).OR.(JOB.EQ.6)) LFACTO = .TRUE.
       IF ((JOB.EQ.3).OR.(JOB.EQ.5).OR.
      &    (JOB.EQ.6))               LSOLVE = .TRUE.
-      IF (LFACTO) THEN
+      IF ( LANA .OR. LFACTO .OR. LSOLVE) THEN
+C       Set some specific experimental KEEP entries,
 C       Value defined on MASTER is the reference
-        CALL MPI_BCAST( id%KEEP(467), 1, MPI_INTEGER, MASTER, id%COMM,
-     &       IERR )
-        IF ( id%KEEP(467) .EQ. 1) THEN
+        CALL MPI_BCAST( id%KEEP(370), 2, MPI_INTEGER, MASTER, id%COMM,
+     &         IERR )
+        IF (LANA) THEN
+          IF (id%KEEP(370) .EQ. 1) THEN     
+            id%KEEP(77)=0
+            id%KEEP(78)=0
+            id%KEEP(375)=1           
+          ENDIF
         ENDIF
-      ENDIF
+        IF (id%KEEP(371) .EQ. 1) THEN 
+          IF (LANA) THEN
+            IF (id%KEEP(50) .EQ. 0 .AND. id%NSLAVES .GE. 32) THEN
+              id%KEEP(376) = 1
+            ENDIF
+          ENDIF
+          IF (LFACTO) THEN
+            id%KEEP(351) = 1 
+            id%KEEP(206) = 2 
+            id%KEEP(378) = 1
+          ENDIF
+          IF (LSOLVE) THEN
+            id%KEEP(350) = 2 
+          ENDIF
+        ENDIF
+      ENDIF ! LANA .OR. LFACTO .OR. LSOLVE
       IF (LANA) THEN
 C       Decode NZ / NNZ into KEEP8(28) now
 C       since we may want to print it.
@@ -683,8 +743,9 @@ C
 C
       IF (JOB.EQ.-2.OR.JOB.EQ.1.OR.JOB.EQ.2.OR.JOB.EQ.3.OR.
      &    JOB.EQ.4.OR.JOB.EQ.5.OR.JOB.EQ.6
+     &     .OR.JOB.EQ.7.OR.JOB.EQ.8.OR.JOB.EQ.-3
      &     ) THEN
-C       Correct value of JOB
+C       Value of JOB is correct and differnet from -1
 C       ICNTL should have been initialized and can be used
         LP      = id%ICNTL(1)
         MP      = id%ICNTL(2)
@@ -698,12 +759,35 @@ C       ICNTL should have been initialized and can be used
         ELSE
           FROM_C_INTERFACE_STRING=" "
         ENDIF
+C       -----------------------------
+C       Set the number of threads if required.
+C       -----------------------------
+        ICNTL16_LOC = id%ICNTL(16)
+        CALL MPI_BCAST( ICNTL16_LOC, 1, MPI_INTEGER, MASTER, id%COMM,
+     &          IERR )
+!$      IF (ICNTL16_LOC .GT. 0) THEN
+!$        PREVIOUS_OMP_THREADS_NUM = omp_get_max_threads()
+!$        CALL omp_set_num_threads(ICNTL16_LOC)
+!$      ENDIF
+C       -----------------------------
+C       Check if number of threads is
+C       the same on all processes
+C       -----------------------------
+!$      NOMP = OMP_GET_MAX_THREADS()
+!$      CALL MPI_ALLREDUCE(NOMP,NOMPMIN,1,MPI_INTEGER,MPI_MIN,
+!$   &                     id%COMM,IERR)
+!$      CALL MPI_ALLREDUCE(NOMP,NOMPMAX,1,MPI_INTEGER,MPI_MAX,
+!$   &                     id%COMM,IERR)
+        id%KEEP(249) = 1
+!$      id%KEEP(249) = OMP_GET_MAX_THREADS()
         IF (PROKG) THEN
 C          Print basic information on MUMPS call
            IF (JOB .EQ. -2
+     &       .OR. JOB .EQ. 8
      &       ) THEN
 C            N, NELT, NNZ not meaningful
-             WRITE(MPG,'(/A,A,A,A,I4,I12)') 
+C            or not defined yet (JOB=8).
+             WRITE(MPG,'(/A,A,A,A,I4)') 
      &               'Entering ZMUMPS ',
      &               trim(adjustl(id%VERSION_NUMBER)),
      &               trim(FROM_C_INTERFACE_STRING),
@@ -813,7 +897,7 @@ C       - Nullify pointers in the structure
 C       - Get rank and size of the communicator
 C       ----------------------------------------
         CALL ZMUMPS_INI_DRIVER( id )
-        IF ( id%INFO(1) .LT. 0 ) GOTO 499
+        IF ( id%INFO(1) .LT. 0 ) GOTO 499       
         GOTO 500
       END IF
       IF ( JOB .EQ. -2 ) THEN
@@ -824,6 +908,84 @@ C       -------------------------------------
         CALL ZMUMPS_END_DRIVER( id )
         GOTO 500
       END IF
+C
+C     TIMINGS: for JOBS different from -1 and -2,
+C     we measure TIMETOTAL:
+C
+      IF (id%MYID.EQ.MASTER) THEN
+        id%DKEEP(70)=0.0D0
+        CALL MUMPS_SECDEB(TIMETOTAL)
+      ENDIF
+C
+C----------------------------------------------------------------
+C
+C     JOB = 7 : SAVE THE INSTANCE
+C
+C     JOB = 8 : RESTORE THE INSTANCE
+C----------------------------------------------------------------
+C
+      IF ( JOB .EQ. 7 .OR. JOB .EQ. 8 ) THEN
+         IF( JOB.EQ.8 .AND. OLDJOB.NE.-1) THEN
+            id%INFO(1) = -3 
+            id%INFO(2) = JOB
+            GOTO 499
+         END IF
+         IF (id%MYID.EQ.MASTER) THEN
+C       -----------------------------
+C       Check incompatibility between
+C       par (=0) and nprocs (=1)
+C       -----------------------------
+            IF ( (id%KEEP(46).EQ.0).AND.(id%NPROCS.LE.1) ) 
+     &           THEN
+               id%INFO(1) = -21
+               id%INFO(2) = id%NPROCS
+            ENDIF
+         ENDIF
+         CALL MUMPS_PROPINFO( id%ICNTL(1),
+     &        id%INFO(1),
+     &        id%COMM, id%MYID )
+         IF ( id%INFO(1) .LT. 0 ) GOTO 499
+         IF ( JOB .EQ. 7 ) THEN
+            IF (id%MYID.EQ.MASTER) THEN
+             CALL MUMPS_SECDEB(TIMEG)
+            ENDIF
+            CALL ZMUMPS_SAVE( id )
+            IF (id%MYID.EQ.MASTER) THEN
+               CALL MUMPS_SECFIN(TIMEG)
+               IF (PROKG) THEN
+                  WRITE( MPG,'(/A,F12.4)')
+     &                 ' Elapsed time in save structure driver= ', TIMEG
+               END IF
+            ENDIF
+         ELSE
+            IF (id%MYID.EQ.MASTER) THEN
+             CALL MUMPS_SECDEB(TIMEG)
+            ENDIF
+            CALL ZMUMPS_RESTORE( id )
+            IF (id%MYID.EQ.MASTER) THEN
+               CALL MUMPS_SECFIN(TIMEG)
+               IF (PROKG) THEN
+                  WRITE( MPG,'(/A,F12.4)')
+     &                 ' Elapsed time in restore structure driver= '
+     &                 , TIMEG
+               ENDIF
+            END IF
+         ENDIF
+         IF ( id%INFO(1) .LT. 0 ) GOTO 499
+         GOTO 500
+      ENDIF
+C
+C----------------------------------------------------------------
+C
+C     JOB = -3 : REMOVE SAVED INSTANCE
+C
+C----------------------------------------------------------------
+C
+      IF (JOB .EQ. -3) THEN
+        CALL ZMUMPS_REMOVE_SAVED(id)
+        IF ( id%INFO(1) .LT. 0 ) GOTO 499
+        GOTO 500
+      ENDIF
 C
 C----------------------------------------------------------------
 C
@@ -858,12 +1020,6 @@ C
 C           CHECK SEQUENCE
 C
 C-----------------------------------------------------------------------
-C     TIMINGS
-      IF (id%MYID .eq. MASTER) THEN
-         id%DKEEP(70)=0.0D0
-         CALL MUMPS_SECDEB(TIMETOTAL)
-      END IF 
-      OLDJOB = id%KEEP( 40 ) + 456789
       IF ( LANA ) THEN
         IF ( PROKG .AND. OLDJOB .EQ. -1 ) THEN
 C         Print compilation options at first call to analysis
@@ -1108,8 +1264,7 @@ C         ---------------------------------------------------
 #else
 C             size with kind=8 output not available. One can still
 C             check that if NZ can be stored in a 32-bit integer,
-C             the 32-bit size(id%IRN) (which we then assume not
-C             to overflow...) is large enough
+C             the 32-bit size(id%IRN) is large enough
               ELSE IF ( id%KEEP8(28) .LE. int(huge(id%NZ),8) .AND.
      &                  size(id%IRN) < int(id%KEEP8(28)) ) THEN
 #endif
@@ -1227,15 +1382,9 @@ C       TIMINGS:
           CALL MUMPS_SECFIN(TIMEG)
           id%DKEEP(71) = TIMEG
         ENDIF
-        IF (id%MYID .eq. MASTER.AND.id%KEEP(492).EQ.0) THEN
-C No front to be selected for LR
-          id%KEEP(486) = 0
-          IF (PROKG)
-     &  write(MPG,'(A)') " Low rank reset off since no front selected "
-        ENDIF
         IF (PROKG) THEN
-          WRITE( MPG,'(A,F12.4)')
-     &         ' ELAPSED TIME IN ANALYSIS DRIVER= ', TIMEG
+          WRITE( MPG,'(/A,F12.4)')
+     &         ' Elapsed time in analysis driver= ', TIMEG
         END IF 
 C       -----------------------
 C     Return in case of error
@@ -1532,9 +1681,13 @@ C
             IF ( associated(id%ROWSCA))
      &             DEALLOCATE( id%ROWSCA )
             ALLOCATE( id%COLSCA(id%N), stat=IERR)
-            IF (IERR .GT.0) id%INFO(1)=-13
+            IF (IERR .GT.0) THEN
+               id%INFO(1)=-13
+            ENDIF
             ALLOCATE( id%ROWSCA(id%N), stat=IERR)
-            IF (IERR .GT.0) id%INFO(1)=-13
+            IF (IERR .GT.0) THEN
+               id%INFO(1)=-13
+            ENDIF
           END IF
 C
 C         Allocate scaling arrays of size 1 if
@@ -1544,10 +1697,14 @@ C
           IF (.NOT. associated(id%COLSCA)) THEN
             ALLOCATE( id%COLSCA(1), stat=IERR)
           END IF
-          IF (IERR .GT.0) id%INFO(1)=-13
+          IF (IERR .GT.0) THEN
+             id%INFO(1)=-13
+          ENDIF
           IF (.NOT. associated(id%ROWSCA))
      &    ALLOCATE( id%ROWSCA(1), stat=IERR)
-          IF (IERR .GT.0) id%INFO(1)=-13
+          IF (IERR .GT.0) THEN
+             id%INFO(1)=-13
+          ENDIF
           IF ( id%INFO(1) .eq. -13 ) THEN
             IF ( LPOK ) WRITE(LP,'(A)')
      &         'Problems in allocations before facto'
@@ -1566,12 +1723,12 @@ C       KEEP(221) was set in ZMUMPS_SET_K221 but not broadcast
         CALL MPI_BCAST( id%KEEP(221), 1, MPI_INTEGER, MASTER, id%COMM,
      &       IERR )
 C
-C     Check distributed matrices on all processors.
+C       Check distributed matrices on all processors.
         I_AM_SLAVE = ( id%MYID .ne. MASTER  .OR.
      &     ( id%MYID .eq. MASTER .AND.
      &     id%KEEP(46) .eq. 1 ) )
         IF (I_AM_SLAVE .AND.
-     &      id%KEEP(54).NE.0 .AND. id%KEEP8(29).GT.0) THEN
+     &      id%KEEP(54).NE.0 .AND. id%KEEP8(29).GT.0_8) THEN
            IF ( .not. associated( id%IRN_loc ) ) THEN
               id%INFO(1) = -22
               id%INFO(2) = 16
@@ -1666,7 +1823,16 @@ C              We initialize the pointer that
 C              we will use within ZMUMPS here.
                id%root%SCHUR_LLD=id%SCHUR_LLD
                IF (id%root%SCHUR_NLOC==0) THEN
-                 ALLOCATE(id%root%SCHUR_POINTER(1))
+                  ALLOCATE(id%root%SCHUR_POINTER(1), stat=IERR)
+                  IF (IERR .GT.0) THEN
+                     id%INFO(1)=-13
+                  ENDIF
+                  IF ( id%INFO(1) .eq. -13 ) THEN
+                     IF ( LPOK ) THEN
+                        WRITE(LP,'(A)')
+     &                       'Problems in allocations before facto'
+                     ENDIF
+                  END IF
                ELSE
                 id%root%SCHUR_POINTER=>id%SCHUR
                ENDIF
@@ -1715,8 +1881,8 @@ C     are not used outside of the facto
            id%DKEEP(91) = TIMEG
         ENDIF
         IF (PROKG) THEN
-            WRITE( MPG,'(A,F12.4)')
-     &         ' ELAPSED TIME IN FACTORIZATION DRIVER= ', TIMEG
+            WRITE( MPG,'(/A,F12.4)')
+     &         ' Elapsed time in factorization driver= ', TIMEG
         END IF 
 C
 C       Check for errors after FACTO
@@ -1802,8 +1968,8 @@ C     -------------------------
             id%DKEEP(111) = TIMEG
         ENDIF
         IF (PROKG) THEN
-            WRITE( MPG,'(A,F12.4)')
-     &         ' ELAPSED TIME IN SOLVE DRIVER= ', TIMEG
+            WRITE( MPG,'(/A,F12.4)')
+     &         ' Elapsed time in solve driver= ', TIMEG
         END IF 
         IF (id%MYID .eq. MASTER) THEN
            id%KEEP(235) = KEEP235SAVE
@@ -1894,9 +2060,29 @@ C     --------------------------------
      &     .AND. JOB.NE.-2 ) THEN
          IF (id%MYID .eq. MASTER) THEN
             CALL MUMPS_SECFIN(TIMETOTAL)
-            id%DKEEP(70) = TIMEG
+            id%DKEEP(70) = TIMETOTAL
          ENDIF
       ENDIF
+*=======================
+* Compute space for save
+*=======================
+      IF (id%INFOG(1).GE.0) THEN
+         CALL ZMUMPS_COMPUTE_MEMORY_SAVE(id,FILE_SIZE,STRUC_SIZE)
+         id%KEEP8(55)=FILE_SIZE
+         call MPI_ALLREDUCE(id%KEEP8(55),id%KEEP8(57),1,
+     &        MPI_INTEGER8, MPI_SUM,id%COMM,IERR)
+         id%KEEP8(56)=STRUC_SIZE
+         call MPI_ALLREDUCE(id%KEEP8(56),id%KEEP8(58),1,
+     &        MPI_INTEGER8, MPI_SUM,id%COMM,IERR)
+         id%RINFO(7)=dble(id%KEEP8(55))/1D6
+         id%RINFO(8)=dble(id%KEEP8(56))/1D6
+         id%RINFOG(17)=dble(id%KEEP8(57))/1D6
+         id%RINFOG(18)=dble(id%KEEP8(58))/1D6
+      ENDIF
+!$    IF (ICNTL16_LOC .GT. 0) THEN
+!$      CALL omp_set_num_threads(PREVIOUS_OMP_THREADS_NUM)
+!$      ICNTL16_LOC = 0
+!$    ENDIF
 *===============
 * ERRORG section
 *===============
@@ -1932,9 +2118,9 @@ C
 C  Arguments:
 C  =========
 C
-      INTEGER, PARAMETER :: SIZE_INFOG = 40
-      INTEGER :: INFO(40)
-      INTEGER :: INFOG(SIZE_INFOG)  ! INFOG(40)
+      INTEGER, PARAMETER :: SIZE_INFOG = 80
+      INTEGER :: INFO(80)
+      INTEGER :: INFOG(SIZE_INFOG)  ! INFOG(80)
       INTEGER :: COMM, MYID
 C
 C  Local variables
@@ -2002,8 +2188,13 @@ C
          CASE(1);
            WRITE (LP,980) 
            WRITE (LP,990) ICNTL(1),ICNTL(2),ICNTL(3),ICNTL(4)
-           WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
+           IF (id%SYM.EQ.2) THEN
+            WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
      &          ICNTL(13),ICNTL(18),ICNTL(19),ICNTL(22)
+           ELSE
+            WRITE (LP,891) ICNTL(5),ICNTL(6),ICNTL(7),
+     &          ICNTL(13),ICNTL(18),ICNTL(19),ICNTL(22)
+           ENDIF
            IF ((ICNTL(6).EQ.5).OR.(ICNTL(6).EQ.6).OR.
      &          (ICNTL(12).NE.1) )  THEN
               WRITE (LP,992) ICNTL(8)
@@ -2031,8 +2222,13 @@ C
          CASE(5);
            WRITE (LP,980) 
            WRITE (LP,990) ICNTL(1),ICNTL(2),ICNTL(3),ICNTL(4)
-           WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
+           IF (id%SYM.EQ.2) THEN
+            WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
      &          ICNTL(13),ICNTL(18),ICNTL(19),ICNTL(22)
+           ELSE
+            WRITE (LP,891) ICNTL(5),ICNTL(6),ICNTL(7),
+     &          ICNTL(13),ICNTL(18),ICNTL(19),ICNTL(22)
+           ENDIF
            WRITE (LP,992) ICNTL(8)
            WRITE (LP,993) ICNTL(14)
            WRITE (LP,995)
@@ -2040,8 +2236,13 @@ C
          CASE(6);
            WRITE (LP,980)
            WRITE (LP,990) ICNTL(1),ICNTL(2),ICNTL(3),ICNTL(4)
-           WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
+           IF (id%SYM.EQ.2) THEN
+            WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
      &          ICNTL(13),ICNTL(18),ICNTL(19),ICNTL(22)
+           ELSE
+            WRITE (LP,891) ICNTL(5),ICNTL(6),ICNTL(7),
+     &          ICNTL(13),ICNTL(18),ICNTL(19),ICNTL(22)
+           ENDIF
            IF (id%ICNTL(19).NE.0)
      &      WRITE(LP,998) id%SIZE_SCHUR
            WRITE (LP,992) ICNTL(8)
@@ -2065,6 +2266,14 @@ C
      &     'ICNTL(18)  Distributed matrix  ( keep(54) )        =',I10/
      &     'ICNTL(19)  Schur option ( keep(60) 0=off,else=on ) =',I10/
      &     'ICNTL(22)  Out-off-core option (0=Off, >0=ON)      =',I10)
+ 891  FORMAT (
+     &     'ICNTL(5)   Matrix format  ( keep(55) )             =',I10/
+     &     'ICNTL(6)   Maximum transversal  ( keep(23) )       =',I10/
+     &     'ICNTL(7)   Ordering                                =',I10/
+     &     'ICNTL(13)  Parallel root (0=on, 1=off)             =',I10/
+     &     'ICNTL(18)  Distributed matrix  ( keep(54) )        =',I10/
+     &     'ICNTL(19)  Schur option ( keep(60) 0=off,else=on ) =',I10/
+     &     'ICNTL(22)  Out-off-core option (0=Off, >0=ON)      =',I10)
  992  FORMAT (
      &     'ICNTL(8)   Scaling strategy                        =',I10)
  993  FORMAT (
@@ -2072,8 +2281,8 @@ C
  995  FORMAT (
      &     'ICNTL(9)   Solve A x=b (1) or A''x = b (else)       =',I10/
      &     'ICNTL(10)  Max steps iterative refinement          =',I10/
-     &     'ICNTL(11)  Error analysis ( 0= off, else=on)       =',I10/
-     &     'ICNTL(20)  Dense (0) or sparse (1) RHS             =',I10/
+     &     'ICNTL(11)  Error analysis (1=all,2=some,else=off)  =',I10/
+     &     'ICNTL(20)  Dense (0) or sparse (1,2,3) RHS         =',I10/
      &     'ICNTL(21)  Gathered (0) or distributed(1) solution =',I10)
  998  FORMAT (
      &     '      Size of SCHUR matrix (SIZE_SHUR)             =',I10)
@@ -2183,7 +2392,7 @@ C--------------------------------------------------------------------
      &     'ICNTL(9)   Solve A x=b (1) or A''x = b (else)       =',I10/
      &     'ICNTL(10)  Max steps iterative refinement          =',I10/
      &     'ICNTL(11)  Error analysis ( 0= off, else=on)       =',I10/
-     &     'ICNTL(20)  Dense (0) or sparse (1) RHS             =',I10/
+     &     'ICNTL(20)  Dense (0) or sparse (1,2,3) RHS         =',I10/
      &     'ICNTL(21)  Gathered (0) or distributed(1) solution =',I10)
       END SUBROUTINE ZMUMPS_PRINT_KEEP
       SUBROUTINE ZMUMPS_CHECK_DENSE_RHS
@@ -2225,7 +2434,17 @@ C
                   idINFO( 1 ) = -26
                   idINFO( 2 ) = idLRHS
       ELSE IF 
-     &      (size(idRHS)<(idNRHS*idLRHS-idLRHS+idN)) 
+#if defined(MUMPS_F2003)
+     &      (size(idRHS,kind=8) <
+     &       int(idNRHS,8)*int(idLRHS,8)-idLRHS+idN)
+#else
+C           size with kind=8 not available. One can still
+C           perform the check if minimal size small enough.
+     &      (int(idNRHS,8)*int(idLRHS,8)-idLRHS+idN
+     &                                           .LE. int(huge(idN),8)
+     &      .and.
+     &      size(idRHS) < int(int(idNRHS,8)*int(idLRHS,8)-idLRHS+idN))
+#endif
      &            THEN
                   idINFO( 1 ) = -22
                   idINFO( 2 ) = 7

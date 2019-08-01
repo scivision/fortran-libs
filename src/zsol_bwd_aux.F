@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -24,7 +24,8 @@ C
      &     NRHS, MTYPE,
      &     RHSCOMP, LRHSCOMP, POSINRHSCOMP_BWD
      &     , TO_PROCESS, SIZE_TO_PROCESS
-     &     , FROM_PP )
+     &     , FROM_PP
+     &    )
       IMPLICIT NONE
       LOGICAL BLOQ, FLAG
       INTEGER LBUFR, LBUFR_BYTES
@@ -39,7 +40,7 @@ C
       INTEGER IPOOL( LPOOL )
       INTEGER LPANEL_POS
       INTEGER PANEL_POS( LPANEL_POS )
-      INTEGER NBFINF, INFO(40), KEEP(500)
+      INTEGER NBFINF, INFO(80), KEEP(500)
       INTEGER(8) :: POSWCB, PLEFTW
       INTEGER(8) KEEP8(150)
       DOUBLE PRECISION, INTENT(INOUT) :: DKEEP(230)
@@ -67,11 +68,10 @@ C
       INTEGER MSGSOU, MSGTAG, MSGLEN
       INTEGER :: STATUS(MPI_STATUS_SIZE)
       INTEGER :: IERR
-      DOUBLE PRECISION :: TIME_TMP
       FLAG = .FALSE.
       IF ( BLOQ ) THEN
-        CALL MPI_PROBE( MPI_ANY_SOURCE, MPI_ANY_TAG,
-     &                   COMM, STATUS, IERR )
+           CALL MPI_PROBE( MPI_ANY_SOURCE, MPI_ANY_TAG,
+     &                     COMM, STATUS, IERR )
         FLAG = .TRUE.
       ELSE
         CALL MPI_IPROBE( MPI_ANY_SOURCE, MPI_ANY_TAG, COMM,
@@ -125,6 +125,8 @@ C
      &               , FROM_PP
      &           )
       USE ZMUMPS_OOC
+      USE ZMUMPS_SOL_LR, ONLY: ZMUMPS_SOL_SLAVE_LR_U,
+     &                         ZMUMPS_SOL_BWD_LR_SU
       USE ZMUMPS_BUF
       IMPLICIT NONE
       INTEGER MSGTAG, MSGSOU
@@ -139,7 +141,7 @@ C
       INTEGER IIPOOL, LPOOL, LPANEL_POS
       INTEGER IPOOL( LPOOL )
       INTEGER PANEL_POS( LPANEL_POS )
-      INTEGER NBFINF, INFO(40), KEEP(500)
+      INTEGER NBFINF, INFO(80), KEEP(500)
       INTEGER(8) :: POSWCB, PLEFTW
       INTEGER(8) KEEP8(150)
       DOUBLE PRECISION, INTENT(INOUT) :: DKEEP(230)
@@ -165,19 +167,21 @@ C
       INTEGER  SIZE_TO_PROCESS
       LOGICAL TO_PROCESS(SIZE_TO_PROCESS), NO_CHILDREN
       LOGICAL, intent(in) :: FROM_PP
+      LOGICAL COMPRESS_PANEL, LR_ACTIVATED
+      LOGICAL  OOCWRITE_COMPATIBLE_WITH_BLR 
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
       INTEGER POSITION, IF, INODE, IERR, LONG, DUMMY(1)
-      INTEGER(8) :: P_UPDATE, P_SOL_MAS
       INTEGER    :: LIELL, K
       INTEGER(8) :: APOS, IST
       INTEGER NPIV, NROW_L, IPOS, NROW_RECU
       INTEGER(8) :: IFR8
       INTEGER I, JJ, IN, PROCDEST, J1, J2, LDA
       INTEGER NSLAVES, NELIM, J, POSINDICES, INODEPOS,
-     &        IPOSINRHSCOMP, IPOSINRHSCOMP_TMP, IPOSINRHSCOMP_PANEL
-      DOUBLE PRECISION :: TIME_TMP
+     &     IPOSINRHSCOMP, IPOSINRHSCOMP_TMP, IPOSINRHSCOMP_PANEL
       INTEGER JBDEB, JBFIN, NRHS_B, allocok
+      INTEGER(8) :: P_UPDATE, P_SOL_MAS         
+      INTEGER :: IWHDLR, MTYPE_SLAVE, LDA_SLAVE 
       LOGICAL FLAG
       COMPLEX(kind=8) ZERO, ALPHA, ONE
       PARAMETER (ZERO=(0.0D0,0.0D0),
@@ -303,22 +307,17 @@ C
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &                   JBFIN, 1, MPI_INTEGER, COMM, IERR )
         NRHS_B = JBFIN-JBDEB+1
+        LR_ACTIVATED   = (IW(PTRIST(STEP(INODE))+XXLR).GT.0)
+        COMPRESS_PANEL = (IW(PTRIST(STEP(INODE))+XXLR).GE.2)
+        OOCWRITE_COMPATIBLE_WITH_BLR =
+     &     ( .NOT.LR_ACTIVATED.OR.(.NOT.COMPRESS_PANEL).OR.
+     &            (KEEP(485).EQ.0) 
+     &     )
         IPOS   = PTRIST( STEP(INODE) ) + KEEP(IXSZ)
         NPIV   = - IW( IPOS     )
         NROW_L =   IW( IPOS + 1 )
-        IF (KEEP(201).GT.0) THEN
-           CALL ZMUMPS_SOLVE_GET_OOC_NODE(
-     &     INODE,PTRFAC,KEEP,A,LA,STEP,
-     &     KEEP8,N,MUST_BE_PERMUTED,IERR)           
-           IF(IERR.LT.0)THEN
-              INFO(1)=IERR
-              INFO(2)=0
-              GOTO 260
-           ENDIF
-        ENDIF                     
-        APOS   =   PTRFAC(IW( IPOS + 3 ))
         IF ( NROW_L .NE. NROW_RECU ) THEN
-          WRITE(*,*) 'Error1 in 41S : NROW L/RECU=',NROW_L, NROW_RECU
+          WRITE(*,*) 'Error1 : NROW L/RECU=',NROW_L, NROW_RECU
           CALL MUMPS_ABORT()
         END IF
         LONG = NROW_L + NPIV
@@ -342,36 +341,49 @@ C
      &                   MPI_DOUBLE_COMPLEX,
      &                   COMM, IERR )
         ENDDO
-        IF (KEEP(201).EQ.1) THEN 
-#if defined(MUMPS_USE_BLAS2)
-          IF ( NRHS_B == 1 ) THEN
-           CALL zgemv( 'T', NROW_L, NPIV, ALPHA, A( APOS ), NROW_L,
-     &              W( P_SOL_MAS ), 1, ZERO,
-     &              W( P_UPDATE ), 1 )
-          ELSE
-#endif
-           CALL zgemm( 'T', 'N', NPIV, NRHS_B, NROW_L, ALPHA, A(APOS),
-     &           NROW_L, W( P_SOL_MAS ), NROW_L, ZERO, W( P_UPDATE ),
-     &           NPIV )
-#if defined(MUMPS_USE_BLAS2)
-          ENDIF
-#endif
+        IF (KEEP(201).GT.0.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN
+           CALL ZMUMPS_SOLVE_GET_OOC_NODE(
+     &     INODE,PTRFAC,KEEP,A,LA,STEP,
+     &     KEEP8,N,MUST_BE_PERMUTED,IERR)           
+           IF(IERR.LT.0)THEN
+              INFO(1)=IERR
+              INFO(2)=0
+              GOTO 260
+           ENDIF
+        ENDIF
+        APOS   =   PTRFAC( STEP(INODE))
+        IF ( IW(PTRIST(STEP(INODE))+XXLR) .GE. 2 .AND.
+     &       KEEP(485) .EQ. 1 ) THEN
+          IWHDLR = IW(PTRIST(STEP(INODE))+XXF)
+          MTYPE_SLAVE = 0 
+          W(P_UPDATE:P_UPDATE+NPIV*NRHS_B-1)=ZERO
+          CALL ZMUMPS_SOL_SLAVE_LR_U(INODE, IWHDLR, -9999,
+     &         W, LWC,
+     &         NROW_L, NPIV, 
+     &         P_SOL_MAS, P_UPDATE,
+     &         JBDEB, JBFIN,
+     &         MTYPE_SLAVE, KEEP,
+     &         INFO(1), INFO(2) )
         ELSE
-#if defined(MUMPS_USE_BLAS2)
-          IF ( NRHS_B == 1 ) THEN
-           CALL zgemv( 'N', NPIV, NROW_L, ALPHA, A( APOS ), NPIV,
-     &              W( P_SOL_MAS ), 1, ZERO,
-     &              W( P_UPDATE ), 1 )
+          IF (KEEP(201) .EQ. 1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) 
+     &    THEN 
+            MTYPE_SLAVE = 1
+            LDA_SLAVE = NROW_L
           ELSE
-#endif
-           CALL zgemm( 'N', 'N', NPIV, NRHS_B, NROW_L, ALPHA, A(APOS),
-     &            NPIV, W( P_SOL_MAS ), NROW_L, ZERO, W( P_UPDATE ),
-     &            NPIV )
-#if defined(MUMPS_USE_BLAS2)
-          END IF
-#endif
-        ENDIF 
-        IF (KEEP(201).GT.0) THEN
+            MTYPE_SLAVE = 0
+            LDA_SLAVE = NPIV
+          ENDIF
+          CALL ZMUMPS_SOLVE_GEMM_UPDATE(
+     &           A, LA, APOS, NROW_L,
+     &           LDA_SLAVE,    
+     &           NPIV,
+     &           NRHS_B, W, LWC,
+     &           P_SOL_MAS, NROW_L,
+     &           P_UPDATE, NPIV,
+     &           MTYPE_SLAVE, KEEP, ZERO)
+        ENDIF
+        IF (KEEP(201) .EQ. 1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) 
+     &  THEN 
          CALL ZMUMPS_FREE_FACTORS_FOR_SOLVE(INODE,PTRFAC,KEEP(28),
      &          A,LA,.TRUE.,IERR)
          IF(IERR.LT.0)THEN
@@ -404,14 +416,15 @@ C
      &     NRHS, MTYPE,
      &     RHSCOMP, LRHSCOMP, POSINRHSCOMP_BWD
      &      , TO_PROCESS, SIZE_TO_PROCESS
-     &      , FROM_PP )
+     &      , FROM_PP
+     &      )
           IF ( INFO( 1 ) .LT. 0 ) GOTO 270
           GOTO 100
-        ELSE IF ( IERR .EQ. -2 ) THEN
+       ELSE IF ( IERR .EQ. -2 ) THEN
           INFO( 1 ) = -17
           INFO( 2 ) = NRHS_B * NPIV * KEEP(35) + 4 * KEEP(34)
           GOTO 260
-        ELSE IF ( IERR .EQ. -3 ) THEN
+       ELSE IF ( IERR .EQ. -3 ) THEN
           INFO( 1 ) = -20
           INFO( 2 ) = NRHS_B * NPIV * KEEP(35) + 4 * KEEP(34)
           GOTO 260
@@ -421,6 +434,12 @@ C
         POSITION = 0
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &                   INODE, 1, MPI_INTEGER, COMM, IERR )
+        LR_ACTIVATED   = (IW(PTRIST(STEP(INODE))+XXLR).GT.0)
+        COMPRESS_PANEL = (IW(PTRIST(STEP(INODE))+XXLR).GE.2)
+        OOCWRITE_COMPATIBLE_WITH_BLR =
+     &     (.NOT.LR_ACTIVATED.OR.(.NOT.COMPRESS_PANEL).OR.
+     &            (KEEP(485).EQ.0) 
+     &     )
         IPOS  = PTRIST(STEP(INODE)) + 2 + KEEP(IXSZ)
         LIELL = IW(IPOS-2)+IW(IPOS+1)
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
@@ -430,18 +449,18 @@ C
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &                   JBFIN, 1, MPI_INTEGER, COMM, IERR )
         NRHS_B = JBFIN-JBDEB+1
-          NELIM = IW(IPOS-1)
-          IPOS = IPOS + 1
-          NPIV = IW(IPOS)
-          IPOS = IPOS + 1
-          NSLAVES = IW( IPOS + 1 )
-          IPOS = IPOS + 1 + NSLAVES
-          INODEPOS = PTRIST(STEP(INODE)) + KEEP(IXSZ) + 4
-          IF ( KEEP(50) .eq. 0 ) THEN
-           LDA = LIELL
-          ELSE
-           LDA = NPIV
-          ENDIF
+        NELIM = IW(IPOS-1)
+        IPOS = IPOS + 1
+        NPIV = IW(IPOS)
+        IPOS = IPOS + 1
+        NSLAVES = IW( IPOS + 1 )
+        IPOS = IPOS + 1 + NSLAVES
+        INODEPOS = PTRIST(STEP(INODE)) + KEEP(IXSZ) + 4
+        IF ( KEEP(50) .eq. 0 ) THEN
+          LDA = LIELL
+        ELSE
+          LDA = NPIV
+        ENDIF
         IF ( MTYPE .EQ. 1 .AND. KEEP(50).EQ.0 ) THEN
              J1 = IPOS + LIELL + 1
              J2 = IPOS + NPIV + LIELL
@@ -482,7 +501,8 @@ C
         IW(PTRIST(STEP(INODE))+XXS) = 
      &      IW(PTRIST(STEP(INODE))+XXS) - 1
         IF ( IW(PTRIST(STEP(INODE))+XXS).EQ.C_FINI ) THEN
-          IF (KEEP(201).GT.0) THEN
+          IF (KEEP(201).GT.0.AND.OOCWRITE_COMPATIBLE_WITH_BLR) 
+     &    THEN
              CALL ZMUMPS_SOLVE_GET_OOC_NODE(
      &            INODE,PTRFAC,KEEP,A,LA,STEP,
      &            KEEP8,N,MUST_BE_PERMUTED,IERR)
@@ -498,7 +518,8 @@ C
              ENDIF
           ENDIF  
           APOS = PTRFAC(IW(INODEPOS))
-          IF (KEEP(201).EQ.1) THEN 
+          IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) 
+     &    THEN 
              LIWFAC =  IW(PTRIST(STEP(INODE))+XXI)
              TYPEF = TYPEF_L
              NROW_L   = NPIV+NELIM 
@@ -583,11 +604,11 @@ C
      &       W(PTRACB(STEP(INODE))), LIELL, NPIV+1,
      &       IW, LIW, KEEP, N, POSINRHSCOMP_BWD )
              IFR8 = IFR8 + J2-KEEP(253)-J1+1
-           ELSE
+          ELSE
              WRITE(*,*) "Internal error ZMUMPS_BACKSLV_TRAITER_MESSAGE"
              CALL MUMPS_ABORT()
            ENDIF
-       IF ( KEEP(201).EQ.1 .AND.
+       IF ( KEEP(201).EQ.1 .AND. OOCWRITE_COMPATIBLE_WITH_BLR .AND.
      &    (( NELIM .GT. 0 ).OR. (MTYPE.NE.1 )))  THEN
           J = NPIV / PANEL_SIZE  
           TWOBYTWO = KEEP(50).EQ.2 .AND. KEEP(105).GT.0
@@ -743,6 +764,17 @@ C
           ENDDO 
         GOTO 1234  
        ENDIF 
+       IF ( IW(PTRIST(STEP(INODE))+XXLR) .GE. 2
+     &      .AND. KEEP(485) .EQ. 1 ) THEN
+          IWHDLR = IW(PTRIST(STEP(INODE))+XXF)
+          CALL  ZMUMPS_SOL_BWD_LR_SU 
+     &     ( INODE, IWHDLR, NPIV, NSLAVES,
+     &     LIELL, W, LWC, NRHS_B, PTRACB(STEP(INODE)), 
+     &     RHSCOMP, LRHSCOMP, NRHS,
+     &     IPOSINRHSCOMP, JBDEB, 
+     &     MTYPE, KEEP,
+     &     INFO(1), INFO(1) )
+       ELSE
           IF (NELIM .GT.0) THEN
             IF ( KEEP(50) .eq. 0 ) THEN
                 IST = APOS + int(NPIV,8) * int(LIELL,8)
@@ -804,7 +836,7 @@ C
                CALL ztrsm( 'L','U', 'N', 'U', NPIV, NRHS_B, ONE,
      &                   A(APOS), LDA,
      &                   W(PTRACB(STEP(INODE))),LIELL)
-              ELSE
+             ELSE
 #if defined(RHSCOMP_BYROWS)
                 WRITE(*,*)
      &          "Internal error in ZMUMPS_BACKSLV_TRAITER_MESSAGE"
@@ -814,12 +846,13 @@ C
      &                    A(APOS), LDA,
      &                    RHSCOMP(IPOSINRHSCOMP,JBDEB), LRHSCOMP)
 #endif
-              ENDIF
+             ENDIF
 #if defined(MUMPS_USE_BLAS2)
           END IF
 #endif
+       ENDIF
  1234     CONTINUE   
-          IF (KEEP(201).GT.0) THEN
+          IF (KEEP(201).GT.0.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN
            CALL ZMUMPS_FREE_FACTORS_FOR_SOLVE(INODE,PTRFAC,KEEP(28),
      &          A,LA,.TRUE.,IERR)
            IF(IERR.LT.0)THEN
@@ -915,15 +948,16 @@ C
      &            NRHS, MTYPE, 
      &            RHSCOMP, LRHSCOMP, POSINRHSCOMP_BWD
      &            , TO_PROCESS, SIZE_TO_PROCESS
-     &            , FROM_PP )
+     &            , FROM_PP
+     &            )
                   IF ( INFO( 1 ) .LT. 0 ) GOTO 270
                   GOTO 110
-                ELSE IF ( IERR .eq. -2 ) THEN
+               ELSE IF ( IERR .eq. -2 ) THEN
                   INFO(1) = -17
                   INFO(2) = LIELL * NRHS_B * KEEP(35) +
      &                    ( LIELL + 4 ) * KEEP(34)
                   GOTO 260
-                ELSE IF ( IERR .eq. -3 ) THEN
+               ELSE IF ( IERR .eq. -3 ) THEN
                   INFO(1) = -20
                   INFO(2) = LIELL * NRHS_B * KEEP(35) +
      &                    ( LIELL + 4 ) * KEEP(34)
@@ -964,7 +998,7 @@ C
        ELSE IF ( (MSGTAG.EQ.UPDATE_LOAD).OR.
      &      (MSGTAG.EQ.TAG_DUMMY) ) THEN
           GO TO 270
-      ELSE
+       ELSE
           INFO(1) = -100
           INFO(2) = MSGTAG
           GOTO 260

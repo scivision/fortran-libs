@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -31,25 +31,28 @@ C
      &             MEM_DISTRIB, NE, DKEEP,PIVNUL_LIST,LPN_LIST
      &             ,LRGROUPS
      &             )
+#if ! defined(NODYNAMICCB)
+      USE SMUMPS_DYNAMIC_MEMORY_M, ONLY : SMUMPS_DM_CBSTATIC2DYNAMIC,
+     &                                    SMUMPS_DM_FREEALLDYNAMICCB
+#endif
       USE SMUMPS_LOAD
       USE SMUMPS_OOC
-      USE SMUMPS_FAC_LR
       USE SMUMPS_FAC_ASM_MASTER_M
       USE SMUMPS_FAC_ASM_MASTER_ELT_M
       USE SMUMPS_FAC1_LDLT_M
       USE SMUMPS_FAC2_LDLT_M
       USE SMUMPS_FAC1_LU_M
       USE SMUMPS_FAC2_LU_M
+      USE SMUMPS_STRUC_DEF, ONLY : SMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'smumps_root.h'
       TYPE (SMUMPS_ROOT_STRUC) :: root
       INTEGER N,NTOTPV,MAXFRT,LIW, LPTRAR, NMAXNPIV,
-     &        NSTEPS, INFO(40)
+     &        NSTEPS, INFO(80)
       INTEGER(8) :: LA
       REAL, TARGET :: A(LA)
       INTEGER SLAVEF, COMM_NODES, MYID, MYID_NODES
       INTEGER, DIMENSION(0: SLAVEF - 1) :: MEM_DISTRIB
-      INTEGER KEEP(500), ICNTL(40)
+      INTEGER KEEP(500), ICNTL(60)
       INTEGER(8) KEEP8(150)
       INTEGER LPOOL
       INTEGER PROCNODE_STEPS(KEEP(28))
@@ -138,14 +141,13 @@ C
       PTRAST(1:KEEP(28))=0_8
       PTRFAC(1:KEEP(28))=-99999_8
       PIMASTER(1:KEEP(28))=-99999_8
-      PAMASTER(1:KEEP(28))=-99999_8
       MP = ICNTL(2)
       LP = ICNTL(1)
       MAXFRW = 0
       NPVW   = 0
       NOFFW  = 0
       NELVAW = 0
-      COMP  = 0
+      COMP   = 0
       OPASSW = DZERO
       OPELIW = DZERO
       IWPOSCB = LIW
@@ -153,6 +155,7 @@ C
       CALL SMUMPS_ALLOC_CB( .FALSE., 0_8,
      &     .FALSE., .FALSE., MYID_NODES, N, KEEP, KEEP8, DKEEP,
      &     IW, LIW, A, LA, LRLU, IPTRLU, IWPOS, IWPOSCB,
+     &     SLAVEF, PROCNODE_STEPS, DAD,
      &     PTRIST, PTRAST, STEP, PIMASTER,
      &     PAMASTER, KEEP(IXSZ), 0_8, -444, -444, .true.,
      &     COMP, LRLUS,
@@ -171,7 +174,8 @@ C
             CALL SMUMPS_ROOT_ALLOC_STATIC(
      &        root, KEEP(38), N, IW, LIW,
      &        A, LA,
-     &        FILS, MYID_NODES, PTRAIW, PTRARW,
+     &        FILS, DAD, MYID_NODES, SLAVEF, PROCNODE_STEPS,
+     &        PTRAIW, PTRARW,
      &        INTARR, DBLARR,
      &        LRLU, IPTRLU,
      &        IWPOS, IWPOSCB, PTRIST, PTRAST,
@@ -197,7 +201,7 @@ C
      &      PTRAST, STEP, PIMASTER, PAMASTER, NSTK_STEPS,
      &      COMP, INFO(1), INFO(2), COMM_NODES, NBPROCFILS,
      &      IPOOL, LPOOL, LEAF, NBFIN, MYID_NODES, SLAVEF,
-     &      root, OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS,
+     &      root, OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD,
      &      PTRARW, PTRAIW,
      &      INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
      &      LPTRAR, NELT, FRTPTR, FRTELT,
@@ -281,7 +285,7 @@ C
      &        STEP, PIMASTER, PAMASTER,
      &        NSTK_STEPS,NBPROCFILS,PROCNODE_STEPS,
      &        root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &        FILS, PTRARW, PTRAIW,
+     &        FILS, DAD, PTRARW, PTRAIW,
      &        INTARR, DBLARR, ICNTL, KEEP,KEEP8, ND, FRERE,
      &        LPTRAR, NELT, FRTPTR, FRTELT, SEUIL,
      &        ISTEP_TO_INIV2, TAB_POS_IN_PERE, AVOID_DELAYED,
@@ -299,7 +303,7 @@ C
      &             STEP, PIMASTER, PAMASTER,
      &             NSTK_STEPS,NBPROCFILS,PROCNODE_STEPS,
      &             root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &             FILS, PTRARW, PTRAIW,
+     &             FILS, DAD, PTRARW, PTRAIW,
      &             INTARR, DBLARR, ICNTL, KEEP,KEEP8, ND, FRERE,
      &             LPTRAR, NELT, FRTPTR, FRTELT, SEUIL_LDLT_NIV2,
      &             ISTEP_TO_INIV2, TAB_POS_IN_PERE, AVOID_DELAYED,
@@ -328,7 +332,7 @@ C
      &    NBFIN, MYID_NODES, SLAVEF,
      &
      &    OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &    FILS, PTRARW, PTRAIW,
+     &    FILS, DAD, PTRARW, PTRAIW,
      &    INTARR, DBLARR,ICNTL,KEEP,KEEP8,DKEEP, ND,
      &    LPTRAR, NELT, FRTPTR, FRTELT,
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE
@@ -463,6 +467,7 @@ C
      &              DKEEP(1),PIVNUL_LIST(1),LPN_LIST, IWPOS 
      &           , LRGROUPS
      &           )
+           IF (INFO(1).LT.0) GOTO 635
       ELSE  
             IW( IOLDPS+4+KEEP(IXSZ) ) = 1
               CALL SMUMPS_FAC1_LDLT( N, INODE,
@@ -474,6 +479,7 @@ C
      &           DKEEP(1),PIVNUL_LIST(1),LPN_LIST, IWPOS
      &           , LRGROUPS
      &           )
+             IF (INFO(1).LT.0) GOTO 635
             IW( IOLDPS+4+KEEP(IXSZ) ) = STEP(INODE)
           ENDIF 
           JOBASS = ETATASS          
@@ -515,7 +521,7 @@ C
      &       PROCNODE_STEPS,SLAVEF,FPERE,COMM_NODES,MYID_NODES,
      &       IPOOL, LPOOL, LEAF,
      &       NSTK_STEPS, NBPROCFILS, BUFR, LBUFR, LBUFR_BYTES, NBFIN,
-     &       root, OPASSW, ITLOC, RHS_MUMPS, FILS, PTRARW, PTRAIW,
+     &       root, OPASSW, ITLOC, RHS_MUMPS, FILS, DAD, PTRARW, PTRAIW,
      &       INTARR, DBLARR,
      &       ND, FRERE, LPTRAR, NELT, FRTPTR, FRTELT,
      &       ISTEP_TO_INIV2, TAB_POS_IN_PERE
@@ -600,6 +606,14 @@ C
      &      .TRUE.,
      &      .TRUE.)
       CALL MPI_BARRIER( COMM_NODES, IERR )
+#if ! defined(NODYNAMICCB)
+      IF (INFO(1) .LT. 0) THEN
+        CALL SMUMPS_DM_FREEALLDYNAMICCB( MYID, N, SLAVEF, KEEP, KEEP8,
+     &  IW, LIW, IWPOSCB, IWPOS,
+     &  LRLU, IPTRLU, LRLUS, STEP, PTRAST, PAMASTER, PROCNODE_STEPS,
+     &  DAD )
+      ENDIF
+#endif
        IF ( INFO(1) .GE. 0 ) THEN
           IF( KEEP(38) .NE. 0 .OR. KEEP(20).NE.0) THEN
             MASTER_ROOT = MUMPS_PROCNODE(
@@ -696,8 +710,7 @@ C
                   ENDIF 
                   IF (KEEP(201).NE.0 .OR. KEEP(252).NE.0) THEN
                      LRLUS = LRLUS + ITMP8 
-                     KEEP8(70) = KEEP8(70) + ITMP8 
-                     KEEP8(71) = KEEP8(71) + ITMP8 
+                     KEEP8(69) = KEEP8(69) - ITMP8 
                      IF (KEEP(252).NE.0) THEN
                        CALL SMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
      &                 LA-LRLUS
@@ -773,8 +786,7 @@ C
                     POSFAC = POSFAC - NFRONT8*NFRONT8
                     LRLUS  = LRLUS  + NFRONT8*NFRONT8
                     LRLU   = LRLUS  + NFRONT8*NFRONT8
-                    KEEP8(70) = KEEP8(70) + NFRONT8*NFRONT8
-                    KEEP8(71) = KEEP8(71) + NFRONT8*NFRONT8
+                    KEEP8(69) = KEEP8(69) - NFRONT8*NFRONT8
                     CALL SMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
      &              LA-LRLUS,0_8,-NFRONT8*NFRONT8,KEEP,KEEP8,LRLUS)
                   ENDIF

@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -23,45 +23,41 @@ C
      &
      &    NSTK_S,NBPROCFILS, PROCNODE_STEPS, SLAVEF, COMM,MYID,
      &    BUFR, LBUFR, LBUFR_BYTES, NBFIN, IPOOL, LPOOL, LEAF,
-     &    PERM, 
+     &    PERM,
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE, JOBASS, ETATASS
      &               , LRGROUPS
      &    )
 !$    USE OMP_LIB
+#if ! defined(NODYNAMICCB)
+      USE SMUMPS_DYNAMIC_MEMORY_M, ONLY : SMUMPS_DM_SET_PTR,
+     &                                    SMUMPS_DM_IS_DYNAMIC,
+     &                                    SMUMPS_DM_FREE_BLOCK
+#endif
       USE MUMPS_BUILD_SORT_INDEX_M
       USE SMUMPS_BUF
       USE SMUMPS_LOAD
-      USE SMUMPS_LR_CORE, ONLY : IS_FRONT_BLR_CANDIDATE
+      USE SMUMPS_LR_CORE, ONLY : IS_FRONT_BLR_CANDIDATE,
+     &                           SMUMPS_BLR_ASM_NIV1
+      USE SMUMPS_LR_DATA_M, ONLY : SMUMPS_BLR_INIT_FRONT,
+     &                             SMUMPS_BLR_SAVE_NFS4FATHER
+      USE SMUMPS_STRUC_DEF, ONLY : SMUMPS_ROOT_STRUC
+      USE SMUMPS_ANA_LR,    ONLY : GET_CUT
+      USE SMUMPS_LR_CORE,   ONLY : MAX_CLUSTER
+      USE MUMPS_LR_COMMON,  ONLY : COMPUTE_BLR_VCS
       IMPLICIT NONE
-      INCLUDE 'smumps_root.h'
       TYPE (SMUMPS_ROOT_STRUC) :: root
       INTEGER COMM_LOAD, ASS_IRECV
       INTEGER IZERO 
       PARAMETER (IZERO=0)
       INTEGER N,LIW,NSTEPS
       INTEGER(8) LA, LRLU, LRLUS, IPTRLU, POSFAC
-      INTEGER KEEP(500), ICNTL(40)
+      INTEGER KEEP(500), ICNTL(60)
       INTEGER(8) KEEP8(150)
       REAL    DKEEP(230)
       INTEGER, INTENT(INOUT) :: INFO(2)
       INTEGER INODE,MAXFRW,
      &        IWPOSCB, COMP
       INTEGER, TARGET :: IWPOS
-      INTEGER JOBASS,ETATASS 
-      LOGICAL SON_LEVEL2
-      REAL, TARGET :: A(LA)
-      INTEGER, INTENT(IN) :: LRGROUPS(N)
-      DOUBLE PRECISION  OPASSW, OPELIW
-      INTEGER COMM, NBFIN, SLAVEF, MYID
-      INTEGER(8), INTENT(IN) :: LINTARR, LDBLARR
-      REAL DBLARR(LDBLARR)
-      INTEGER INTARR(LINTARR)
-      INTEGER LPOOL, LEAF
-      INTEGER LBUFR, LBUFR_BYTES
-      INTEGER IPOOL( LPOOL )
-      INTEGER NBPROCFILS(KEEP(28)), NSTK_S(KEEP(28))
-      INTEGER PROCNODE_STEPS(KEEP(28))
-      INTEGER BUFR( LBUFR )
       INTEGER IDUMMY(1)
       INTEGER, PARAMETER :: LIDUMMY = 1
       INTEGER, TARGET :: IW(LIW)
@@ -74,10 +70,28 @@ C
       REAL :: RHS_MUMPS(KEEP(255))
       INTEGER(8) :: PTRFAC(KEEP(28)), PTRAST(KEEP(28)),
      &              PAMASTER(KEEP(28))
-      INTEGER   ISTEP_TO_INIV2(KEEP(71)), 
-     &          TAB_POS_IN_PERE(SLAVEF+2,max(1,KEEP(56)))
+      INTEGER COMM, NBFIN, SLAVEF, MYID
+      INTEGER ISTEP_TO_INIV2(KEEP(71)), 
+     &        TAB_POS_IN_PERE(SLAVEF+2,max(1,KEEP(56)))
+      INTEGER JOBASS,ETATASS 
+      LOGICAL SON_LEVEL2
+      REAL, TARGET :: A(LA)
+      INTEGER, INTENT(IN) :: LRGROUPS(N)
+      DOUBLE PRECISION  OPASSW, OPELIW
+      INTEGER(8), INTENT(IN) :: LINTARR, LDBLARR
+      REAL DBLARR(LDBLARR)
+      INTEGER INTARR(LINTARR)
+      INTEGER LPOOL, LEAF
+      INTEGER LBUFR, LBUFR_BYTES
+      INTEGER IPOOL( LPOOL )
+      INTEGER NBPROCFILS(KEEP(28)), NSTK_S(KEEP(28))
+      INTEGER PROCNODE_STEPS(KEEP(28))
+      INTEGER BUFR( LBUFR )
+      LOGICAL PACKED_CB, IS_CB_LR
       INTEGER  MUMPS_TYPENODE
       EXTERNAL MUMPS_TYPENODE
+      INTEGER  MUMPS_PROCNODE
+      EXTERNAL MUMPS_PROCNODE
       INCLUDE 'mpif.h'
       INTEGER :: IERR
       INTEGER :: STATUS(MPI_STATUS_SIZE)
@@ -87,21 +101,26 @@ C
       LOGICAL LPOK
       INTEGER NBPANELS_L, NBPANELS_U
       INTEGER IN,NUMSTK,NASS,ISON,IFSON,NASS1,IELL
-      INTEGER NFS4FATHER
+      INTEGER NFS4FATHER, ESTIM_NFS4FATHER_ATSON
+      INTEGER IFATH
       INTEGER(8) NFRONT8, LAELL8, LAELL_REQ8
-      INTEGER NFRONT,NFRONT_EFF,ISTCHK,LSTK,LREQ
+      INTEGER NFRONT,NFRONT_EFF,ISTCHK,ISTCHK_CB_RIGHT,LSTK,LREQ
       INTEGER LREQ_OOC
-      INTEGER(8) :: SIZFR8
+      INTEGER :: SON_XXS, SON_XXLR
+      INTEGER(8) LSTK8, SIZFR8
+#if ! defined(NODYNAMICCB)
+      LOGICAL :: IS_DYNAMIC_CB
+      INTEGER(8) :: DYN_SIZE
+#endif
       INTEGER SIZFI, NCB
       INTEGER NCOLS, NROWS, LDA_SON
+      INTEGER NELIM, IORG, IBROT
 #if ! defined(ZERO_TRIANGLE)
       INTEGER(8) :: NUMROWS, JJ3
 #endif
       INTEGER :: TOPDIAG
 !$    INTEGER    :: CHUNK  
-!$    INTEGER(8) :: CHUNK8  
-      INTEGER NELIM,
-     &        IBROT,IORG
+!$    INTEGER(8) :: CHUNK8 
       INTEGER JPOS,ICT11
       INTEGER IJROW,NBCOL,NUMORG,IOLDPS
       INTEGER(8) IACHK, POSELT, LAPOS2, IACHK_ini
@@ -114,19 +133,27 @@ C
       INTEGER NSLAVES, NSLSON, NPIVS,NPIV_ANA,NPIV
       INTEGER PTRCOL, ISLAVE, PDEST,LEVEL
       INTEGER ISON_IN_PLACE 
+      LOGICAL SKIP_TOP_STACK 
       INTEGER ISON_TOP 
-      INTEGER(8) SIZE_ISON_TOP8
+      INTEGER(8) SIZE_ISON_TOP8, DYN_SIZE_ISON_TOP8
       LOGICAL RESET_TO_ZERO, RISK_OF_SAME_POS,
-     &        RISK_OF_SAME_POS_THIS_LINE, OMP_PARALLEL_FLAG
+     &        RISK_OF_SAME_POS_THIS_LINE
+!$    LOGICAL OMP_PARALLEL_FLAG
       LOGICAL LEVEL1, NIV1
       INTEGER TROW_SIZE
       INTEGER INDX, FIRST_INDEX, SHIFT_INDEX
       LOGICAL BLOCKING, SET_IRECV, MESSAGE_RECEIVED
+      INTEGER LRSTATUS  
+      LOGICAL COMPRESS_PANEL, LR_ACTIVATED, COMPRESS_CB,
+     &        OOCWRITE_COMPATIBLE_WITH_BLR
       INTEGER, POINTER :: SON_IWPOS
       INTEGER, POINTER, DIMENSION(:) :: SON_IW
       REAL, POINTER, DIMENSION(:) :: SON_A
       INTEGER NCBSON
       LOGICAL SAME_PROC
+      INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR
+      INTEGER :: NB_BLR, NPARTSCB, NPARTSASS, MAXI_CLUSTER, 
+     &           IBCKSZ2, MINSIZE
       INTRINSIC real
       REAL ZERO
       PARAMETER( ZERO = 0.0E0 )
@@ -134,8 +161,6 @@ C
       EXTERNAL MUMPS_INSSARBR
       LOGICAL MUMPS_INSSARBR
       LOGICAL SSARBR
-      LOGICAL COMPRESSCB
-      INTEGER(8) :: LCB
       DOUBLE PRECISION FLOP1,FLOP1_EFF
       EXTERNAL MUMPS_IN_OR_ROOT_SSARBR
       LOGICAL MUMPS_IN_OR_ROOT_SSARBR
@@ -145,7 +170,8 @@ C
       NELT       = 1
       LPTRAR     = N
       NFS4FATHER = -1
-      COMPRESSCB =.FALSE.
+      PACKED_CB  = .FALSE.
+      IS_CB_LR   = .FALSE.
       IN         = INODE
       NBPROCFILS(STEP(IN)) = 0
       LEVEL = MUMPS_TYPENODE(PROCNODE_STEPS(STEP(INODE)),SLAVEF)
@@ -202,8 +228,37 @@ C
       ENDIF
       NFRONT = ND(STEP(INODE)) + NASS + KEEP(253)
       NASS1 = NASS + NUMORG
+      CALL IS_FRONT_BLR_CANDIDATE(INODE, 1, NFRONT, NASS1, KEEP(486),
+     &       KEEP(489), KEEP(490), KEEP(491), KEEP(492), 
+     &       KEEP(20), KEEP(60), DAD(STEP(INODE)), KEEP(38),
+     &       LRSTATUS, N, LRGROUPS)
+      IF (DAD(STEP(INODE)).NE.0) THEN
+        IF ( MUMPS_PROCNODE(PROCNODE_STEPS(STEP(DAD(STEP(INODE)))),
+     &                                     SLAVEF )
+     &    .NE. MYID
+     &   .AND.
+     &   MUMPS_TYPENODE(PROCNODE_STEPS(STEP(DAD(STEP(INODE)))),SLAVEF)
+     &    .EQ.1
+     &    ) THEN
+          IF (LRSTATUS.EQ.1 .OR. LRSTATUS.EQ.3) THEN
+            LRSTATUS = LRSTATUS-1
+          ENDIF
+        ENDIF
+      ENDIF
+      COMPRESS_PANEL = (LRSTATUS.GE.2)
+      COMPRESS_CB    = ((LRSTATUS.EQ.1).OR.
+     &                  (LRSTATUS.EQ.3))
+      LR_ACTIVATED   = (LRSTATUS.GT.0)
+      IF (COMPRESS_CB.AND.(.NOT.COMPRESS_PANEL)) THEN
+        COMPRESS_PANEL = .TRUE.
+        LRSTATUS      = 3 
+      ENDIF
+      OOCWRITE_COMPATIBLE_WITH_BLR = 
+     &          ( .NOT.LR_ACTIVATED.OR.(.NOT.COMPRESS_PANEL).OR.
+     &            (KEEP(486).NE.2) 
+     &          )
       LREQ_OOC = 0
-      IF (KEEP(201).EQ.1) THEN 
+      IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN 
         CALL SMUMPS_OOC_GET_PP_SIZES(KEEP(50), NFRONT, NFRONT, NASS1,
      &       NBPANELS_L, NBPANELS_U, LREQ_OOC)
       ENDIF
@@ -214,7 +269,8 @@ C
      &        LRLU, IPTRLU,
      &        IWPOS, IWPOSCB, PTRIST, PTRAST,
      &        STEP, PIMASTER, PAMASTER, KEEP(216),LRLUS,
-     &        KEEP(IXSZ), COMP, DKEEP(97), MYID)
+     &        KEEP(IXSZ), COMP, DKEEP(97), MYID, SLAVEF,
+     &        PROCNODE_STEPS, DAD)
           IF (LRLU .NE. LRLUS) THEN
            IF (LPOK) THEN
             WRITE(LP, * ) 'INTERNAL ERROR 2 after compress '
@@ -240,8 +296,11 @@ C
      &    THEN
             ISON_TOP = ISON
             CALL MUMPS_GETI8(SIZE_ISON_TOP8,IW(IWPOSCB + 1 + XXR))
-            IF (LRLU .LT. int(NFRONT,8) * int(NFRONT,8)) THEN
-              ISON_IN_PLACE = ISON
+            CALL MUMPS_GETI8(DYN_SIZE_ISON_TOP8, IW(IWPOSCB + 1 + XXD))
+            IF (DYN_SIZE_ISON_TOP8 .EQ. 0_8) THEN
+              IF (LRLU .LT. int(NFRONT,8) * int(NFRONT,8)) THEN
+                ISON_IN_PLACE = ISON
+              ENDIF
             ENDIF
           END IF
         END IF
@@ -275,7 +334,7 @@ C
            ENDIF
         IWPOS = IWPOS - ((2*NFRONT)-(2*NFRONT_EFF))
         NFRONT = NFRONT_EFF
-        LREQ = HF + 2 * NFRONT + LREQ_OOC
+        LREQ = HF + 2 * NFRONT + LREQ_OOC   
         ELSE
          IF (LPOK) THEN
          WRITE(LP,*) ' INTERNAL ERROR 3 ',
@@ -286,7 +345,8 @@ C
          GOTO 270
         ENDIF
       ENDIF
-      IF (KEEP(201).EQ.1.AND.KEEP(50).NE.1) THEN
+      IF (KEEP(201).EQ.1.AND.KEEP(50).NE.1.AND.
+     &     OOCWRITE_COMPATIBLE_WITH_BLR) THEN
         CALL SMUMPS_OOC_PP_SET_PTR(KEEP(50),
      &       NBPANELS_L, NBPANELS_U, NASS1, 
      &       IOLDPS + HF + 2 * NFRONT, IW, LIW)
@@ -300,37 +360,23 @@ C
       IF ( ISON_IN_PLACE > 0 ) THEN
         LAELL_REQ8 = LAELL8 - SIZE_ISON_TOP8
       ENDIF
-      IF (LRLU .LT. LAELL_REQ8) THEN
-        IF (LRLUS .LT. LAELL_REQ8) THEN
-          IF (LPOK) THEN
-           WRITE(LP, * ) ' NOT ENOUGH MEMORY during ASSEMBLY ',
-     &     ' MEMORY REQUESTED = ', LAELL_REQ8,
-     &     ' AVAILABLE =', LRLUS
-          ENDIF
-          GOTO 280
-        ELSE
-          CALL SMUMPS_COMPRE_NEW
-     &        (N, KEEP(28), IW, LIW, A, LA, LRLU, IPTRLU,
-     &         IWPOS, IWPOSCB, PTRIST, PTRAST, STEP, PIMASTER,
-     &         PAMASTER,KEEP(216),LRLUS,KEEP(IXSZ),COMP,DKEEP(97),
-     &         MYID)
-          IF (LRLU .NE. LRLUS) THEN
-           IF (LPOK) THEN
-            WRITE(LP, * ) 'INTERNAL ERROR 4 after compress '
-            WRITE(LP, * ) 'IN SMUMPS_FAC_ASM_NIV1'
-            WRITE(LP, * ) 'LRLU,LRLUS=',LRLU,LRLUS
-           ENDIF
-           GOTO 280
-          END IF
-        END IF
-      END IF
+      SKIP_TOP_STACK = (ISON_IN_PLACE.GT.0)
+      CALL SMUMPS_GET_SIZE_NEEDED 
+     &                   (0, LAELL_REQ8, SKIP_TOP_STACK,
+     &                    KEEP(1), KEEP8(1),
+     &                    N,KEEP(28),IW,LIW,A,LA,
+     &                    LRLU,IPTRLU,IWPOS,IWPOSCB,
+     &                    PTRIST,PTRAST,
+     &                    STEP, PIMASTER,PAMASTER,KEEP(216),LRLUS,
+     &                    KEEP(IXSZ), COMP, DKEEP(97), MYID,
+     &                    SLAVEF, PROCNODE_STEPS, DAD, 
+     &                    INFO(1), INFO(2))
+      IF (INFO(1).LT.0) GOTO 490
       LRLU = LRLU - LAELL8 
       LRLUS = LRLUS - LAELL8 + SIZE_ISON_TOP8
       KEEP8(67) = min(LRLUS, KEEP8(67))
-      KEEP8(70) = KEEP8(70) - LAELL8 + SIZE_ISON_TOP8
-      KEEP8(68) = min(KEEP8(70), KEEP8(68))
-      KEEP8(71) = KEEP8(71) - LAELL8 + SIZE_ISON_TOP8
-      KEEP8(69) = min(KEEP8(71), KEEP8(69))
+      KEEP8(69) = KEEP8(69) + LAELL8 - SIZE_ISON_TOP8
+      KEEP8(68) = max(KEEP8(69), KEEP8(68))
       POSELT = POSFAC
       POSFAC = POSFAC + LAELL8
       SSARBR=MUMPS_INSSARBR(PROCNODE_STEPS(STEP(INODE)),SLAVEF)
@@ -346,21 +392,33 @@ C
 #else
       IF ( KEEP(50) .eq. 0 .OR. NFRONT .LT. KEEP(63) ) THEN
         LAPOS2 = min(POSELT + LAELL8 - 1_8, IPTRLU)
-!$      CHUNK8=3000
+!$        CHUNK8=int(KEEP(361),8)
 !$OMP   PARALLEL DO PRIVATE(JJ8) SCHEDULE(STATIC, CHUNK8)
-!$OMP&  IF (LAPOS2 - POSELT > int(KEEP(361),8) .AND. NOMP .GT. 1)
+!$OMP&  IF (LAPOS2 - POSELT + 1_8 > int(KEEP(361),8) .AND. NOMP .GT. 1)
         DO JJ8 = POSELT, LAPOS2
            A( JJ8 ) = ZERO
         ENDDO
 !$OMP   END PARALLEL DO
       ELSE
+        TOPDIAG = max(KEEP(7), KEEP(8), KEEP(218))-1
+        IF  (LR_ACTIVATED) THEN
+         NULLIFY(BEGS_BLR)
+         CALL GET_CUT(IW(IOLDPS+HF:IOLDPS+HF+NFRONT-1), NASS1,
+     &        NCB, LRGROUPS, NPARTSCB, 
+     &        NPARTSASS, BEGS_BLR)
+            NB_BLR = NPARTSASS + NPARTSCB
+         CALL MAX_CLUSTER(BEGS_BLR,NB_BLR,MAXI_CLUSTER)
+         DEALLOCATE(BEGS_BLR)
+         CALL COMPUTE_BLR_VCS(KEEP(472), IBCKSZ2, KEEP(488), NASS1)
+         MINSIZE = int(IBCKSZ2 / 2)
+         TOPDIAG = max(2*MINSIZE + MAXI_CLUSTER-1,TOPDIAG)
+        ENDIF
         IF (ETATASS.EQ.1) THEN
           IF (KEEP(234).NE.0) THEN
             WRITE(*,*)
      &      "Internal error: ETATASS.EQ.1 and IN-PLACE ACTIVATED"
             CALL MUMPS_ABORT()
           ENDIF
-          TOPDIAG = max(KEEP(7), KEEP(8))-1
 !$        CHUNK = max( KEEP(360)/2, (NFRONT+NOMP-1) / NOMP )
 !$OMP     PARALLEL DO PRIVATE(APOS, JJ3) SCHEDULE( STATIC, CHUNK )
 !$OMP&    IF (NFRONT8 - 1_8 > KEEP(360))
@@ -372,7 +430,6 @@ C
 !$OMP     END PARALLEL DO
         ELSE
           NUMROWS = min(NFRONT8, (IPTRLU-POSELT) / NFRONT8 )
-          TOPDIAG = max(KEEP(7), KEEP(8), KEEP(57), KEEP(58))-1
 !$        CHUNK = max(KEEP(360)/2,
 !$   &          ( ((int(NUMROWS)+NOMP-1) / NOMP + 2) / 3) )
 !$OMP     PARALLEL DO PRIVATE(APOS,JJ3) SCHEDULE(STATIC, CHUNK )  
@@ -395,15 +452,13 @@ C
       PTLUST(STEP(INODE)) = IOLDPS
       IW(IOLDPS+XXI) = LREQ  
       CALL MUMPS_STOREI8(LAELL8,IW(IOLDPS+XXR))
+      CALL MUMPS_STOREI8(0_8,IW(IOLDPS+XXD))
       IW(IOLDPS+XXS) = -9999
       IW(IOLDPS+XXN) = -99999
       IW(IOLDPS+XXP) = -99999
       IW(IOLDPS+XXA) = -99999
       IW(IOLDPS+XXF) = -99999
-      IW(IOLDPS+XXLR)= -99999
-       CALL IS_FRONT_BLR_CANDIDATE(INODE, NFRONT, NASS1, KEEP(486),
-     &       KEEP(489), KEEP(490), KEEP(491), KEEP(492), N, LRGROUPS,
-     &       IW(IOLDPS+XXLR))
+      IW(IOLDPS+XXLR) = LRSTATUS
 #if defined(NO_XXNBPR)
       IW(IOLDPS+XXNBPR)=-99999  
 #else
@@ -415,6 +470,36 @@ C
       IW(IOLDPS + KEEP(IXSZ) + 3) = -NASS1
       IW(IOLDPS + KEEP(IXSZ) + 4) = STEP(INODE)
       IW(IOLDPS + KEEP(IXSZ) + 5)   = NSLAVES
+      IF (LR_ACTIVATED.AND.
+     &       (KEEP(480).NE.0
+     &       .OR.
+     &       (
+     &         (KEEP(486).EQ.2) 
+     &       )
+     &       .OR.COMPRESS_CB
+     &       )) THEN
+         CALL SMUMPS_BLR_INIT_FRONT (IW(IOLDPS+XXF), INFO) 
+         IF (INFO(1).LT.0) GOTO 500
+      ENDIF
+        ESTIM_NFS4FATHER_ATSON = -9999
+        IF (KEEP(219).NE.0.AND.KEEP(50).EQ.2) THEN
+         IFATH = DAD( STEP( INODE) )
+         IF (IFATH.NE.0) THEN
+           IF (COMPRESS_CB.AND.
+     &      MUMPS_TYPENODE(PROCNODE_STEPS(STEP(IFATH)),SLAVEF)
+     &      .EQ. 2 ) THEN
+            IOLDPS = PTLUST(STEP(INODE))
+            CALL SMUMPS_COMPUTE_ESTIM_NFS4FATHER (
+     &        N, INODE, IFATH, FILS, PERM, KEEP, 
+     &        IOLDPS, HF, IW, LIW, NFRONT, NASS1,
+     &        ESTIM_NFS4FATHER_ATSON
+     &         )
+            CALL SMUMPS_BLR_SAVE_NFS4FATHER ( IW(IOLDPS+XXF),
+     &              ESTIM_NFS4FATHER_ATSON )
+             IF (INFO(1).LT.0) GOTO 500
+           ENDIF
+         ENDIF
+      ENDIF
  123  CONTINUE  
       IF (NUMSTK.NE.0) THEN
         IF (ISON_TOP > 0) THEN
@@ -428,6 +513,7 @@ C
           SON_IWPOS => IWPOS
           SON_A     => A
           LSTK      = SON_IW(ISTCHK + KEEP(IXSZ))
+          LSTK8     = int(LSTK,8)
           NELIM     = SON_IW(ISTCHK + KEEP(IXSZ) + 1)
           NPIVS     = SON_IW(ISTCHK + KEEP(IXSZ) + 3)
           IF ( NPIVS .LT. 0 ) NPIVS = 0
@@ -436,11 +522,15 @@ C
           NCOLS     = NPIVS + LSTK
           SAME_PROC     = (ISTCHK.LT.SON_IWPOS)
           IF ( SAME_PROC ) THEN
-            COMPRESSCB =
-     &           ( SON_IW(PTRIST(STEP(ISON))+XXS) .EQ. S_CB1COMP )
+            ISTCHK_CB_RIGHT = PTRIST(STEP(ISON))
           ELSE
-            COMPRESSCB = ( SON_IW(ISTCHK + XXS) .EQ. S_CB1COMP )
+            ISTCHK_CB_RIGHT = ISTCHK
           ENDIF
+          SON_XXS  = SON_IW(ISTCHK_CB_RIGHT+XXS)
+          SON_XXLR = SON_IW(ISTCHK_CB_RIGHT+XXLR)
+          PACKED_CB = ( SON_XXS .EQ. S_CB1COMP )
+          IS_CB_LR = ( SON_XXLR.EQ.1 .OR.  SON_XXLR.EQ.3 )
+     &        .AND. (KEEP(489).EQ.1.OR.KEEP(489).EQ.3)
           LEVEL1    = NSLSON.EQ.0
           IF (.NOT.SAME_PROC) THEN
            NROWS = SON_IW( ISTCHK + KEEP(IXSZ) + 2)
@@ -450,23 +540,61 @@ C
           SIZFI   = HS + NROWS + NCOLS 
           K1 = ISTCHK + HS + NROWS + NPIVS
           IF ( .NOT. LEVEL1 .AND. NELIM.EQ.0 ) GOTO 205
-          IF (LEVEL1) THEN
+          IF (LEVEL1 .AND. .NOT. IS_CB_LR) THEN
            K2 = K1 + LSTK - 1
-           IF (COMPRESSCB) THEN
-             SIZFR8 = (int(LSTK,8)*int(LSTK+1,8))/2_8
+           IF (PACKED_CB) THEN
+             SIZFR8 = (LSTK8*(LSTK8+1_8)/2_8)
            ELSE
-             SIZFR8 = int(LSTK,8)*int(LSTK,8)
+             SIZFR8 = LSTK8*LSTK8
            ENDIF
-          ELSE
+          ELSE 
            IF ( KEEP(50).eq.0 ) THEN
-             SIZFR8 = int(NELIM,8) * int(LSTK,8)
+             SIZFR8 = int(NELIM,8) * LSTK8
            ELSE
-             SIZFR8 = int(NELIM,8) * int(NELIM,8)
+             IF (PACKED_CB) THEN
+               SIZFR8 = int(NELIM,8) * int(NELIM+1,8)/2_8
+             ELSE
+               SIZFR8 = int(NELIM,8) * int(NELIM,8)
+             ENDIF
            END IF
            K2 = K1 + NELIM - 1
           ENDIF
-          IF (JOBASS.EQ.0) OPASSW = OPASSW + dble(SIZFR8)
-          IACHK = PAMASTER(STEP(ISON))
+          IF (JOBASS.EQ.0) THEN
+            IF (LEVEL1 .AND. .NOT. IS_CB_LR) THEN
+              IF (KEEP(50).EQ.0) THEN
+                OPASSW = OPASSW + LSTK8*LSTK8
+              ELSE
+                OPASSW = OPASSW + LSTK8*(LSTK8+1)/2_8
+              ENDIF
+            ELSE
+              IF (KEEP(50).EQ.0) THEN
+                OPASSW = OPASSW + int(NELIM,8)*LSTK8
+              ELSE
+                OPASSW = OPASSW + int(NELIM,8)*int(NELIM,8)/2_8
+              ENDIF
+            ENDIF
+          ENDIF
+#if ! defined(NODYNAMICCB)
+          CALL MUMPS_GETI8(DYN_SIZE, SON_IW(ISTCHK_CB_RIGHT+XXD))
+          IS_DYNAMIC_CB = DYN_SIZE .GT. 0_8
+          IF ( IS_DYNAMIC_CB ) THEN
+            CALL SMUMPS_DM_SET_PTR( PAMASTER(STEP(ISON)), DYN_SIZE,
+     &           SON_A )
+            IACHK = 1_8 
+          ELSE
+#endif
+            IACHK = PAMASTER(STEP(ISON))
+#if ! defined(NODYNAMICCB)
+          ENDIF
+#endif
+          IF (IS_CB_LR .AND. LEVEL1) THEN
+            POSEL1 = PTRAST(STEP(INODE))
+            CALL SMUMPS_BLR_ASM_NIV1 (A, LA,
+     &           POSEL1, NFRONT, NASS1, SON_IW(ISTCHK+XXF),
+     &           SON_IW, LIW,   
+     &           LSTK, NELIM, K1, K1+LSTK-1, KEEP(50),
+     &           KEEP, KEEP8, OPASSW)
+          ENDIF
           IF ( KEEP(50) .eq. 0 ) THEN
             POSEL1 = PTRAST(STEP(INODE)) - NFRONT8
             IF (NFRONT .EQ. LSTK.AND. ISON.EQ.ISON_IN_PLACE
@@ -480,8 +608,8 @@ C
      &        .AND. ISON.EQ.ISON_IN_PLACE
               RISK_OF_SAME_POS_THIS_LINE = .FALSE.
               IACHK_ini = IACHK
-              OMP_PARALLEL_FLAG = (RESET_TO_ZERO.EQV..FALSE.).AND.
-     &            ((K2-K1).GT.300)
+!$            OMP_PARALLEL_FLAG = (RESET_TO_ZERO.EQV..FALSE.).AND.
+!$   &            ((K2-K1).GT.KEEP(360))
 !$OMP PARALLEL IF(OMP_PARALLEL_FLAG) PRIVATE(APOS, KK1, JJ2,IACHK)
 !$OMP& FIRSTPRIVATE(RISK_OF_SAME_POS_THIS_LINE,RESET_TO_ZERO) 
 !$OMP DO
@@ -526,29 +654,25 @@ C
 !$OMP END PARALLEL 
             END IF
           ELSE
-            IF (LEVEL1) THEN
+            IF (LEVEL1 .AND. .NOT. IS_CB_LR) THEN
              LDA_SON = LSTK
             ELSE
              LDA_SON = NELIM
             ENDIF
-            IF (COMPRESSCB) THEN
-              LCB = SIZFR8
-            ELSE
-              LCB = int(LDA_SON,8) * int(K2-K1+1,8)
-            ENDIF
             IF (ISON .EQ. ISON_IN_PLACE) THEN
               CALL SMUMPS_LDLT_ASM_NIV12_IP(A, LA,
      &           PTRAST(STEP( INODE )), NFRONT, NASS1,
-     &           IACHK, LDA_SON, LCB,
+     &           IACHK, LDA_SON, SIZFR8,
      &           SON_IW( K1 ), K2 - K1 + 1, NELIM, ETATASS, 
-     &           COMPRESSCB)
+     &           PACKED_CB)
             ELSE
-              IF (LCB .GT. 0) THEN
+              IF (SIZFR8 .GT. 0) THEN
                 CALL SMUMPS_LDLT_ASM_NIV12(A, LA, SON_A(IACHK),
      &           PTRAST(STEP( INODE )), NFRONT, NASS1,
-     &           LDA_SON, LCB,
+     &           LDA_SON, SIZFR8,
      &           SON_IW( K1 ), K2 - K1 + 1, NELIM, ETATASS, 
-     &           COMPRESSCB
+     &           PACKED_CB
+!$   &           , KEEP(360)
      &          )
               ENDIF
             ENDIF 
@@ -582,12 +706,17 @@ C
              ELSE
                PIMASTER(STEP( ISON )) = -99999999
              ENDIF
-               CALL SMUMPS_FREE_BLOCK_CB(SSARBR, MYID, N, ISTCHK,
-     &          PAMASTER(STEP(ISON)),
+               CALL SMUMPS_FREE_BLOCK_CB_STATIC(
+     &          SSARBR, MYID, N, ISTCHK,
      &          IW, LIW, LRLU, LRLUS, IPTRLU,
      &          IWPOSCB, LA, KEEP,KEEP8,
      &          (ISON .EQ. ISON_TOP)
      &          )
+#if ! defined(NODYNAMICCB)
+             IF (IS_DYNAMIC_CB) THEN
+               CALL SMUMPS_DM_FREE_BLOCK(SON_A, SIZFR8, KEEP8)
+             ENDIF
+#endif
            ENDIF
           ELSE
            PDEST = ISTCHK + 6 + KEEP(IXSZ)
@@ -606,21 +735,21 @@ C
               CALL SMUMPS_MAPLIG( COMM_LOAD, ASS_IRECV, 
      &             BUFR, LBUFR, LBUFR_BYTES,
      &             INODE, ISON, NSLAVES, IDUMMY,
-     &             NFRONT, NASS1,NFS4FATHER,
-     &             TROW_SIZE, IW( INDX ),
+     &             NFRONT, NASS1, NFS4FATHER,
+     &             TROW_SIZE, IW( INDX ),  
      &         PROCNODE_STEPS,
      &         SLAVEF, POSFAC, IWPOS, IWPOSCB, IPTRLU, LRLU,
      &         LRLUS, N, IW, LIW, A, LA,
      &         PTRIST, PTLUST, PTRFAC, PTRAST, STEP,
      &         PIMASTER, PAMASTER, NSTK_S, COMP,
      &         INFO(1), INFO(2), MYID, COMM, NBPROCFILS, IPOOL, LPOOL,
-     &         LEAF, NBFIN, ICNTL, KEEP, KEEP8,DKEEP,  root,
-     &         OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &         FILS, PTRARW, PTRAIW,
-     &         INTARR, DBLARR, ND, FRERE,
+     &         LEAF, NBFIN, ICNTL, KEEP, KEEP8, DKEEP, root,
+     &         OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD,
+     &         PTRARW, PTRAIW, INTARR, DBLARR, ND, FRERE,
      &         LPTRAR, NELT, IW, IW, 
      &
-     &         ISTEP_TO_INIV2, TAB_POS_IN_PERE, LRGROUPS)
+     &         ISTEP_TO_INIV2, TAB_POS_IN_PERE, LRGROUPS
+     &         )
               IF ( INFO(1) .LT. 0 ) GOTO 500
               EXIT
              ENDIF
@@ -637,13 +766,12 @@ C
      &       COMM, IERR, IW(PDEST), NSLSON, SLAVEF, 
      &       KEEP, KEEP8, STEP, N, 
      &       ISTEP_TO_INIV2, TAB_POS_IN_PERE
-     &        )
+     &       )
             IF (IERR.EQ.-1) THEN
              BLOCKING  = .FALSE.
              SET_IRECV = .TRUE.
              MESSAGE_RECEIVED = .FALSE.
-             CALL SMUMPS_TRY_RECVTREAT( 
-     &         COMM_LOAD, ASS_IRECV,
+             CALL SMUMPS_TRY_RECVTREAT( COMM_LOAD, ASS_IRECV,
      &         BLOCKING, SET_IRECV, MESSAGE_RECEIVED,
      &         MPI_ANY_SOURCE, MPI_ANY_TAG,
      &         STATUS,
@@ -657,10 +785,10 @@ C
      &         IPOOL, LPOOL, LEAF,
      &         NBFIN, MYID, SLAVEF,
      &         root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &         FILS, PTRARW, PTRAIW,
+     &         FILS, DAD, PTRARW, PTRAIW,
      &         INTARR, DBLARR, ICNTL, KEEP, KEEP8,DKEEP, ND, FRERE,
      &         LPTRAR, NELT, IW, IW,
-     &         ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE., LRGROUPS)
+     &         ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE., LRGROUPS )
                IF ( INFO(1) .LT. 0 ) GOTO 500
             ENDIF
            ENDDO
@@ -726,14 +854,6 @@ C
      &' FAILURE IN INTEGER ALLOCATION DURING SMUMPS_FAC_ASM'
       ENDIF
       GOTO 490
-  280 CONTINUE
-      INFO(1) = -9
-      CALL MUMPS_SET_IERROR(LAELL_REQ8 - LRLUS, INFO(2))
-      IF (LPOK)  THEN
-        WRITE( LP, * )
-     &' FAILURE, WORKSPACE TOO SMALL DURING SMUMPS_FAC_ASM'
-      ENDIF
-      GOTO 490
   290 CONTINUE
       IF (LPOK) THEN
         WRITE( LP, * )
@@ -785,19 +905,26 @@ C
       USE SMUMPS_BUF
       USE SMUMPS_LOAD
       USE SMUMPS_LR_CORE, ONLY : IS_FRONT_BLR_CANDIDATE
+      USE SMUMPS_STRUC_DEF, ONLY : SMUMPS_ROOT_STRUC
+#if ! defined(NODYNAMICCB)
+      USE SMUMPS_DYNAMIC_MEMORY_M, ONLY : SMUMPS_DM_SET_PTR,
+     &                                    SMUMPS_DM_IS_DYNAMIC
+#endif
+      USE SMUMPS_ANA_LR,    ONLY : GET_CUT
+      USE SMUMPS_LR_CORE,   ONLY : MAX_CLUSTER
+      USE MUMPS_LR_COMMON,  ONLY : COMPUTE_BLR_VCS
       IMPLICIT NONE
-      INCLUDE 'smumps_root.h'
       TYPE (SMUMPS_ROOT_STRUC) :: root
       INTEGER COMM_LOAD, ASS_IRECV
       INTEGER N,LIW,NSTEPS, NBFIN
-      INTEGER KEEP(500), ICNTL(40)
+      INTEGER KEEP(500), ICNTL(60)
       INTEGER(8) KEEP8(150)
       REAL       DKEEP(230)
       INTEGER(8) :: LRLUS, LRLU, IPTRLU, POSFAC, LA
       INTEGER, INTENT(INOUT) :: INFO(2)
-      INTEGER INODE,MAXFRW, LPOOL, LEAF,
+      INTEGER INODE, MAXFRW, LPOOL, LEAF,
      &        IWPOS, IWPOSCB, COMP, SLAVEF
-      REAL A(LA)
+      REAL, TARGET :: A(LA)
       INTEGER, intent(in) :: LRGROUPS(N)
       DOUBLE PRECISION  OPASSW, OPELIW
       INTEGER COMM, MYID,  LBUFR, LBUFR_BYTES
@@ -832,15 +959,23 @@ C
       INTEGER NCBSON_MAX
       INTEGER IN,NUMSTK,NASS,ISON,IFSON,NASS1,IELL
       INTEGER :: IBC_SOURCE
+      REAL, DIMENSION(:), POINTER :: SON_A
       INTEGER :: MAXWASTEDPROCS
       PARAMETER (MAXWASTEDPROCS=1)
-      INTEGER NFS4FATHER,I
-      INTEGER NFRONT,NFRONT_EFF,ISTCHK,LSTK,LREQ
+      INTEGER NFS4FATHER, ESTIM_NFS4FATHER_ATSON
+      INTEGER IFATH
+      INTEGER I
+      INTEGER NFRONT,NFRONT_EFF,ISTCHK,ISTCHK_CB_RIGHT,LSTK,LREQ
+      INTEGER :: SON_XXS
       INTEGER(8) :: LAELL8
       INTEGER LREQ_OOC
       INTEGER NBPANELS_L, NBPANELS_U
-      LOGICAL COMPRESSCB
+      LOGICAL PACKED_CB, IS_CB_LR
       INTEGER(8) :: LCB
+#if ! defined(NODYNAMICCB)
+      LOGICAL :: IS_DYNAMIC_CB
+      INTEGER(8) :: DYN_SIZE
+#endif
       INTEGER NCB
       INTEGER MP
       INTEGER :: K1, K2, KK, KK1
@@ -869,6 +1004,9 @@ C
       LOGICAL SAME_PROC, NIV1, SON_LEVEL2
       LOGICAL BLOCKING, SET_IRECV, MESSAGE_RECEIVED
       INTEGER TROW_SIZE, INDX, FIRST_INDEX, SHIFT_INDEX
+      INTEGER LRSTATUS  
+      LOGICAL COMPRESS_PANEL, LR_ACTIVATED, COMPRESS_CB,
+     &        OOCWRITE_COMPATIBLE_WITH_BLR
       INTEGER IZERO
       INTEGER IDUMMY(1)
       PARAMETER( IZERO = 0 )
@@ -888,12 +1026,15 @@ C
       INTEGER NCB_SPLIT, SIZE_LIST_SPLIT, NBSPLIT
       INTEGER, ALLOCATABLE, DIMENSION(:) :: TMP_SLAVES_LIST, COPY_CAND
       INTEGER, ALLOCATABLE, DIMENSION(:) :: SONROWS_PER_ROW
+      INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR
+      INTEGER :: NB_BLR, NPARTSCB, NPARTSASS, MAXI_CLUSTER, 
+     &           IBCKSZ2, MINSIZE
 !$    NOMP = OMP_GET_MAX_THREADS()
       MP      = ICNTL(2)
       LP      = ICNTL(1)
       LPOK    = ((LP.GT.0).AND.(ICNTL(4).GE.1))
       IS_ofType5or6    = .FALSE.
-      COMPRESSCB = .FALSE.
+      PACKED_CB  = .FALSE.
       ETATASS    = 0  
       IN         = INODE
       NBPROCFILS(STEP(IN)) = 0
@@ -924,6 +1065,22 @@ C
       NFRONT = ND(STEP(INODE)) + NASS + KEEP(253)
       NASS1 = NASS + NUMORG
       NCB   = NFRONT - NASS1
+      CALL IS_FRONT_BLR_CANDIDATE(INODE, 2, NFRONT, NASS1, KEEP(486),
+     &       KEEP(489), KEEP(490), KEEP(491), KEEP(492), 
+     &       KEEP(20), KEEP(60), DAD(STEP(INODE)), KEEP(38),
+     &       LRSTATUS, N, LRGROUPS)
+      COMPRESS_PANEL = (LRSTATUS.GE.2)
+      COMPRESS_CB    = ((LRSTATUS.EQ.1).OR.
+     &                  (LRSTATUS.EQ.3))
+      LR_ACTIVATED   = (LRSTATUS.GT.0)
+      IF (COMPRESS_CB.AND.(.NOT.COMPRESS_PANEL)) THEN
+        COMPRESS_PANEL = .TRUE.
+        LRSTATUS      = 3 
+      ENDIF
+      OOCWRITE_COMPATIBLE_WITH_BLR = 
+     &          ( .NOT.LR_ACTIVATED.OR.(.NOT.COMPRESS_PANEL).OR.
+     &            (KEEP(486).NE.2) 
+     &          )
       IF((KEEP(24).eq.0).or.(KEEP(24).eq.1)) then
          force_cand=.FALSE.
       ELSE
@@ -973,7 +1130,7 @@ C
         IF (TYPESPLIT.EQ.4) THEN
          ALLOCATE(COPY_CAND(SLAVEF+1),stat=allocok)
          IF (allocok > 0 ) THEN
-           GOTO 245
+            GOTO 245
          ENDIF
          CALL SMUMPS_SPLIT_PREP_PARTITION (
      &      INODE, STEP, N, SLAVEF, 
@@ -1008,6 +1165,9 @@ C
          ISTCHK    = PIMASTER(STEP(IFSON))
          PDEST     = ISTCHK + 6 + KEEP(IXSZ)
          NSLSON    = IW(ISTCHK + KEEP(IXSZ) + 5)
+         IF (KEEP(376) .EQ. 1) THEN
+           NFRONT = IW( PIMASTER(STEP(IFSON)) + KEEP(IXSZ))
+         ENDIF
          CALL SMUMPS_SPLIT_PROPAGATE_PARTI (
      &      INODE, TYPESPLIT, IFSON, 
      &      CAND(1,INIV2), NMB_OF_CAND_ORIG,
@@ -1030,7 +1190,7 @@ C
        ENDIF
       HF   = NSLAVES + 6 + KEEP(IXSZ)
       LREQ_OOC = 0
-      IF (KEEP(201).EQ.1) THEN
+      IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN
         CALL SMUMPS_OOC_GET_PP_SIZES(KEEP(50), NASS1, NFRONT, NASS1,
      &                               NBPANELS_L, NBPANELS_U, LREQ_OOC)
       ENDIF
@@ -1042,7 +1202,7 @@ C
      &        IWPOS, IWPOSCB, PTRIST, PTRAST,
      &        STEP, PIMASTER, PAMASTER,
      &        KEEP(216),LRLUS,KEEP(IXSZ),
-     &        COMP, DKEEP(97), MYID)
+     &        COMP, DKEEP(97), MYID, SLAVEF, PROCNODE_STEPS, DAD)
           IF (LRLU .NE. LRLUS) THEN
            IF (LPOK) THEN
             WRITE(LP, * ) 'PB compress SMUMPS_FAC_ASM_NIV2 ',
@@ -1056,7 +1216,9 @@ C
       IWPOS = IWPOS + LREQ
       NIV1 = .FALSE.
       ALLOCATE(SONROWS_PER_ROW(NFRONT-NASS1), stat=allocok)
-      IF (allocok > 0) GOTO 275
+      IF (allocok > 0) THEN
+         GOTO 275
+      ENDIF
         ISON_IN_PLACE = -9999
         CALL MUMPS_BUILD_SORT_INDEX( MYID, INODE, N, IOLDPS, HF,
      &        NFRONT, NFRONT_EFF, PERM, DAD,
@@ -1083,7 +1245,7 @@ C
             IF (TYPESPLIT.EQ.4) THEN
              ALLOCATE(COPY_CAND(SLAVEF+1),stat=allocok)
              IF (allocok > 0 ) THEN
-               GOTO 245
+                GOTO 245
              ENDIF
              CALL SMUMPS_SPLIT_PREP_PARTITION (
      &          INODE, STEP, N, SLAVEF, 
@@ -1143,7 +1305,8 @@ C
          GOTO 270
         ENDIF
       ENDIF
-      IF (KEEP(201).EQ.1.AND.KEEP(50).NE.1) THEN
+      IF (KEEP(201).EQ.1.AND.KEEP(50).NE.1.AND.
+     &    OOCWRITE_COMPATIBLE_WITH_BLR) THEN
         CALL SMUMPS_OOC_PP_SET_PTR(KEEP(50),
      &       NBPANELS_L, NBPANELS_U, NASS1, 
      &       IOLDPS + HF + 2 * NFRONT, IW, LIW)
@@ -1158,6 +1321,22 @@ C
       IW(IOLDPS+5+KEEP(IXSZ)) = NSLAVES
       IW(IOLDPS+6+KEEP(IXSZ):IOLDPS+5+KEEP(IXSZ)+NSLAVES)=
      &             TMP_SLAVES_LIST(1:NSLAVES)
+      ESTIM_NFS4FATHER_ATSON = -9999
+      IF (KEEP(219).NE.0.AND.KEEP(50).EQ.2) THEN
+        IFATH = DAD( STEP( INODE) )
+        IF (IFATH.NE.0) THEN
+         IF (COMPRESS_CB.AND.
+     &    MUMPS_TYPENODE(PROCNODE_STEPS(STEP(IFATH)),SLAVEF)
+     &    .EQ. 2 ) THEN
+          IOLDPS = PTLUST(STEP(INODE))
+          CALL SMUMPS_COMPUTE_ESTIM_NFS4FATHER (
+     &      N, INODE, IFATH, FILS, PERM, KEEP, 
+     &      IOLDPS, HF, IW, LIW, NFRONT, NASS1,
+     &      ESTIM_NFS4FATHER_ATSON
+     &         )
+         ENDIF
+        ENDIF
+      ENDIF
 #if defined(OLD_LOAD_MECHANISM)
 #if ! defined (CHECK_COHERENCE)
       IF ( KEEP(73) .EQ. 0 ) THEN
@@ -1198,48 +1377,35 @@ C
      &     LAELL8 = LAELL8+int(NASS1,8)
         LDAFS = NASS1
       ENDIF
-      IF (LRLU .LT. LAELL8) THEN
-        IF (LRLUS .LT. LAELL8) THEN
-          GOTO 280
-        ELSE
-         CALL SMUMPS_COMPRE_NEW(N, KEEP(28),
-     &      IW, LIW, A, LA,
-     &      LRLU, IPTRLU,
-     &      IWPOS, IWPOSCB, PTRIST, PTRAST,
-     &      STEP, PIMASTER, PAMASTER, KEEP(216),LRLUS,
-     &      KEEP(IXSZ), COMP, DKEEP(97), MYID)
-         IF (LRLU .NE. LRLUS) THEN
-          IF (LPOK) THEN
-           WRITE(LP, * ) 'INTERNAL ERROR 3 after compress '
-           WRITE(LP, * ) 'IN SMUMPS_FAC_ASM_NIV2'
-           WRITE(LP, * ) 'LRLU,LRLUS=',LRLU,LRLUS
-          ENDIF
-          GOTO 280
-         ENDIF
-        ENDIF
-      ENDIF
+      CALL SMUMPS_GET_SIZE_NEEDED 
+     &                   (0, LAELL8, .FALSE.,
+     &                    KEEP(1), KEEP8(1),
+     &                    N,KEEP(28),IW,LIW,A,LA,
+     &                    LRLU,IPTRLU,IWPOS,IWPOSCB,
+     &                    PTRIST,PTRAST,
+     &                    STEP, PIMASTER,PAMASTER,KEEP(216),LRLUS,
+     &                    KEEP(IXSZ), COMP, DKEEP(97), MYID,
+     &                    SLAVEF, PROCNODE_STEPS, DAD, 
+     &                    INFO(1), INFO(2))
+      IF (INFO(1).LT.0) GOTO 490
       LRLU = LRLU - LAELL8
       LRLUS = LRLUS - LAELL8
       KEEP8(67) = min(LRLUS, KEEP8(67))
-      KEEP8(70) = KEEP8(70) - LAELL8 
-      KEEP8(68) = min(KEEP8(70), KEEP8(68))
-      KEEP8(71) = KEEP8(71) - LAELL8
-      KEEP8(69) = min(KEEP8(71), KEEP8(69))
+      KEEP8(69) = KEEP8(69) + LAELL8 
+      KEEP8(68) = max(KEEP8(69), KEEP8(68))
       POSELT = POSFAC
       PTRAST(STEP(INODE)) = POSELT
       PTRFAC(STEP(INODE)) = POSELT
       POSFAC = POSFAC + LAELL8
       IW(IOLDPS+XXI)   = LREQ  
       CALL MUMPS_STOREI8(LAELL8,IW(IOLDPS+XXR))
+      CALL MUMPS_STOREI8(0_8,IW(IOLDPS+XXD))
       IW(IOLDPS+XXS) =  -9999
       IW(IOLDPS+XXN) = -99999   
       IW(IOLDPS+XXP) = -99999   
       IW(IOLDPS+XXA) = -99999
       IW(IOLDPS+XXF) = -99999
-      IW(IOLDPS+XXLR) = -99999
-       CALL IS_FRONT_BLR_CANDIDATE(INODE, NFRONT, NASS1, KEEP(486),
-     &       KEEP(489), KEEP(490), KEEP(491), KEEP(492), N, LRGROUPS,
-     &       IW(IOLDPS+XXLR))
+      IW(IOLDPS+XXLR) = LRSTATUS
 #if defined(NO_XXNBPR)
       IW(IOLDPS+XXNBPR)=-99999  
 #else
@@ -1254,8 +1420,7 @@ C
 #else
       IF ( KEEP(50) .eq. 0 .OR. LDAFS .lt. KEEP(63) ) THEN
         LAPOS2 = POSELT + LAELL8 - 1_8
-!$      CHUNK8 = max(int(KEEP(361)/2,8),
-!$   &                              (LAELL8+NOMP-1) / NOMP )
+!$      CHUNK8 = int(KEEP(361),8)
 !$OMP   PARALLEL DO PRIVATE(JJ8) SCHEDULE(STATIC, CHUNK8)
 !$OMP&  IF (LAPOS2 - POSELT > int(KEEP(361),8) .AND. NOMP .GT. 1)
         DO JJ8 = POSELT, LAPOS2
@@ -1264,6 +1429,18 @@ C
 !$OMP   END PARALLEL DO
       ELSE
         TOPDIAG = max(KEEP(7), KEEP(8))-1
+        IF  (LR_ACTIVATED) THEN
+         NULLIFY(BEGS_BLR)
+         CALL GET_CUT(IW(IOLDPS+HF:IOLDPS+HF+NFRONT-1), NASS1,
+     &        0, LRGROUPS, NPARTSCB, 
+     &        NPARTSASS, BEGS_BLR)
+         NB_BLR = NPARTSASS + NPARTSCB
+         CALL MAX_CLUSTER(BEGS_BLR,NB_BLR,MAXI_CLUSTER)
+         DEALLOCATE(BEGS_BLR)
+         CALL COMPUTE_BLR_VCS(KEEP(472), IBCKSZ2, KEEP(488), NASS1)
+         MINSIZE = int(IBCKSZ2 / 2)
+         TOPDIAG = max(2*MINSIZE + MAXI_CLUSTER-1, TOPDIAG)
+        ENDIF
 !$      CHUNK = max(KEEP(360)/2,
 !$   &       ( (( LDAFS + NOMP -1 ) / NOMP + 2) / 3) )
         APOS = POSELT
@@ -1291,56 +1468,93 @@ C
           NPIVS   = IW(ISTCHK + 3+KEEP(IXSZ))
           IF (NPIVS.LT.0) NPIVS=0
           NSLSON  = IW(ISTCHK + 5+KEEP(IXSZ))
-          HS      = 6 + NSLSON  + KEEP(IXSZ)
+          HS      = 6 + NSLSON + KEEP(IXSZ)
           NCOLS     = NPIVS + LSTK
           SAME_PROC     = (ISTCHK.LT.IWPOS)
           IF ( SAME_PROC ) THEN
-            COMPRESSCB=( IW(PTRIST(STEP(ISON))+XXS) .EQ. S_CB1COMP )
+            ISTCHK_CB_RIGHT=PTRIST(STEP(ISON))
           ELSE
-            COMPRESSCB=( IW(ISTCHK + XXS) .EQ. S_CB1COMP )
+            ISTCHK_CB_RIGHT=ISTCHK
           ENDIF
+          SON_XXS = IW(ISTCHK_CB_RIGHT + XXS)
+          PACKED_CB = ( SON_XXS .EQ. S_CB1COMP )
           IF (.NOT.SAME_PROC) THEN
            NROWS = IW(ISTCHK + KEEP(IXSZ) + 2)
           ELSE
            NROWS = NCOLS
           ENDIF
-          OPASSW = OPASSW + dble(NELIM*LSTK)
+          IF (KEEP(50).EQ.0) THEN
+            LDA_SON = LSTK
+            LCB = int(NELIM,8)*int(LSTK,8)
+          ELSE 
+            IF (NSLSON.EQ.0) THEN
+             IF (SAME_PROC) THEN
+               IS_CB_LR = IW(ISTCHK_CB_RIGHT+XXLR).EQ. 1 .OR.
+     &                    IW(ISTCHK_CB_RIGHT+XXLR).EQ. 3
+               IF (IS_CB_LR) THEN
+                 LDA_SON = NELIM
+               ELSE
+                 LDA_SON = LSTK
+               ENDIF
+             ELSE 
+               LDA_SON = LSTK
+             ENDIF
+            ELSE
+             LDA_SON = NELIM
+            ENDIF
+            IF (PACKED_CB) THEN
+              LCB = (int(NELIM,8)*int(NELIM+1,8))/2_8
+            ELSE
+              LCB = int(LDA_SON,8)*int(NELIM,8)
+            ENDIF
+          ENDIF
+          IF (KEEP(50) .EQ. 0) THEN
+            OPASSW = OPASSW + dble(LCB)
+          ELSE
+            OPASSW = OPASSW + int(NELIM,8)*int(NELIM+1,8)/2_8
+          ENDIF
+#if ! defined(NODYNAMICCB)
+          IS_DYNAMIC_CB =
+     &           SMUMPS_DM_IS_DYNAMIC(IW(ISTCHK_CB_RIGHT+XXD:
+     &                                   ISTCHK_CB_RIGHT+XXD+1))
+          IF ( IS_DYNAMIC_CB ) THEN
+            CALL MUMPS_GETI8(DYN_SIZE, IW(ISTCHK_CB_RIGHT+XXD))
+            CALL SMUMPS_DM_SET_PTR( PAMASTER(STEP(ISON)), DYN_SIZE,
+     &                              SON_A )
+            IACHK = 1_8 
+          ELSE
+#endif
+            IACHK = PAMASTER(STEP(ISON))
+            SON_A=>A
+#if ! defined(NODYNAMICCB)
+          ENDIF
+#endif
           K1 = ISTCHK + HS + NROWS + NPIVS
           K2 = K1 + NELIM - 1
-          IACHK = PAMASTER(STEP(ISON))
           IF (KEEP(50).eq.0) THEN
            IF (IS_ofType5or6) THEN
             APOS = POSELT  
             DO JJ8 = 1_8, int(NELIM,8)*int(LSTK,8)
-             A(APOS+JJ8-1_8) = A(APOS+JJ8-1_8) + A(IACHK+JJ8-1_8)
+             A(APOS+JJ8-1_8) = A(APOS+JJ8-1_8) + SON_A(IACHK+JJ8-1_8)
             ENDDO
            ELSE
             DO 170 KK = K1, K2
              APOS = POSEL1 + int(IW(KK),8) * int(LDAFS,8)
              DO 160 KK1 = 1, LSTK
               JJ2 = APOS + int(IW(K1 + KK1 - 1),8) - 1_8
-              A(JJ2) = A(JJ2) + A(IACHK + int(KK1 - 1,8))
+              A(JJ2) = A(JJ2) + SON_A(IACHK + int(KK1 - 1,8))
   160        CONTINUE
              IACHK = IACHK + int(LSTK,8)
   170       CONTINUE
            ENDIF
           ELSE
-            IF (NSLSON.EQ.0) THEN
-             LDA_SON = LSTK
-            ELSE
-             LDA_SON = NELIM
-            ENDIF
-            IF (COMPRESSCB) THEN
-              LCB = (int(NELIM,8)*int(NELIM+1,8))/2_8
-            ELSE
-              LCB = int(LDA_SON,8)*int(NELIM,8)
-            ENDIF
             IF (LCB .GT. 0) THEN
-              CALL SMUMPS_LDLT_ASM_NIV12(A, LA, A(IACHK),
+              CALL SMUMPS_LDLT_ASM_NIV12(A, LA, SON_A(IACHK),
      &           POSELT, LDAFS, NASS1,
      &           LDA_SON, LCB,
      &           IW( K1 ), NELIM, NELIM, ETATASS,
-     &           COMPRESSCB
+     &           PACKED_CB
+!$   &           , KEEP(360)
      &          )
             ENDIF
           ENDIF
@@ -1416,7 +1630,8 @@ C
            CALL SMUMPS_BUF_SEND_DESC_BANDE( INODE,
      &      sum(SONROWS_PER_ROW(FIRST_INDEX:FIRST_INDEX+NBLIG-1)),
      &      NBLIG, IW(PTRROW), NBCOL, IW(PTRCOL), NASS1,
-     &      IZERO, IDUMMY,
+     &      IZERO, IDUMMY, 
+     &      ESTIM_NFS4FATHER_ATSON,   
      &      IW(PDEST), IBC_SOURCE, NFRONT, COMM, KEEP, IERR
      &      , IW(IOLDPS+XXLR)
      &      )
@@ -1425,8 +1640,9 @@ C
            CALL SMUMPS_BUF_SEND_DESC_BANDE( INODE,
      &      sum(SONROWS_PER_ROW(FIRST_INDEX:FIRST_INDEX+NBLIG-1)),
      &      NBLIG, IW(PTRROW), NBCOL, IW(PTRCOL), NASS1,
-     &      NSLAVES-ISLAVE,
+     &      NSLAVES-ISLAVE, 
      &      IW( PTLUST(STEP(INODE))+6+KEEP(IXSZ)+ISLAVE),
+     &      ESTIM_NFS4FATHER_ATSON,
      &      IW(PDEST), IBC_SOURCE, NFRONT, COMM, KEEP, IERR
      &      , IW(IOLDPS+XXLR)
      &      )
@@ -1448,7 +1664,7 @@ C
      &     NBPROCFILS,
      &     IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &     root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &     FILS, PTRARW, PTRAIW,
+     &     FILS, DAD, PTRARW, PTRAIW,
      &     INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
      &     LPTRAR, NELT, IW, IW,
      &     ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE.
@@ -1519,7 +1735,8 @@ C
      &      IPOOL, LPOOL, LEAF,
      &      NBFIN, ICNTL, KEEP, KEEP8, DKEEP, root,
      &      OPASSW, OPELIW,
-     &      ITLOC, RHS_MUMPS, FILS, PTRARW, PTRAIW, INTARR, DBLARR,
+     &      ITLOC, RHS_MUMPS, FILS, DAD,
+     &      PTRARW, PTRAIW, INTARR, DBLARR,
      &      ND, FRERE, LPTRAR, NELT, IW, IW,
      &
      &      ISTEP_TO_INIV2, TAB_POS_IN_PERE
@@ -1554,7 +1771,7 @@ C
      &        INFO(2), COMM,
      &        NBPROCFILS,
      &        IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
-     &        root,OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS,
+     &        root,OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD,
      &        PTRARW, PTRAIW,
      &        INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
      &        LPTRAR,
@@ -1600,7 +1817,7 @@ C
      &        NBPROCFILS,
      &        IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &        root,OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &        FILS, PTRARW, PTRAIW,
+     &        FILS, DAD, PTRARW, PTRAIW,
      &        INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
      &        LPTRAR, NELT, IW, IW, 
      &        ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE.
@@ -1635,7 +1852,8 @@ C
      &        PIMASTER, PAMASTER, NSTK_S, COMP, INFO(1), INFO(2),
      &        MYID, COMM, NBPROCFILS, IPOOL, LPOOL, LEAF,
      &        NBFIN, ICNTL, KEEP,KEEP8,DKEEP, root,
-     &        OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, PTRARW, PTRAIW,
+     &        OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD,
+     &        PTRARW, PTRAIW,
      &        INTARR, DBLARR, ND, FRERE, LPTRAR, NELT, IW,
      &        IW, 
      &        
@@ -1689,14 +1907,6 @@ C
       ENDIF
       INFO(1)  = -13
       INFO(2)  = NFRONT-NASS1
-      GOTO 490
-  280 CONTINUE
-      IF (LPOK) THEN
-        WRITE( LP, * )
-     &' FAILURE, WORKSPACE TOO SMALL DURING SMUMPS_FAC_ASM_NIV2'
-      ENDIF
-      INFO(1) = -9
-      CALL MUMPS_SET_IERROR(LAELL8-LRLUS, INFO(2))
       GOTO 490
   290 CONTINUE
       IF ((ICNTL(1) .GT. 0) .AND. (ICNTL(4) .GE. 1)) THEN

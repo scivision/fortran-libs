@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -18,7 +18,7 @@ C
      &     PP_LastPIVRPTRFilled_L,
      &     PP_FIRST2SWAP_U, PP_LastPanelonDisk_U,
      &     PP_LastPIVRPTRFilled_U,MAXFROMN,IS_MAXFROMN_AVAIL, 
-     &     Inextpiv
+     &     Inextpiv, OOCWRITE_COMPATIBLE_WITH_BLR
      &)
 !$    USE OMP_LIB
       USE MUMPS_OOC_COMMON 
@@ -33,6 +33,7 @@ C
       REAL, intent(in) :: MAXFROMN
       LOGICAL, intent(inout) :: IS_MAXFROMN_AVAIL
       INTEGER, intent(inout) :: Inextpiv
+      LOGICAL, intent(in)    :: OOCWRITE_COMPATIBLE_WITH_BLR
       REAL AMROW
       REAL RMAX
       REAL  SWOP
@@ -56,18 +57,19 @@ C
       INCLUDE 'mumps_headers.h'
       INTRINSIC max
       REAL, PARAMETER :: RZERO = 0.0E0
-!$    INTEGER :: JJMAX
-!$    REAL    :: RRMAX, VALABS
-!$    INTEGER :: NOMP, CHUNK, K360
-!$    K360 = KEEP(360)
-!$    NOMP    = OMP_GET_MAX_THREADS()
+#if defined(_OPENMP)
+      INTEGER :: NOMP, CHUNK, K360
+      K360 = KEEP(360)
+      NOMP    = OMP_GET_MAX_THREADS()
+#endif
         NFRONT8 = int(NFRONT,8)
         INOPV   = 0
         XSIZE   = KEEP(IXSZ)
         NPIV    = IW(IOLDPS+1+XSIZE)
         NPIVP1  = NPIV + 1
         K206    = KEEP(206)
-        IF (KEEP(201).EQ.1 .AND. KEEP(50).NE.1) THEN
+        IF (KEEP(201).EQ.1 .AND. KEEP(50).NE.1.AND.
+     &      OOCWRITE_COMPATIBLE_WITH_BLR) THEN
           CALL SMUMPS_GET_OOC_PERM_PTR(TYPEF_L, NBPANELS_L, 
      &       I_PIVRPTR_L, I_PIVR_L, 
      &       IOLDPS+2*NFRONT+6+IW(IOLDPS+5+XSIZE)
@@ -107,39 +109,7 @@ C
             AMROW = RZERO
             J1    = APOS
             J3    = NASS -NPIV
-            IF (KEEP(351).EQ.1) THEN
-!$            IF (NOMP.GT.1 .AND. J3.GE.K360) THEN
-!$              JMAX = 1
-!$              RMAX = RZERO
-!$              CHUNK = max(K360/2,J3/NOMP)
-!$OMP PARALLEL PRIVATE(JJ,VALABS,JJMAX,RRMAX)
-!$OMP& FIRSTPRIVATE(J1,NFRONT8,J3)
-!$              RRMAX = RZERO
-!$OMP DO schedule(static, CHUNK)
-!$              DO J = 1, J3
-!$                JJ = J1 + int(J-1,8)*NFRONT8
-!$                VALABS = abs(A(JJ))
-!$                IF (VALABS.GT.RRMAX) THEN
-!$                  RRMAX = VALABS
-!$                  JJMAX = J
-!$                ENDIF
-!$              ENDDO
-!$OMP END DO
-!$              IF (RRMAX.GT.0.0) THEN
-!$OMP CRITICAL
-!$                IF (RRMAX.GT.RMAX) THEN
-!$                  RMAX = RRMAX
-!$                  JMAX = JJMAX
-!$                ENDIF
-!$OMP END CRITICAL
-!$              ENDIF
-!$OMP END PARALLEL
-!$            ELSE
-              JMAX  = SMUMPS_IXAMAX(J3,A(J1),NFRONT)
-!$            ENDIF
-            ELSE
-              JMAX  = SMUMPS_IXAMAX(J3,A(J1),NFRONT)
-            ENDIF
+            JMAX  = SMUMPS_IXAMAX(J3,A(J1),NFRONT,KEEP(360))
             JJ    = J1 + int(JMAX-1,8)*NFRONT8
             AMROW = abs(A(JJ))
             RMAX  = AMROW
@@ -152,13 +122,13 @@ C
               IF (J3.EQ.0) GOTO 370
               IF (KEEP(351).EQ.1) THEN
                 J1_ini = J1
-!$              CHUNK = max(K360/2,J3/NOMP)
-!$OMP  PARALLEL DO schedule(static, CHUNK) PRIVATE(J1)
+!$              CHUNK = max(K360/2,(J3+NOMP-1)/NOMP)
+!$OMP  PARALLEL DO schedule(static, CHUNK)
 !$OMP& FIRSTPRIVATE(J1_ini,NFRONT8,J3)
 !$OMP& REDUCTION(max:RMAX) IF (J3.GE.K360)
                 DO J=1,J3
-                  J1 = J1_ini + int(J-1,8) * NFRONT8
-                  RMAX = max(abs(A(J1)),RMAX)
+                  RMAX = max(abs(A(J1_ini + int(J-1,8) * NFRONT8)),
+     &                       RMAX)
                 END DO
 !$OMP  END PARALLEL DO
               ELSE
@@ -223,7 +193,7 @@ C
        INOPV = 1
        GOTO 430
   420 CONTINUE
-              IF (KEEP(201).EQ.1) THEN
+              IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN
                 IF (KEEP(251).EQ.0) THEN
                 CALL SMUMPS_STORE_PERMINFO( IW(I_PIVRPTR_L), 
      &               NBPANELS_L,
@@ -316,10 +286,12 @@ C
       INTEGER NEL,IROW,NEL2,JCOL, NCB
       INTEGER NPIVP1
       REAL, PARAMETER :: ONE = 1.0E0
-!$    LOGICAL:: OMP_FLAG
-!$    INTEGER:: NOMP, K360, CHUNK
-!$    NOMP = OMP_GET_MAX_THREADS()
-!$    K360 = KEEP(360)
+#if defined(_OPENMP)
+      LOGICAL:: OMP_FLAG
+      INTEGER:: NOMP, K360, CHUNK
+      NOMP = OMP_GET_MAX_THREADS()
+      K360 = KEEP(360)
+#endif
         NFRONT8=int(NFRONT,8)
         NPIV   = IW(IOLDPS+1+XSIZE)
         NPIVP1 = NPIV + 1
@@ -330,19 +302,21 @@ C
         IF (NPIVP1.EQ.NASS) IFINB = 1
         APOS   = POSELT + int(NPIV,8)*(NFRONT8 + 1_8)
         VALPIV = ONE/A(APOS)
-!$      OMP_FLAG = .FALSE.
-!$      CHUNK = NEL
-!$      IF (NOMP.GT.1) THEN
-!$        IF (NEL.LT.K360) THEN
-!$            IF (NEL*NEL2.GE.KEEP(361)) THEN
-!$              OMP_FLAG = .TRUE.
-!$              CHUNK = max(20, NEL/NOMP)
-!$            ENDIF
-!$        ELSE
-!$          OMP_FLAG = .TRUE.
-!$          CHUNK = max(K360/2,NEL/NOMP)
-!$        ENDIF
-!$      ENDIF
+#if defined(_OPENMP)
+        OMP_FLAG = .FALSE.
+        CHUNK = max(NEL,1)
+        IF (NOMP.GT.1) THEN
+          IF (NEL.LT.K360) THEN
+              IF (NEL*NEL2.GE.KEEP(361)) THEN
+                OMP_FLAG = .TRUE.
+                CHUNK = max(20, (NEL+NOMP-1)/NOMP)
+              ENDIF
+          ELSE
+            OMP_FLAG = .TRUE.
+            CHUNK = max(K360/2, (NEL+NOMP-1)/NOMP)
+          ENDIF
+        ENDIF
+#endif
         IF (KEEP(351).EQ.2) THEN
           MAXFROMN = 0.0E0
           IF (NEL2 > 0) THEN
@@ -406,17 +380,17 @@ C
         NEL1   = NFRONT - NASS
         NEL11  = NFRONT - NPIV
         LPOS2  = POSELT + int(NASS,8)*int(NFRONT,8)
-        CALL strsm('L','L','N','N',NPIV,NEL1,ONE,A(POSELT),NFRONT,
-     &              A(LPOS2),NFRONT)
-        IF (CALL_UTRSM) THEN
-          UPOS  = POSELT + int(NASS,8)
-          CALL strsm('R', 'U', 'N', 'U', NEL1, NPIV, ONE,
+         CALL strsm('L','L','N','N',NPIV,NEL1,ONE,A(POSELT),NFRONT,
+     &        A(LPOS2),NFRONT)
+       IF (CALL_UTRSM) THEN
+         UPOS  = POSELT + int(NASS,8)
+           CALL strsm('R', 'U', 'N', 'U', NEL1, NPIV, ONE,
      &                 A(POSELT), NFRONT, A(UPOS), NFRONT)
-        ENDIF
+       ENDIF
         LPOS   = LPOS2 + int(NPIV,8)
         LPOS1  = POSELT + int(NPIV,8)
-        CALL sgemm('N','N',NEL11,NEL1,NPIV,ALPHA,A(LPOS1),
-     &          NFRONT,A(LPOS2),NFRONT,ONE,A(LPOS),NFRONT)
+         CALL sgemm('N','N',NEL11,NEL1,NPIV,ALPHA,A(LPOS1),
+     &        NFRONT,A(LPOS2),NFRONT,ONE,A(LPOS),NFRONT)
       RETURN
       END SUBROUTINE SMUMPS_FAC_P
       SUBROUTINE SMUMPS_FAC_P_PANEL(A,LAFAC,NFRONT,
@@ -486,20 +460,27 @@ C
         END SUBROUTINE SMUMPS_FAC_T
       SUBROUTINE SMUMPS_FAC_SQ(IBEG_BLOCK, IEND_BLOCK, NPIV,
      &    NFRONT, LAST_ROW, LAST_COL, A, LA, POSELT, 
-     &    CALL_UTRSM, CALL_GEMM, WITH_COMM_THREAD )
+     &    FIRST_COL, CALL_LTRSM, CALL_UTRSM, CALL_GEMM, 
+     &    WITH_COMM_THREAD )
+!$    USE OMP_LIB
+!$    USE SMUMPS_BUF
       IMPLICIT NONE
       INTEGER, intent(in)     :: IBEG_BLOCK, IEND_BLOCK
       INTEGER, intent(in)     :: NPIV, NFRONT, LAST_ROW, LAST_COL
+      INTEGER, intent(in)     :: FIRST_COL
       INTEGER(8), intent(in)  :: LA
       REAL, intent(inout)  :: A(LA)
       INTEGER(8), intent(in)  :: POSELT 
-      LOGICAL, intent(in)     :: CALL_UTRSM, CALL_GEMM
+      LOGICAL, intent(in)     :: CALL_LTRSM, CALL_UTRSM, CALL_GEMM
       LOGICAL, intent(in) :: WITH_COMM_THREAD
-      INTEGER(8) :: NFRONT8
+      INTEGER(8) :: NFRONT8, LPOSN, LPOS2N
       INTEGER(8) :: LPOS, LPOS1, LPOS2, UPOS, POSELT_LOCAL
-      INTEGER NELIM, LKJIW, NEL1, NEL11
+      INTEGER NELIM, LKJIW, NEL1, NEL11, UTRSM_NCOLS
       REAL ALPHA, ONE
       PARAMETER (ONE = 1.0E0, ALPHA=-1.0E0)
+!$    INTEGER :: NOMP
+!$    LOGICAL :: TRSM_GEMM_FINISHED
+!$    LOGICAL :: SAVE_NESTED, SAVE_DYNAMIC
       NFRONT8= int(NFRONT,8)
       NELIM  = IEND_BLOCK - NPIV
       NEL1   = LAST_ROW - IEND_BLOCK
@@ -511,20 +492,27 @@ C
       ENDIF
       LKJIW  = NPIV - IBEG_BLOCK + 1
       NEL11  = LAST_COL - NPIV
+      LPOS2  = POSELT + int(IEND_BLOCK,8)*NFRONT8 + int(IBEG_BLOCK-1,8)
+      UTRSM_NCOLS = LAST_COL - FIRST_COL
+      UPOS   = POSELT + int(IBEG_BLOCK-1,8)*NFRONT8 + int(FIRST_COL,8)
+      POSELT_LOCAL = POSELT + int(IBEG_BLOCK-1,8)*NFRONT8 
+     &                      + int(IBEG_BLOCK-1,8)
       IF ((NEL1.NE.0).AND.(LKJIW.NE.0)) THEN
-           LPOS2  = POSELT + int(IEND_BLOCK,8)*NFRONT8 +
-     &              int(IBEG_BLOCK - 1,8)
-           UPOS   = POSELT + int(IBEG_BLOCK-1,8)*NFRONT8 +
-     &              int(IEND_BLOCK,8)
-           POSELT_LOCAL = POSELT + 
-     &            int(IBEG_BLOCK-1,8)*NFRONT8 + int(IBEG_BLOCK - 1,8)
-           CALL strsm('L','L','N','N',LKJIW,NEL1,ONE,
+        IF (WITH_COMM_THREAD .EQV. .FALSE.) THEN
+           IF (CALL_LTRSM) THEN
+             CALL strsm('L','L','N','N',LKJIW,NEL1,ONE,
      &                A(POSELT_LOCAL),NFRONT,
      &                A(LPOS2),NFRONT)
+           ENDIF
            IF (CALL_UTRSM) THEN
-             CALL strsm('R','U','N','U',NEL1,LKJIW,ONE,
+             CALL strsm('R','U','N','U',UTRSM_NCOLS,LKJIW,ONE,
      &                A(POSELT_LOCAL),NFRONT,
      &                A(UPOS),NFRONT)
+             LPOS2N = POSELT + int(NPIV,8)*NFRONT8 + int(IBEG_BLOCK-1,8)
+             LPOSN  = POSELT + int(NPIV,8)*NFRONT8 + int(FIRST_COL,8)
+             CALL sgemm('N','N',UTRSM_NCOLS,NELIM,
+     &               LKJIW,ALPHA,A(UPOS),NFRONT,A(LPOS2N),
+     &               NFRONT,ONE,A(LPOSN),NFRONT)
            ENDIF
            IF (CALL_GEMM) THEN
             LPOS   = LPOS2 + int(LKJIW,8)
@@ -532,6 +520,61 @@ C
             CALL sgemm('N','N',NEL11,NEL1,LKJIW,ALPHA,A(LPOS1),
      &           NFRONT,A(LPOS2),NFRONT,ONE,A(LPOS),NFRONT)
            END IF
+        ELSE
+!$        NOMP = OMP_GET_MAX_THREADS()
+!$        CALL OMP_SET_NUM_THREADS(2)
+!$        SAVE_NESTED = OMP_GET_NESTED()
+!$        SAVE_DYNAMIC = OMP_GET_DYNAMIC()
+!$        CALL OMP_SET_NESTED(.TRUE.)
+!$        CALL OMP_SET_DYNAMIC(.FALSE.)
+!$        TRSM_GEMM_FINISHED = .FALSE.
+!$OMP     PARALLEL SHARED(TRSM_GEMM_FINISHED)
+!$        IF (OMP_GET_THREAD_NUM() .EQ. 1) THEN
+!$          CALL OMP_SET_NUM_THREADS(NOMP)
+          IF (CALL_LTRSM) THEN
+            CALL strsm('L','L','N','N',LKJIW,NEL1,ONE,
+     &                 A(POSELT_LOCAL),NFRONT,
+     &                 A(LPOS2),NFRONT)
+          ENDIF
+          IF (CALL_UTRSM) THEN
+            CALL strsm('R','U','N','U',UTRSM_NCOLS,LKJIW,ONE,
+     &                 A(POSELT_LOCAL),NFRONT,
+     &                 A(UPOS),NFRONT)
+            LPOS2N = POSELT + int(NPIV,8)*NFRONT8 + int(IBEG_BLOCK-1,8)
+            LPOSN  = POSELT + int(NPIV,8)*NFRONT8 + int(FIRST_COL,8)
+            CALL sgemm('N','N',UTRSM_NCOLS,NELIM,
+     &                LKJIW,ALPHA,A(UPOS),NFRONT,A(LPOS2N),
+     &                NFRONT,ONE,A(LPOSN),NFRONT)
+          ENDIF
+          IF (CALL_GEMM) THEN
+            LPOS   = LPOS2 + int(LKJIW,8)
+            LPOS1  = POSELT_LOCAL + int(LKJIW,8)
+            CALL sgemm('N','N',NEL11,NEL1,LKJIW,ALPHA,A(LPOS1),
+     &             NFRONT,A(LPOS2),NFRONT,ONE,A(LPOS),NFRONT)
+          END IF
+!$           TRSM_GEMM_FINISHED = .TRUE.
+!$        ELSE
+!$           DO WHILE (.NOT. TRSM_GEMM_FINISHED)
+!$             CALL SMUMPS_BUF_TEST()
+!$             CALL MUMPS_USLEEP(10000)
+!$           END DO
+!$        END IF
+!$OMP     END PARALLEL
+!$        CALL OMP_SET_NESTED(SAVE_NESTED)
+!$        CALL OMP_SET_DYNAMIC(SAVE_DYNAMIC)
+!$        CALL OMP_SET_NUM_THREADS(NOMP)
+        ENDIF
+      ELSE
+        IF (CALL_UTRSM.AND.UTRSM_NCOLS.NE.0) THEN
+          CALL strsm('R','U','N','U',UTRSM_NCOLS,LKJIW,ONE,
+     &                 A(POSELT_LOCAL),NFRONT,
+     &                 A(UPOS),NFRONT)
+          LPOS2N = POSELT + int(NPIV,8)*NFRONT8 + int(IBEG_BLOCK-1,8)
+          LPOSN  = POSELT + int(NPIV,8)*NFRONT8 + int(FIRST_COL,8)
+          CALL sgemm('N','N',UTRSM_NCOLS,NELIM,
+     &              LKJIW,ALPHA,A(UPOS),NFRONT,A(LPOS2N),
+     &              NFRONT,ONE,A(LPOSN),NFRONT)
+        ENDIF
       ENDIF
       RETURN
       END SUBROUTINE SMUMPS_FAC_SQ
@@ -587,7 +630,8 @@ C
      &     LNextPiv2beWritten, UNextPiv2beWritten, 
      &     PP_LastPIVRPTRFilled_L, PP_LastPIVRPTRFilled_U,
      &     
-     &     XSIZE, SEUIL, UU, DKEEP, KEEP8, KEEP, IFLAG)
+     &     XSIZE, SEUIL, UU, DKEEP, KEEP8, KEEP, IFLAG, 
+     &     OOCWRITE_COMPATIBLE_WITH_BLR)
       USE SMUMPS_OOC 
       IMPLICIT NONE
       INTEGER, intent(in)    :: INODE, NFRONT, NASS,
@@ -606,6 +650,7 @@ C
       INTEGER(8), intent(inout) :: LAFAC
       INTEGER(8)             :: KEEP8(150)
       TYPE(IO_BLOCK), intent(inout)  :: MonBloc
+      LOGICAL, intent(in)    :: OOCWRITE_COMPATIBLE_WITH_BLR
       INTEGER  :: NPIV, NEL1, STRAT, TYPEFile, IFLAG_OOC, 
      &            IBEG_BLOCK, IFINB, INOPV
       INTEGER Inextpiv
@@ -619,7 +664,7 @@ C
         Inextpiv = 0   
       ENDIF
       IF ((NPIV.GT.0).AND.(NEL1.GT.0)) THEN
-        IF (KEEP(201).EQ.1) THEN 
+        IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN 
          STRAT          = STRAT_TRY_WRITE
          TYPEFile     = TYPEF_BOTH_LU
          MonBloc%LastPiv= NPIV
@@ -646,7 +691,7 @@ C
      &     PP_LastPIVRPTRFilled_L,
      &     PP_FIRST2SWAP_U,  MonBloc%LastPanelWritten_U,
      &     PP_LastPIVRPTRFilled_U, MAXFROMN, IS_MAXFROMN_AVAIL,
-     &     Inextpiv
+     &     Inextpiv, OOCWRITE_COMPATIBLE_WITH_BLR
      &     )
         IF (INOPV.NE.1) THEN
          CALL SMUMPS_FAC_N(NFRONT,NASS,IW,LIW,A,LA,
@@ -674,6 +719,7 @@ C
      &     PP_FIRST2SWAP_U, PP_LastPanelonDisk_U,
      &     PP_LastPIVRPTRFilled_U,
      &     PIVOT_OPTION, LR_ACTIVATED, IEND_BLR, Inextpiv,
+     &     OOCWRITE_COMPATIBLE_WITH_BLR,
      &     TIPIV    
      &     )
 !$    USE OMP_LIB
@@ -701,6 +747,7 @@ C
       INTEGER, intent(in)    :: PIVOT_OPTION, IEND_BLR
       LOGICAL, intent(in)    :: LR_ACTIVATED
       INTEGER, intent(inout) :: Inextpiv
+      LOGICAL, intent(in)    :: OOCWRITE_COMPATIBLE_WITH_BLR
       INCLUDE 'mumps_headers.h'
       REAL SWOP
       INTEGER XSIZE
@@ -721,12 +768,15 @@ C
       INTEGER :: IPIV_SHIFT,IPIV_END
       INTRINSIC max
       DATA RZERO /0.0E0/
-!$    INTEGER :: J4,JJMAX,NOMP,CHUNK,K361
-!$    REAL    :: RRMAX,VALABS
+#if defined(_OPENMP)
+      INTEGER :: NOMP,CHUNK,K361
+#endif
       INTEGER I_PIVRPTR_L, I_PIVR_L, NBPANELS_L
       INTEGER I_PIVRPTR_U, I_PIVR_U, NBPANELS_U
-!$      NOMP    = OMP_GET_MAX_THREADS()
-!$      K361    = KEEP(361)
+#if defined(_OPENMP)
+        NOMP    = OMP_GET_MAX_THREADS()
+        K361    = KEEP(361)
+#endif
         PIVNUL  = DKEEP(1)
         FIXA    = DKEEP(2)
         CSEUIL  = SEUIL
@@ -736,7 +786,7 @@ C
         NPIV    = IW(IOLDPS+1+XSIZE)
         HF = 6 + IW(IOLDPS+5+XSIZE)+XSIZE
         NPIVP1  = NPIV + 1
-        IF (KEEP(201).EQ.1) THEN
+        IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN
           CALL SMUMPS_GET_OOC_PERM_PTR(TYPEF_L, NBPANELS_L, 
      &       I_PIVRPTR_L, I_PIVR_L, 
      &       IOLDPS+2*NFRONT+6+IW(IOLDPS+5+XSIZE)+XSIZE,
@@ -763,7 +813,7 @@ C
            ELSE IF (KEEP(258) .NE. 0) THEN
               CALL SMUMPS_UPDATEDETER(A(APOS), DKEEP(6), KEEP(259))
            ENDIF
-           IF (KEEP(201).EQ.1) THEN
+           IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN
              IF (KEEP(251).EQ.0) THEN 
                CALL SMUMPS_STORE_PERMINFO( IW(I_PIVRPTR_L), 
      &               NBPANELS_L,
@@ -815,39 +865,7 @@ C
               J = NASS - NPIV
             ENDIF
             J2 = J1 + J - 1_8
-            IF (KEEP(351).EQ.1) THEN
-!$            IF (NOMP.GT.1 .AND. J.GE.K361) THEN
-!$              JMAX = 1
-!$              RMAX = RZERO
-!$              CHUNK = max(K361/2,J/NOMP)
-!$OMP PARALLEL PRIVATE(J3,VALABS,JJMAX,RRMAX)
-!$OMP& FIRSTPRIVATE(J1,J)
-!$              RRMAX = RZERO
-!$OMP DO schedule(static, CHUNK)
-!$              DO J4 = 1, J
-!$                J3 = J1 + int(J4-1,8)
-!$                VALABS = abs(A(J3))
-!$                IF(VALABS.GT.RRMAX) THEN
-!$                  RRMAX = VALABS
-!$                  JJMAX = J4
-!$                ENDIF
-!$              ENDDO
-!$OMP END DO
-!$              IF (RRMAX.GT.0.0) THEN
-!$OMP CRITICAL
-!$               IF (RRMAX.GT.RMAX) THEN
-!$                 RMAX = RRMAX
-!$                 JMAX = JJMAX
-!$               ENDIF
-!$OMP END CRITICAL
-!$              ENDIF
-!$OMP END PARALLEL
-!$            ELSE
-               JMAX  = SMUMPS_IXAMAX(J,A(J1),1)
-!$            ENDIF
-            ELSE
-              JMAX  = SMUMPS_IXAMAX(J,A(J1),1)
-            ENDIF
+            JMAX  = SMUMPS_IXAMAX(J,A(J1),1,KEEP(361))
             JJ    = J1 + int(JMAX - 1,8)
             AMROW = abs(A(JJ))
             RMAX = AMROW
@@ -860,7 +878,7 @@ C
               ENDIF
               IF (J2.LT.J1) GO TO 370
               IF (KEEP(351).EQ.1) THEN
-!$              CHUNK = max(K361/2,int(J2-J1)/NOMP)
+!$              CHUNK = max(K361/2,(int(J2-J1)+NOMP-1)/NOMP)
 !$OMP  PARALLEL DO schedule(static, CHUNK) PRIVATE(JJ)
 !$OMP& FIRSTPRIVATE(J1,J2)
 !$OMP& REDUCTION(max:RMAX) IF ((J2-J1).GE.K361)
@@ -980,7 +998,7 @@ C
       IFLAG = -10
       GOTO 430
   420 CONTINUE
-              IF (KEEP(201).EQ.1) THEN
+              IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN
                 IF (KEEP(251).EQ.0) THEN
                 CALL SMUMPS_STORE_PERMINFO( IW(I_PIVRPTR_L), 
      &               NBPANELS_L,
@@ -1005,7 +1023,9 @@ C
      &     DKEEP,PIVNUL_LIST,LPN_LIST, XSIZE,
      &     PP_FIRST2SWAP_L, PP_LastPanelonDisk,
      &     PP_LastPIVRPTRIndexFilled,MAXFROMM,IS_MAXFROMM_AVAIL, 
-     &      PIVOT_OPTION, IEND_BLR, Inextpiv)
+     &     PIVOT_OPTION, IEND_BLR, Inextpiv, 
+     &     OOCWRITE_COMPATIBLE_WITH_BLR)
+!$    USE OMP_LIB
       USE MUMPS_OOC_COMMON 
       IMPLICIT NONE
       INTEGER(8) :: POSELT, LA
@@ -1014,6 +1034,7 @@ C
       INTEGER, intent(in) :: IBEG_BLOCK, IEND_BLOCK
       INTEGER, intent(in)    :: PIVOT_OPTION,IEND_BLR
       INTEGER, intent(inout) :: Inextpiv
+      LOGICAL, intent(in)    :: OOCWRITE_COMPATIBLE_WITH_BLR
       INTEGER PIVSIZ,LPIV, XSIZE
       REAL A(LA) 
       REAL UU, UULOC, SEUIL
@@ -1049,8 +1070,12 @@ C
       PARAMETER( ONE = 1.0E0 )
       REAL RZERO,RONE
       PARAMETER(RZERO=0.0E0, RONE=1.0E0)
-      LOGICAL OMP_FLAG
+#if defined(_OPENMP)
+      LOGICAL :: OMP_FLAG
+      INTEGER :: NOMP, CHUNK, J1_end
+#endif
       INTEGER I_PIVRPTR, I_PIVR, NBPANELS_L
+!$    NOMP = OMP_GET_MAX_THREADS()
       PIVNUL = DKEEP(1)
       FIXA   = DKEEP(2)
       CSEUIL = SEUIL
@@ -1058,7 +1083,8 @@ C
       LDA8    = int(LDA,8)
       NFRONT8 = int(NFRONT,8)
       K206    = KEEP(206)
-      IF (KEEP(201).EQ.1 .AND. KEEP(50).NE.1) THEN
+      IF (KEEP(201).EQ.1 .AND. KEEP(50).NE.1 .AND.
+     &   OOCWRITE_COMPATIBLE_WITH_BLR ) THEN
              CALL SMUMPS_GET_OOC_PERM_PTR(TYPEF_L, NBPANELS_L, 
      &       I_PIVRPTR, I_PIVR, IOLDPS+2*NFRONT+6+KEEP(IXSZ),
      &       IW, LIW)
@@ -1081,7 +1107,8 @@ C
          ELSE IF (KEEP(258) .NE. 0) THEN
             CALL SMUMPS_UPDATEDETER( A(APOS), DKEEP(6), KEEP(259) )
          ENDIF
-              IF (KEEP(201).EQ.1.AND.KEEP(50).NE.1) THEN
+              IF (KEEP(201).EQ.1.AND.KEEP(50).NE.1 .AND.
+     &            OOCWRITE_COMPATIBLE_WITH_BLR) THEN
                 CALL SMUMPS_STORE_PERMINFO( IW(I_PIVRPTR), NBPANELS_L,
      &               IW(I_PIVR), NASS, NPIVP1, NPIVP1,
      &               PP_LastPanelonDisk,
@@ -1177,14 +1204,21 @@ C
            ELSE
              write(*,*) 'Internal error in FAC_I_LDLT: PIVOT_OPTION=',
      &                  PIVOT_OPTION
+             CALL MUMPS_ABORT()
            ENDIF
            J1_ini = J1
-           IF ( (LIM - KEEP(253) - IEND_BLOCK).GE.300 ) THEN
+#if defined(_OPENMP)
+           J1_end = LIM - KEEP(253) - IEND_BLOCK
+           CHUNK = max(J1_end,1)
+           IF ( J1_end.GE.KEEP(360)) THEN
              OMP_FLAG = .TRUE.
+             CHUNK = max(KEEP(360)/2,(J1_end+NOMP-1)/NOMP)
            ELSE
              OMP_FLAG = .FALSE.
            ENDIF
-!$OMP PARALLEL DO PRIVATE(J1) REDUCTION(max:RMAX) IF(OMP_FLAG)
+#endif
+!$OMP PARALLEL DO SCHEDULE(static, CHUNK) PRIVATE(J1)
+!$OMP& REDUCTION(max:RMAX) IF(OMP_FLAG)
            DO J=1, LIM - KEEP(253) - IEND_BLOCK
               J1 = J1_ini + int(J-1,8) * LDA8
               RMAX = max(abs(A(J1)),RMAX)
@@ -1229,6 +1263,8 @@ C
          END IF
          IF (NPIVP1.EQ.IEND_BLOCK) THEN
            GOTO 460
+         ELSE IF (JMAX.EQ.0) THEN
+           GOTO 460
          ENDIF
          IF (max(abs(PIVOT),RMAX,AMAX).LE.tiny(RMAX)) THEN
            GOTO 460
@@ -1264,6 +1300,7 @@ C
            ELSE
              write(*,*) 'Internal error in FAC_I_LDLT: PIVOT_OPTION=',
      &                  PIVOT_OPTION
+             CALL MUMPS_ABORT()
            ENDIF
            APOSJ = POSELT + int(JMAX-1,8)*LDA8 + int(NPIV,8)
            POSPV2 = APOSJ + int(JMAX - NPIVP1,8)
@@ -1273,10 +1310,19 @@ C
               OFFDAG = APOS + int(JMAX - NPIVP1,8)
            END IF
            TMAX = RZERO
+#if defined(_OPENMP)
+           J1_end = LIM-JMAX-KEEP(253)
+           CHUNK = max(J1_end,1)
+           IF (J1_end.GE.KEEP(360)) THEN
+             OMP_FLAG = .TRUE.
+             CHUNK = max(KEEP(360)/2,(J1_end+NOMP-1)/NOMP)
+           ELSE
+             OMP_FLAG = .FALSE.
+           ENDIF
+#endif
            IF (JMAX .LT. IPIV) THEN
               JJ_ini = POSPV2
-              OMP_FLAG = (LIM-JMAX-KEEP(253). GE. 300)
-!$OMP PARALLEL DO IF (OMP_FLAG)
+!$OMP PARALLEL DO SCHEDULE(static, CHUNK) IF (OMP_FLAG)
 !$OMP& PRIVATE(JJ) REDUCTION(max:TMAX)
               DO K = 1, LIM - JMAX - KEEP(253)
                  JJ = JJ_ini+ int(K,8)*NFRONT8
@@ -1290,8 +1336,8 @@ C
               ENDDO
            ELSE
               JJ_ini = POSPV2
-              OMP_FLAG = (LIM-JMAX-KEEP(253). GE. 300)
-!$OMP PARALLEL DO PRIVATE(JJ) REDUCTION(max:TMAX) IF(OMP_FLAG)
+!$OMP PARALLEL DO SCHEDULE(static, CHUNK) PRIVATE(JJ) 
+!$OMP& REDUCTION(max:TMAX) IF(OMP_FLAG)
               DO K = 1, LIM-JMAX-KEEP(253)
                  JJ = JJ_ini + int(K,8)*NFRONT8
                  TMAX=max(TMAX,abs(A(JJ)))
@@ -1349,7 +1395,8 @@ C
      &             LDA, NFRONT, 1, KEEP(219), KEEP(50),
      &             KEEP(IXSZ), -9999)
  416          CONTINUE
-              IF (KEEP(201).EQ.1.AND.KEEP(50).NE.1) THEN
+              IF (KEEP(201).EQ.1.AND.KEEP(50).NE.1 .AND.
+     &            OOCWRITE_COMPATIBLE_WITH_BLR ) THEN
                 CALL SMUMPS_STORE_PERMINFO( IW(I_PIVRPTR), NBPANELS_L,
      &               IW(I_PIVR), NASS, NPIVP1, LPIV, PP_LastPanelonDisk,
      &               PP_LastPIVRPTRIndexFilled)
@@ -1575,7 +1622,7 @@ C
      &    LDA,
      &    POSELT,
      &    KEEP,KEEP8,
-     &    PIVOT_OPTION, CALL_TRSM)
+     &    PIVOT_OPTION, CALL_TRSM, UPDATE_SCHUR)
       IMPLICIT NONE
       INTEGER, intent(in) :: NPIV
       INTEGER, intent(in) :: NFRONT, NASS, IBEG_BLOCK, IEND_BLOCK
@@ -1588,7 +1635,7 @@ C
       INTEGER(8), intent(in) :: POSELT
       INTEGER, intent(in) :: LDA
       INTEGER, intent(in) :: PIVOT_OPTION
-      LOGICAL, intent(in) :: CALL_TRSM
+      LOGICAL, intent(in) :: CALL_TRSM, UPDATE_SCHUR
       INTEGER(8) :: LDA8
       INTEGER NPIV_BLOCK, NEL1, I, II
       INTEGER(8) :: LPOS,UPOS,APOS
@@ -1624,53 +1671,69 @@ C
          ENDDO
 !$OMP END PARALLEL
         ENDIF
-        IF ( LAST_VAR - IEND_BLOCK > KEEP(7) ) THEN
-          BLSIZE = KEEP(8)
-        ELSE
-          BLSIZE = LAST_VAR - IEND_BLOCK
-        END IF
-        IF ( NASS - IEND_BLOCK .GT. 0 ) THEN
-#if defined(SAK_BYROW)
-         DO IROW = IEND_BLOCK+1, LAST_VAR, BLSIZE
-           Block = min( BLSIZE, NASS - IROW + 1 )
-           LPOS = POSELT + int(IROW  - 1,8) * LDA8 +
-     &                     int(IBEG_BLOCK - 1,8)
-           UPOS = POSELT + int(IBEG_BLOCK - 1,8) * LDA8 +
-     &                     int(IROW - 1,8)
-           APOS = POSELT + int(IROW  - 1,8) * LDA8 + 
-     &            int(IEND_BLOCK,8)
-           CALL sgemm( 'N','N', IROW + Block - IEND_BLOCK - 1, 
-     &            Block, NPIV_BLOCK,
+        IF (UPDATE_SCHUR) THEN
+#if defined(GEMMT_AVAILABLE)
+         IF ( KEEP(421).EQ. -1) THEN
+           LPOS = POSELT + LDA8*int(IEND_BLOCK,8) + int(IBEG_BLOCK-1,8)
+           UPOS = POSELT + LDA8*int(IBEG_BLOCK-1,8) + int(IEND_BLOCK,8)
+           APOS = POSELT + LDA8*int(IEND_BLOCK,8) + int(IEND_BLOCK,8)
+           CALL sgemmt( 'U','N','N', NEL1,
+     &                NPIV_BLOCK,
      &                ALPHA, A( UPOS ), LDA,
      &                A( LPOS ), LDA, ONE, A( APOS ), LDA )
-         ENDDO
-#else
-         DO IROW = IEND_BLOCK+1, LAST_VAR, BLSIZE
-          Block = min( BLSIZE, LAST_VAR - IROW + 1 )
-           LPOS = POSELT + int( IROW - 1,8) * LDA8 +
-     &                     int(IBEG_BLOCK - 1,8)
-           UPOS = POSELT + int(IBEG_BLOCK - 1,8) * LDA8 +
-     &                     int( IROW - 1,8)
-           APOS = POSELT + int( IROW - 1,8) * LDA8 + int( IROW - 1,8)
-           CALL sgemm( 'N','N', Block, LAST_VAR - IROW + 1, NPIV_BLOCK,
-     &                ALPHA, A( UPOS ), LDA,
-     &                A( LPOS ), LDA, ONE, A( APOS ), LDA )
-         END DO
+         ELSE
 #endif
-        END IF
-       LPOS = POSELT + int(LAST_VAR,8)*LDA8 + int(IBEG_BLOCK - 1,8)
-       UPOS = POSELT + int(IBEG_BLOCK-1,8) * LDA8 +
+          IF ( LAST_VAR - IEND_BLOCK > KEEP(7) ) THEN
+           BLSIZE = KEEP(8)
+          ELSE
+           BLSIZE = LAST_VAR - IEND_BLOCK
+          END IF
+          IF ( NASS - IEND_BLOCK .GT. 0 ) THEN
+#if defined(SAK_BYROW)
+           DO IROW = IEND_BLOCK+1, LAST_VAR, BLSIZE
+            Block = min( BLSIZE, NASS - IROW + 1 )
+            LPOS = POSELT + int(IROW  - 1,8) * LDA8 +
+     &                      int(IBEG_BLOCK - 1,8)
+            UPOS = POSELT + int(IBEG_BLOCK - 1,8) * LDA8 +
+     &                      int(IROW - 1,8)
+            APOS = POSELT + int(IROW  - 1,8) * LDA8 + 
+     &             int(IEND_BLOCK,8)
+            CALL sgemm( 'N','N', IROW + Block - IEND_BLOCK - 1, 
+     &             Block, NPIV_BLOCK,
+     &                 ALPHA, A( UPOS ), LDA,
+     &                 A( LPOS ), LDA, ONE, A( APOS ), LDA )
+           ENDDO
+#else
+           DO IROW = IEND_BLOCK+1, LAST_VAR, BLSIZE
+            Block = min( BLSIZE, LAST_VAR - IROW + 1 )
+            LPOS = POSELT + int( IROW - 1,8) * LDA8 +
+     &                      int(IBEG_BLOCK - 1,8)
+            UPOS = POSELT + int(IBEG_BLOCK - 1,8) * LDA8 +
+     &                      int( IROW - 1,8)
+            APOS = POSELT + int( IROW - 1,8) * LDA8 + int( IROW - 1,8)
+            CALL sgemm( 'N','N', Block, LAST_VAR - IROW + 1, NPIV_BLOCK,
+     &                 ALPHA, A( UPOS ), LDA,
+     &                 A( LPOS ), LDA, ONE, A( APOS ), LDA )
+           END DO
+#endif
+          END IF
+#if defined(GEMMT_AVAILABLE)
+         END IF 
+#endif
+         LPOS = POSELT + int(LAST_VAR,8)*LDA8 + int(IBEG_BLOCK - 1,8)
+         UPOS = POSELT + int(IBEG_BLOCK-1,8) * LDA8 +
      &                 int(IEND_BLOCK,8)
-       APOS = POSELT + int(LAST_VAR,8)*LDA8 + int(IEND_BLOCK,8)
-       IF (PIVOT_OPTION.EQ.3) THEN
-         CALL sgemm('N', 'N', NEL1, NFRONT-LAST_VAR, NPIV_BLOCK, ALPHA, 
-     &              A(UPOS), LDA, A(LPOS), LDA, ONE, 
+         APOS = POSELT + int(LAST_VAR,8)*LDA8 + int(IEND_BLOCK,8)
+         IF (PIVOT_OPTION.EQ.3) THEN
+           CALL sgemm('N', 'N', NEL1, NFRONT-LAST_VAR, NPIV_BLOCK, 
+     &              ALPHA, A(UPOS), LDA, A(LPOS), LDA, ONE, 
      &              A(APOS), LDA)
-       ELSEIF (PIVOT_OPTION.EQ.2.AND.(NASS.GT. LAST_VAR)) THEN
-         CALL sgemm('N', 'N', NEL1, NASS-LAST_VAR, NPIV_BLOCK, ALPHA, 
-     &              A(UPOS), LDA, A(LPOS), LDA, ONE, 
+         ELSEIF (PIVOT_OPTION.EQ.2.AND.(NASS.GT. LAST_VAR)) THEN
+           CALL sgemm('N', 'N', NEL1, NASS-LAST_VAR, NPIV_BLOCK, 
+     &              ALPHA, A(UPOS), LDA, A(LPOS), LDA, ONE, 
      &              A(APOS), LDA)
-       ENDIF
+         ENDIF
+        ENDIF
       ENDIF
   500 CONTINUE
       RETURN
@@ -1739,13 +1802,113 @@ C
             ENDIF
         RETURN
         END SUBROUTINE SMUMPS_SWAP_LDLT
+      SUBROUTINE SMUMPS_FAC_T_LDLT_COPY2U_SCALEL( IROWMAX, IROWMIN,
+     &                  SIZECOPY, LDA, NPIV, LIW, IW, OFFSET_IW,
+     &                  LA, A, POSELT, A_LPOS, A_UPOS )
+!$    USE OMP_LIB
+      INTEGER, INTENT(IN) :: IROWMAX, IROWMIN
+      INTEGER, INTENT(IN) :: SIZECOPY
+      INTEGER, INTENT(IN) :: LDA, NPIV
+      INTEGER, INTENT(IN) :: LIW
+      INTEGER, INTENT(IN) :: IW(LIW)
+      INTEGER, INTENT(IN) :: OFFSET_IW
+      INTEGER(8), INTENT(IN) :: LA
+      REAL, INTENT(INOUT) :: A(LA)
+      INTEGER(8), INTENT(IN) :: POSELT, A_LPOS, A_UPOS
+      INTEGER(8) :: LPOS, UPOS
+      INTEGER(8) :: DPOS, POSPV1, POSPV2, OFFDAG
+      INTEGER(8) :: LDA8
+      INTEGER :: IROWEND, IROW, Block2
+      INTEGER :: I, J
+      REAL :: MULT1, MULT2, A11, DETPIV, A22, A12
+      INTEGER :: BLSIZECOPY
+      REAL :: ONE
+      PARAMETER (ONE = 1.0E0)
+      INTEGER(8) :: LPOSI, UPOSI
+      LOGICAL :: PIVOT_2X2
+!$    LOGICAL :: OMP_FLAG
+!$    INTEGER :: NOMP, CHUNK
+      LDA8 = int(LDA,8)
+      IF (SIZECOPY.NE.0) THEN
+        BLSIZECOPY = SIZECOPY
+      ELSE
+        BLSIZECOPY = 250
+      ENDIF
+!$    NOMP = OMP_GET_MAX_THREADS()
+!$    OMP_FLAG = .FALSE.
+!$    CHUNK = (64/4)
+!$    IF (NOMP .GT. 1 .AND. NPIV .GE. 4*CHUNK) THEN
+!$      OMP_FLAG = .TRUE.
+!$      CHUNK = max(2*CHUNK, NPIV/NOMP)
+!$    ENDIF
+      DO IROWEND = IROWMAX, IROWMIN, -BLSIZECOPY
+        Block2 = min(BLSIZECOPY, IROWEND)
+        IROW = IROWEND - Block2 + 1
+        LPOS = A_LPOS + int(IROW-1,8)*LDA8
+        UPOS = A_UPOS + int(IROW-1,8)
+!$OMP  PARALLEL DO PRIVATE(PIVOT_2X2, A11, DPOS,
+!$OMP&   POSPV1, POSPV2, OFFDAG, A22, A12, DETPIV, J, MULT1, MULT2
+!$OMP&   , LPOSI, UPOSI
+!$OMP&   ) FIRSTPRIVATE(Block2, LDA, LDA8, LPOS, UPOS, POSELT)
+!$OMP& SCHEDULE(STATIC,CHUNK) IF(OMP_FLAG)
+        DO I=1, NPIV
+          PIVOT_2X2 = .FALSE.
+          IF(IW(OFFSET_IW+I-1) .LE. 0) THEN
+            PIVOT_2X2 = .TRUE.
+          ELSE
+            IF (I .GT. 1) THEN
+              IF (IW(OFFSET_IW+I-2) .LE. 0) THEN
+                cycle
+              ENDIF
+            ENDIF
+          ENDIF
+          DPOS = POSELT + LDA8*int(I-1,8) + int(I-1,8)
+          IF(.not. PIVOT_2X2) THEN
+            A11 = ONE/A(DPOS)
+            LPOSI = LPOS+int(I-1,8)
+            UPOSI = UPOS+int(I-1,8)*LDA8
+            DO J = 1, Block2
+              A(UPOSI+int(J-1,8)) = A(LPOSI+int(J-1,8)*LDA8)
+            END DO
+            DO J = 1, Block2
+              A(LPOSI+int(J-1,8)*LDA8) = A(LPOSI+int(J-1,8)*LDA8)*A11
+            END DO
+          ELSE
+            CALL scopy(Block2, A(LPOS+int(I-1,8)),
+     &                 LDA, A(UPOS+int(I-1,8)*LDA8), 1)
+            CALL scopy(Block2, A(LPOS+int(I,8)),
+     &                 LDA, A(UPOS+int(I,8)*LDA8), 1)
+            POSPV1 = DPOS
+            POSPV2 = DPOS + int(LDA+1,8)
+            OFFDAG = POSPV1+1_8
+            A11 = A(POSPV1)
+            A22 = A(POSPV2)
+            A12 = A(OFFDAG)
+            DETPIV = A11*A22 - A12**2
+            A22 = A11/DETPIV
+            A11 = A(POSPV2)/DETPIV
+            A12 = -A12/DETPIV
+            DO J = 1,Block2
+              MULT1 = A11*A(LPOS+int(J-1,8)*LDA8+int(I-1,8))
+     &              + A12*A(LPOS+int(J-1,8)*LDA8+int(I,8))
+              MULT2 = A12*A(LPOS+int(J-1,8)*LDA8+int(I-1,8))
+     &              + A22*A(LPOS+int(J-1,8)*LDA8+int(I,8))
+              A(LPOS+int(J-1,8)*LDA8+int(I-1,8)) = MULT1
+              A(LPOS+int(J-1,8)*LDA8+int(I,8))   = MULT2
+            ENDDO
+          ENDIF
+        ENDDO
+!$OMP END PARALLEL DO
+      ENDDO
+      END SUBROUTINE SMUMPS_FAC_T_LDLT_COPY2U_SCALEL
       SUBROUTINE SMUMPS_FAC_T_LDLT(NFRONT,NASS,
      &    IW,LIW,A,LA,
      &    LDA,
      &    IOLDPS,POSELT,KEEP,KEEP8,
      &    POSTPONE_COL_UPDATE, ETATASS,
      &    TYPEFile, LAFAC, MonBloc, NextPiv2beWritten,
-     &    LIWFAC, MYID, IFLAG, OFFSET_IW)
+     &    LIWFAC, MYID, IFLAG, OFFSET_IW
+     &    )
       USE SMUMPS_OOC
       IMPLICIT NONE
       INTEGER NFRONT, NASS,LIW
@@ -1767,12 +1930,10 @@ C
       INTEGER :: OFFSET_IW
       INCLUDE 'mumps_headers.h'
       INTEGER(8) :: UPOS, APOS, LPOS
-      INTEGER(8) :: DPOS, POSPV1, POSPV2, OFFDAG
       INTEGER(8) :: LDA8
-      INTEGER BLSIZE, BLSIZE2, Block, IROW, NPIV, I, J, IROWEND
+      INTEGER BLSIZE, BLSIZE2, Block, IROW, NPIV, IROWEND
       INTEGER I2, I2END, Block2
       REAL  ONE, ALPHA, BETA, ZERO
-      REAL :: MULT1, MULT2, A11, DETPIV, A22, A12
       PARAMETER (ONE = 1.0E0, ALPHA=-1.0E0)
       PARAMETER (ZERO=0.0E0)
       LDA8 = int(LDA,8)
@@ -1781,8 +1942,12 @@ C
       ELSE
         BETA = ONE
       ENDIF
-      IF ( NFRONT - NASS > KEEP(57) ) THEN
-        BLSIZE = KEEP(58)
+      IF ( NFRONT - NASS > KEEP(58) ) THEN
+        IF ( NFRONT - NASS > KEEP(57) ) THEN
+          BLSIZE = KEEP(58)
+        ELSE
+          BLSIZE = (NFRONT - NASS)/2
+        END IF
       ELSE
         BLSIZE = NFRONT - NASS
       END IF
@@ -1795,6 +1960,23 @@ C
      &               A( POSELT ), LDA,
      &               A( POSELT + LDA8 * int(NPIV,8) ), LDA )
        ENDIF
+#if defined(GEMMT_AVAILABLE)
+       IF ( KEEP(421).EQ. -1) THEN
+         LPOS = POSELT + int(NASS,8)*LDA8
+         UPOS = POSELT + int(NASS,8)
+         APOS = POSELT + int(NASS,8)*LDA8 + int(NASS,8)
+         IF (POSTPONE_COL_UPDATE) THEN
+           CALL SMUMPS_FAC_T_LDLT_COPY2U_SCALEL( NFRONT - NASS, 1,
+     &                 KEEP(424), NFRONT, NPIV,
+     &                 LIW, IW, OFFSET_IW, LA, A, POSELT, LPOS, UPOS )
+         ENDIF
+         CALL sgemmt('U', 'N', 'N', NFRONT-NASS, NPIV,
+     &                ALPHA, A( UPOS ), LDA,
+     &                A( LPOS ), LDA,
+     &                BETA,
+     &                A( APOS ), LDA )
+       ELSE
+#endif
        DO IROWEND = NFRONT - NASS, 1, -BLSIZE
         Block = min( BLSIZE, IROWEND )
         IROW  = IROWEND - Block + 1
@@ -1806,44 +1988,9 @@ C
           UPOS = POSELT + int(NASS + IROW - 1,8)
         ENDIF
         IF (POSTPONE_COL_UPDATE) THEN
-          DPOS = POSELT
-          I = 1
-          DO
-            IF(I .GT. NPIV) EXIT
-            IF(IW(OFFSET_IW+I-1) .GT. 0) THEN
-              A11 = ONE/A(DPOS)
-              CALL scopy(Block, A(LPOS+int(I-1,8)), LDA,
-     &                          A(UPOS+int(I-1,8)*LDA8), 1)
-              CALL sscal(Block, A11, A(LPOS+int(I-1,8)), LDA)
-              DPOS = DPOS + int(LDA+1,8)
-              I = I+1
-            ELSE
-              CALL scopy(Block, A(LPOS+int(I-1,8)), LDA,
-     &                          A(UPOS+int(I-1,8)*LDA8), 1)
-              CALL scopy(Block, A(LPOS+int(I,8)), LDA,
-     &                          A(UPOS+int(I,8)*LDA8), 1)
-              POSPV1 = DPOS
-              POSPV2 = DPOS + int(LDA+1,8)
-              OFFDAG = POSPV1+1_8
-              A11 = A(POSPV1)
-              A22 = A(POSPV2)
-              A12 = A(OFFDAG)
-              DETPIV = A11*A22 - A12**2
-              A22 = A11/DETPIV
-              A11 = A(POSPV2)/DETPIV
-              A12 = -A12/DETPIV
-              DO J = 1,Block
-                MULT1 = A11*A(LPOS+int(J-1,8)*LDA8+int(I-1,8)) 
-     &                + A12*A(LPOS+int(J-1,8)*LDA8+int(I,8))
-                MULT2 = A12*A(LPOS+int(J-1,8)*LDA8+int(I-1,8)) 
-     &                + A22*A(LPOS+int(J-1,8)*LDA8+int(I,8))
-                A(LPOS+int(J-1,8)*LDA8+int(I-1,8)) = MULT1
-                A(LPOS+int(J-1,8)*LDA8+int(I,8))   = MULT2
-              ENDDO
-              DPOS = POSPV2 + int(LDA+1,8)
-              I = I+2
-            ENDIF
-          ENDDO
+          CALL SMUMPS_FAC_T_LDLT_COPY2U_SCALEL( Block, 1,
+     &                KEEP(424), NFRONT, NPIV,
+     &                LIW, IW, OFFSET_IW, LA, A, POSELT, LPOS, UPOS )
         ENDIF
         DO I2END = Block, 1, -BLSIZE2
           Block2 = min(BLSIZE2, I2END)
@@ -1875,6 +2022,9 @@ C
      &              A( APOS + LDA8 * int(Block,8) ), LDA )
         ENDIF
        END DO
+#if defined(GEMMT_AVAILABLE)
+      END IF
+#endif
       END IF
       RETURN
       END SUBROUTINE SMUMPS_FAC_T_LDLT

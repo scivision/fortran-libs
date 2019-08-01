@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -305,7 +305,7 @@ C
          IF (FMRD_ARRAY(I)%INODE .GE. 0) THEN
 C          Node is not free: possible only in
 C          case of fatal error (INFO1 < 0)
-           IF (INFO1 .GE.0) THEN
+            IF (INFO1 .GE.0) THEN
 C            Should have been freed earlier while consuming MAPLIG
              WRITE(*,*) "Internal error 2 in MUMPS_FAC_FMRD_END",I
              CALL MUMPS_ABORT()

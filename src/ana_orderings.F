@@ -3532,12 +3532,7 @@ C          Correct value of NV is (principal variable)
 C end HALO V2
 C
 C begin HALO
-C     write(6,*) ' end of halo: N, NREAL=',N,NREAL,
-C    &      ' degree =',(degree(i),i=1,N)
-C     order/flag nodes in V1
-C     write(6,*) ' end of halo: N, NREAL, NEL=',N,NREAL,NEL
-C       check |V0| + |V1| = N
-        IF (NEL.NE.N) THEN
+           IF (NEL.NE.N) THEN
          write(*,*) ' Error 2 in MUMPS_HAMD NEL, N=', NEL,N
          NCMPA = -N - 1
          CALL MUMPS_ABORT()
@@ -4189,12 +4184,9 @@ C     DEGREE (I) = LEN (I)
          DO I=1,N
             NV(I) = 1
             IF (LEN(I).LT.0) THEN 
-C     write(6,*) I, ' was flagged '
                DEGREE (I) = N2
                NBFLAG     = NBFLAG +1
-C     begin HALO V3
                IF (LEN(I).EQ.-N-1) THEN
-C     variable in V1 with empty adj list 
                   LEN (I)    = 0
 C     Because of compress, we force skipping this
 C     entry which is anyway empty
@@ -4289,10 +4281,6 @@ C       -------------------------------------------------------------
    40   CONTINUE
    50   MINDEG = DEG
         IF (ME.LE.0) THEN
-C         write (*,*) ' Error 1 in HALO_AMD '
-C         write(6,*) ' NEL, DEG=', NEL,DEG
-C         stop
-C         return to calling program with error return
           NCMPA = -N
           CALL MUMPS_ABORT()
         ENDIF
@@ -4314,9 +4302,6 @@ C         NEXT(J) = 0
           J= NEXT(J)
           GOTO 55
          ENDIF
-C        write(6,*) ' Selected pivot has degree, WF= ',
-C    &      me, degree(me), wf(me)
-C        remove me from the list
          ILAST = LAST(ME)
          INEXT = NEXT(ME)
          IF (INEXT .NE. 0) LAST (INEXT) = ILAST
@@ -4536,7 +4521,6 @@ C                 i is at the head of the degree list
             IF (E .NE. ME) THEN
 C             set tree pointer and flag to indicate element e is
 C             absorbed into new element me (the parent of e is me)
-C               write(*,*) 'ME father of E',ME,E
               PE (E) = int(-ME,8)
               W (E) = 0
             ENDIF
@@ -4554,7 +4538,6 @@ C       degme holds the external degree of new element
         DEGREE (ME) = DEGME
         PE (ME) = PME1
         LEN (ME) = int(PME2 - PME1 + 1_8)
-C        write(*,*) 'ME',ME,'DEG',DEGME,'LP =',IW(PME1:PME2)
 C       -------------------------------------------------------------
 C       make sure that wflg is not too large.  With the current
 C       value of wflg, wflg+n must not cause integer overflow
@@ -4828,7 +4811,6 @@ C                 jump if an entry (iw(p)) is in j but not in i
 C               -------------------------------------------------
 C               found it!  j can be absorbed into i
 C               -------------------------------------------------
-C                write(*,*) 'merge I,J',I,J
                 PE (J) = int(-I,8)
                 WF(I)  = max(WF(I),WF(J))
 C               both nv (i) and nv (j) are negated since they
@@ -5826,8 +5808,6 @@ C            THRESM = max(THRESM*2, MINDEN*2)
              IF (THRESM.GE.NBD) THRESM=TOTEL
             ENDIF
             NBD    = NBED
-C           get back to Min degree elimination loop
-C           CALL SECFIN(TIME)
 C
             GOTO 30
           ENDIF
@@ -5836,10 +5816,10 @@ C         -------------------------------------------------------------
           IF (DEGREE(ME).EQ.TOTEL+1) THEN
 C         we have only  exactly "dense" rows that we
 C         amalgamate at the root node
-           IF (NBD.NE.NBED) THEN
-            write(6,*) ' Internal ERROR quasi dense rows remains'
-            CALL MUMPS_ABORT()
-           ENDIF
+             IF (NBD.NE.NBED) THEN
+                write(6,*) ' Internal ERROR quasi dense rows remains'
+                CALL MUMPS_ABORT()
+             ENDIF
 C          1/ Go through all
 C          non absorbed elements (root of the subgraph) 
 C          and absorb in ME
@@ -8244,7 +8224,8 @@ C    On input, IW(1:PFREE-1) contains the orginal graph
 C    On output it has been corrupted because IW(1:IWLEN) has been
 C    used as workspace.
 C
-C LEN(inout):  On input, LEN (i) holds the number of entries in row i of the
+C LEN(inout):  On input, 
+C       LEN (i) holds the number of entries in row i of the
 C       matrix, excluding the diagonal.  The contents of LEN(1..N)
 C       are undefined on output.
 C
@@ -8301,6 +8282,7 @@ C
 C LAST (out) used internally as working space; 
 C       On output, last (1..n) holds the permutation,  i = last (k), then
 C       row i is the kth pivot row.
+C FIXME : Not seems not to be used on output
 C
 C AGG6 (in): controls if aggressive absorption should be authorized.
 C
@@ -9037,9 +9019,9 @@ C         -------------------------------------------------------------
           IF (DEGREE(ME).EQ.N+1) THEN
 C         we have only  exactly "dense" rows that we
 C         amalgamate at the root node
-           IF (NBD.NE.NBED) THEN
+             IF (NBD.NE.NBED) THEN
           write(6,*) ' ERROR in MUMPS_SYMQAMD quasi dense rows remains'
-            CALL MUMPS_ABORT()
+          CALL MUMPS_ABORT()
            ENDIF
            NbSchur = 0   ! Only for checking
            NELME    = -(NEL+1)

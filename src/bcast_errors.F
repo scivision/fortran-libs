@@ -1,17 +1,17 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
 C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE MUMPS_PROPINFO( ICNTL, INFO, COMM, ID )
-      INTEGER ICNTL(40), INFO(40), COMM, ID
+      INTEGER ICNTL(60), INFO(80), COMM, ID
       INCLUDE 'mpif.h'
 #if defined(WORKAROUNDINTELILP64MPI2INTEGER)
       INTEGER(4) :: IN( 2 ), OUT( 2 )

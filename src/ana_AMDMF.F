@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -28,7 +28,8 @@ C
       INTEGER(8), INTENT(INOUT) :: PE(N)
       INTEGER, INTENT(INOUT)    :: PERM(N)
       INTEGER, INTENT(OUT)   :: NCMPA
-      INTEGER, INTENT(OUT)   :: NV(N), ELEN(N), LAST(N)
+      INTEGER, INTENT(OUT)   :: NV(N), LAST(N)
+      INTEGER, INTENT(INOUT)   :: ELEN(N)
       INTEGER, INTENT(OUT) :: NDENSE(N), DEGREE(N), 
      &                        HEAD(N), NEXT(N), W(N)
       INTEGER THRESM, NDME, PERMeqN
@@ -66,7 +67,6 @@ C
         IF (JOB.NE.2) THEN
           SchurON   = (SIZE_COMPLEM_LIST > 0)
           IF ((JOB.EQ.1) .AND. (.NOT.SchurON) .AND. (N .GT. 0)) THEN
-           WRITE(6,*) ' WARNING MUMPS_SYMQAMD_NEW on Options '
           ENDIF
           IBEGSchur = N-SIZE_COMPLEM_LIST+1
           IF (THRESM.GT.N) THRESM = N
@@ -118,6 +118,7 @@ C
         NDENSE(I)= 0
         LAST (I) = 0
         HEAD (I) = 0
+        NEXT (I) = 0
         NV (I) = 1
         W (I) = 1
    10 CONTINUE
@@ -292,10 +293,10 @@ C
             GOTO 30
           ENDIF
           IF (DEGREE(ME).EQ.N+1) THEN
-           IF (NBD.NE.NBED) THEN
+             IF (NBD.NE.NBED) THEN
           write(6,*) ' ERROR in MUMPS_SYMQAMD_NEW ',
      &                ' quasi dense rows remains'
-            CALL MUMPS_ABORT()
+          CALL MUMPS_ABORT()
            ENDIF
            IF (JOB.EQ.1) THEN
             DO I = 1,SIZE_COMPLEM_LIST

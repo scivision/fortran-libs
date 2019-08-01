@@ -192,7 +192,7 @@ void DMUMPS_alloc(DMUMPS_STRUC_C **dmumps_par){
   /* LhsVar parameters */
   int linfog, lrinfog, lrhsout,lrhsouti, linstout, lschurout, lschurouti, ldef;
   int lpivnul_list, lmapp, lsymperm, lunsperm;
-  int one=1, temp1=40, temp2=40, temp3, temp4;
+  int one=1, temp1=80, temp2=40, temp3, temp4;
   int it, itRHS, itREDRHS; /* parameter for real/complex types */
 
   int i,j,k1,k2, nb_in_row,netrue;
@@ -364,7 +364,7 @@ void DMUMPS_alloc(DMUMPS_STRUC_C **dmumps_par){
 	dmumps_par->job=*istk(ljob);
 	
 	GetRhsVar(3,"i",&micntl,&nicntl,&licntl);
-	EXTRACT_FROM_SCILAB_TOARR(istk(licntl),dmumps_par->icntl,int,40);
+	EXTRACT_FROM_SCILAB_TOARR(istk(licntl),dmumps_par->icntl,int,60);
 
 	GetRhsVar(4,"d",&mcntl,&ncntl,&lcntl);
 	EXTRACT_FROM_SCILAB_TOARR(stk(lcntl),dmumps_par->cntl,double,15);
@@ -593,7 +593,7 @@ void DMUMPS_alloc(DMUMPS_STRUC_C **dmumps_par){
 
       EXTRACT_INT_FROM_C_TO_SCILAB(9,lunsperm,(dmumps_par->uns_perm),one,nA,one);
 
-      nicntl=40;
+      nicntl=60;
       EXTRACT_INT_FROM_C_TO_SCILAB(10,licntl,(dmumps_par->icntl),one,nicntl,one);
       ncntl=15;
       EXTRACT_DOUBLE_FROM_C_TO_SCILAB(11,it,lcntl,lcntl,(dmumps_par->cntl),one,ncntl,one);

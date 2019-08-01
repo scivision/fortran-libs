@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.1.2, released
-#  on Mon Oct  2 07:37:01 UTC 2017
+#  This file is part of MUMPS 5.2.1, released
+#  on Fri Jun 14 14:46:05 UTC 2019
 #
 topdir = ..
 libdir = $(topdir)/lib
@@ -12,10 +12,10 @@ default: d
 
 all:	c z s d multi
 
-c:	csimpletest 
-z:	zsimpletest 
-s:	ssimpletest 
-d:	dsimpletest   c_example
+c:	csimpletest csimpletest_save_restore
+z:	zsimpletest zsimpletest_save_restore
+s:	ssimpletest ssimpletest_save_restore
+d:	dsimpletest dsimpletest_save_restore c_example_save_restore c_example
 multi:	multiple_arithmetics_example
 
 
@@ -54,10 +54,24 @@ c_example:	$(LIBDMUMPS) $$@.o
 multiple_arithmetics_example:	$(LIBSMUMPS) $(LIBDMUMPS) $(LIBCMUMPS) $(LIBZMUMPS) $$@.o
 	$(FL) -o $@ $(OPTL) $@.o $(LIBSMUMPS) $(LIBDMUMPS) $(LIBCMUMPS) $(LIBZMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
 
+ssimpletest_save_restore:  $(LIBSMUMPS)  $$@.o
+	$(FL) -o $@ $(OPTL) ssimpletest_save_restore.o  $(LIBSMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
+
+dsimpletest_save_restore: $(LIBDMUMPS)  $$@.o 
+	$(FL) -o $@ $(OPTL) dsimpletest_save_restore.o  $(LIBDMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
+
+csimpletest_save_restore: $(LIBCMUMPS)  $$@.o
+	$(FL) -o $@ $(OPTL) csimpletest_save_restore.o  $(LIBCMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
+
+zsimpletest_save_restore: $(LIBZMUMPS)  $$@.o
+	$(FL) -o $@ $(OPTL) zsimpletest_save_restore.o  $(LIBZMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
+
+c_example_save_restore:	$(LIBDMUMPS) $$@.o
+	$(FL) -o $@ $(OPTL) $@.o $(LIBDMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
 
 .SUFFIXES: .c .F .o
 .F.o:
-	$(FC) $(OPTF) $(INCS) -I. -I$(topdir)/include -c $*.F $(OUTF)$*.o
+	$(FC) $(OPTF) $(INCS) -I. -I$(topdir)/include -I$(topdir)/src -c $*.F $(OUTF)$*.o
 .c.o:
 	$(CC) $(OPTC) $(INCS) $(CDEFS) -I. -I$(topdir)/include -I$(topdir)/src -c $*.c $(OUTC)$*.o
 
@@ -83,4 +97,4 @@ $(LIBMUMPS_COMMON):
 	exit 1
 
 clean:
-	$(RM) *.o [sdcz]simpletest c_example multiple_arithmetics_example     
+	$(RM) *.o [sdcz]simpletest c_example multiple_arithmetics_example ssimpletest_save_restore dsimpletest_save_restore csimpletest_save_restore zsimpletest_save_restore c_example_save_restore

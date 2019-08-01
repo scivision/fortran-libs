@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -128,11 +128,12 @@ C
      &    NBROWS, NBCOLS,
      &    OPASSW, OPELIW, STEP, PTRIST, PTRAST, ITLOC,
      &    RHS_MUMPS, FILS, PTRARW, PTRAIW, INTARR, DBLARR, 
-     &    ICNTL, KEEP,KEEP8, MYID)
+     &    ICNTL, KEEP,KEEP8, MYID, LRGROUPS)
+      USE ZMUMPS_DYNAMIC_MEMORY_M, ONLY : ZMUMPS_DM_SET_DYNPTR
       IMPLICIT NONE
       INTEGER N,LIW
       INTEGER(8) :: LA
-      INTEGER KEEP(500), ICNTL(40)
+      INTEGER KEEP(500), ICNTL(60)
       INTEGER(8) KEEP8(150)
       INTEGER INODE, MYID
       INTEGER NBROWS, NBCOLS 
@@ -145,14 +146,19 @@ C
       INTEGER :: INTARR(KEEP8(27))
       COMPLEX(kind=8) :: DBLARR(KEEP8(26))
       DOUBLE PRECISION OPASSW, OPELIW
+      INTEGER, INTENT(IN)    :: LRGROUPS(N)
       INTEGER(8) :: POSELT
+      COMPLEX(kind=8), DIMENSION(:), POINTER :: A_PTR
+      INTEGER(8) :: LA_PTR
       INTEGER IOLDPS, NBCOLF, NBROWF, NSLAVES, HF,
      &        K1,K2,K,J,JPOS,NASS
       COMPLEX(kind=8) ZERO
       PARAMETER( ZERO = (0.0D0,0.0D0) )
       INCLUDE 'mumps_headers.h'
       IOLDPS  = PTRIST(STEP(INODE))
-      POSELT  = PTRAST(STEP(INODE))
+      CALL ZMUMPS_DM_SET_DYNPTR( IW(IOLDPS+XXS), A, LA,
+     &     PTRAST(STEP(INODE)), IW(IOLDPS+XXD), IW(IOLDPS+XXR),
+     &     A_PTR, POSELT, LA_PTR )
       NBCOLF  = IW(IOLDPS+KEEP(IXSZ))
       NBROWF  = IW(IOLDPS+2+KEEP(IXSZ))
       NASS    = IW(IOLDPS+1+KEEP(IXSZ))
@@ -162,10 +168,10 @@ C
           NASS         = -NASS
           IW(IOLDPS+1+KEEP(IXSZ)) = NASS
           CALL ZMUMPS_ASM_SLAVE_ARROWHEADS(INODE, N, IW, LIW,
-     &           IOLDPS, A, LA, POSELT, KEEP, KEEP8,
+     &           IOLDPS, A_PTR(POSELT), LA_PTR, 1_8, KEEP, KEEP8,
      &           ITLOC, FILS, PTRAIW, PTRARW, INTARR, DBLARR,
      &           KEEP8(27), KEEP8(26),
-     &           RHS_MUMPS)
+     &           RHS_MUMPS, LRGROUPS)
       ENDIF
       IF (NBROWS.GT.0) THEN
           K1 = IOLDPS + HF + NBROWF
@@ -214,10 +220,11 @@ C
      &    OPASSW, OPELIW, STEP, PTRIST, PTRAST, ITLOC,
      &    RHS_MUMPS, FILS,
      &    ICNTL, KEEP,KEEP8, MYID, IS_ofType5or6, LDA_VALSON)
+      USE ZMUMPS_DYNAMIC_MEMORY_M, ONLY: ZMUMPS_DM_SET_DYNPTR
       IMPLICIT NONE
       INTEGER N,LIW
       INTEGER(8) :: LA
-      INTEGER KEEP(500), ICNTL(40)
+      INTEGER KEEP(500), ICNTL(60)
       INTEGER(8) KEEP8(150)
       INTEGER INODE, MYID
       LOGICAL, intent(in) :: IS_ofType5or6
@@ -232,14 +239,17 @@ C
       INTEGER(8) :: POSEL1, POSELT, APOS, K8
       INTEGER IOLDPS, NBCOLF, NBROWF, NSLAVES, HF,
      &        I,J,NASS,IDIAG
+      COMPLEX(kind=8), POINTER, DIMENSION(:) :: A_PTR
+      INTEGER(8) :: LA_PTR
       INCLUDE 'mumps_headers.h'
-      INTRINSIC real
       IOLDPS  = PTRIST(STEP(INODE))
-      POSELT  = PTRAST(STEP(INODE))
+      CALL ZMUMPS_DM_SET_DYNPTR( IW(IOLDPS+XXS), A, LA,
+     &     PTRAST(STEP(INODE)), IW(IOLDPS+XXD), IW(IOLDPS+XXR),
+     &     A_PTR, POSELT, LA_PTR )
       NBCOLF  = IW(IOLDPS+KEEP(IXSZ))
       NBROWF  = IW(IOLDPS+2+KEEP(IXSZ))
       NASS    = IW(IOLDPS+1+KEEP(IXSZ))
-       IF ( NBROWS .GT. NBROWF ) THEN
+      IF ( NBROWS .GT. NBROWF ) THEN
           WRITE(*,*) ' ERR: ERROR : NBROWS > NBROWF'
           WRITE(*,*) ' ERR: INODE =', INODE
           WRITE(*,*) ' ERR: NBROW=',NBROWS,'NBROWF=',NBROWF
@@ -256,7 +266,8 @@ C
             APOS = POSEL1 + int(ROWLIST(1),8) * int(NBCOLF,8)
             DO I=1, NBROWS
                 DO J = 1, NBCOLS
-                  A(APOS+int(J-1,8)) = A( APOS+int(J-1,8)) + VALSON(J,I)
+                  A_PTR(APOS+int(J-1,8)) = A_PTR( APOS+int(J-1,8)) +
+     &                                     VALSON(J,I)
                 ENDDO
                 APOS = APOS + int(NBCOLF,8)
             END DO
@@ -265,7 +276,7 @@ C
              APOS = POSEL1 + int(ROWLIST(I),8) * int(NBCOLF,8)
              DO J=1,NBCOLS
               K8 = APOS + int(ITLOC(COLLIST(J)),8) - 1_8
-              A(K8) = A(K8) + VALSON(J,I)
+              A_PTR(K8) = A_PTR(K8) + VALSON(J,I)
              ENDDO
             ENDDO
            ENDIF
@@ -275,8 +286,8 @@ C
      &              + int((NBROWS-1),8)*int(NBCOLF,8)
             IDIAG = 0
             DO I=NBROWS,1,-1
-             A(APOS:APOS+int(NBCOLS-IDIAG-1,8))= 
-     &         A(APOS:APOS+int(NBCOLS-IDIAG-1,8)) +
+             A_PTR(APOS:APOS+int(NBCOLS-IDIAG-1,8))= 
+     &         A_PTR(APOS:APOS+int(NBCOLS-IDIAG-1,8)) +
      &         VALSON(1:NBCOLS-IDIAG,I)
              APOS = APOS - int(NBCOLF,8)
              IDIAG = IDIAG + 1
@@ -289,7 +300,7 @@ C
                   EXIT
               ENDIF
               K8 = APOS + int(ITLOC(COLLIST(J)),8) - 1_8
-              A(K8) = A(K8) + VALSON(J,I)
+              A_PTR(K8) = A_PTR(K8) + VALSON(J,I)
              ENDDO
             ENDDO
            ENDIF
@@ -383,6 +394,7 @@ C
      &             NCOLS, LCB,
      &             IW, NROWS, NELIM, ETATASS,
      &             CB_IS_COMPRESSED
+!$   &             , K360
      &             )
       IMPLICIT NONE
       INTEGER NFRONT, NASS1
@@ -395,12 +407,13 @@ C
       INTEGER IW( NCOLS )
       INTEGER ETATASS
       LOGICAL CB_IS_COMPRESSED
+!$    INTEGER, INTENT(in):: K360
       COMPLEX(kind=8) ZERO
       PARAMETER( ZERO = (0.0D0,0.0D0) )
       INTEGER I, J
       INTEGER(8) :: APOS, POSELT
       INTEGER(8) :: IPOSCB
-      LOGICAL    :: OMP_FLAG
+!$    LOGICAL    :: OMP_FLAG
       IF ((ETATASS.EQ.0) .OR. (ETATASS.EQ.1)) THEN
         IPOSCB = 1_8
         DO I = 1, NELIM
@@ -417,7 +430,7 @@ C
         END DO
       ENDIF
       IF ((ETATASS.EQ.0).OR.(ETATASS.EQ.1)) THEN
-        OMP_FLAG = (NROWS-NELIM).GE.300
+!$      OMP_FLAG = (NROWS-NELIM).GE.K360
 !$OMP PARALLEL DO PRIVATE(IPOSCB, POSELT, J, APOS) IF (OMP_FLAG)
        DO I = NELIM + 1, NROWS
           IF (CB_IS_COMPRESSED) THEN
@@ -589,15 +602,20 @@ C
       APOS = POSELT + int(NASS1,8)*int(NASS1,8) - 1_8
       DO JJ1 = 1, NBCOLS
          JJ2 = APOS+int(IW(J1 + JJ1 - 1),8)
-         IF(dble(A(JJ2)) .LT. VALSON(JJ1))
-     &         A(JJ2) = cmplx(VALSON(JJ1),kind=kind(A))
+         IF(dble(A(JJ2)) .LT. VALSON(JJ1)) THEN
+              A(JJ2) = cmplx(VALSON(JJ1),kind=kind(A))
+         ENDIF
       ENDDO
       RETURN
       END SUBROUTINE ZMUMPS_ASM_MAX
       SUBROUTINE ZMUMPS_ASM_SLAVE_ARROWHEADS(INODE, N, IW, LIW, IOLDPS,
      &           A, LA, POSELT, KEEP, KEEP8,
      &           ITLOC, FILS, PTRAIW, PTRARW, INTARR, DBLARR,
-     &           LINTARR, LDBLARR, RHS_MUMPS)
+     &           LINTARR, LDBLARR, RHS_MUMPS, LRGROUPS)
+!$    USE OMP_LIB
+      USE ZMUMPS_ANA_LR,    ONLY : GET_CUT
+      USE ZMUMPS_LR_CORE,   ONLY : MAX_CLUSTER
+      USE MUMPS_LR_COMMON,  ONLY : COMPUTE_BLR_VCS
       IMPLICIT NONE
       INTEGER, intent(in)    :: N, LIW, IOLDPS, INODE
       INTEGER(8), intent(in) :: LA, POSELT
@@ -612,6 +630,10 @@ C
       INTEGER, intent(in)    :: INTARR(LINTARR)
       INTEGER, intent(in)    :: FILS(N)
       INTEGER(8), intent(in) :: PTRAIW(N), PTRARW(N)
+      INTEGER, INTENT(IN)    :: LRGROUPS(N)
+!$    INTEGER :: NOMP
+!$    INTEGER(8) :: CHUNK8  
+!$    INTEGER    :: CHUNK
       INCLUDE 'mumps_headers.h'
       INTEGER    :: HF, NBROWF, NBCOLF, NASS, NSLAVES
       INTEGER    :: ILOC, J, K, K1, K2, JPOS, IJROW
@@ -619,15 +641,53 @@ C
       INTEGER(8) :: J18, J28, JJ8, JK8
       INTEGER(8) :: APOS, ICT12
       INTEGER(8) :: AINPUT8
+      INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR_LS
+      INTEGER :: NB_BLR_LS, NPARTSCB, NPARTSASS, MAXI_CLUSTER, 
+     &           IBCKSZ2, MINSIZE, TOPDIAG
+      INTEGER(8) :: JJ3
       INTEGER    :: K1RHS, K2RHS, JFirstRHS
       COMPLEX(kind=8) ZERO
       PARAMETER( ZERO = (0.0D0,0.0D0) )
       NBCOLF  = IW(IOLDPS+KEEP(IXSZ))
       NBROWF  = IW(IOLDPS+2+KEEP(IXSZ))
       NASS    = IW(IOLDPS+1+KEEP(IXSZ))
-      A(POSELT:POSELT+int(NBROWF,8)*int(NBCOLF,8)-1_8) = ZERO
       NSLAVES= IW(IOLDPS+5 + KEEP(IXSZ))
       HF      = 6 + NSLAVES + KEEP(IXSZ)
+!$    NOMP = OMP_GET_MAX_THREADS()
+      IF (KEEP(50) .EQ. 0 .OR. NBROWF .LT. KEEP(63)) THEN
+!$      CHUNK8 = int(KEEP(361),8)
+!$OMP   PARALLEL DO PRIVATE(JJ8) SCHEDULE(STATIC, CHUNK8)
+!$OMP&  IF (int(NBROWF,8)*int(NBCOLF,8) > int(KEEP(361),8)
+!$OMP&    .AND. NOMP .GT. 1)
+        DO JJ8=POSELT, POSELT+int(NBROWF,8)*int(NBCOLF,8)-1_8
+          A(JJ8) = ZERO
+        ENDDO
+!$OMP   END PARALLEL DO
+      ELSE
+        TOPDIAG = 0
+        IF (IW(IOLDPS+XXLR).GE.1) THEN
+          CALL GET_CUT(IW(IOLDPS+HF:IOLDPS+HF+NBROWF-1), 0,
+     &                    NBROWF, LRGROUPS, NPARTSCB, 
+     &                    NPARTSASS, BEGS_BLR_LS)
+          NB_BLR_LS = NPARTSCB
+          call MAX_CLUSTER(BEGS_BLR_LS,NB_BLR_LS+1,MAXI_CLUSTER)
+          DEALLOCATE(BEGS_BLR_LS)
+          CALL COMPUTE_BLR_VCS(KEEP(472), IBCKSZ2, KEEP(488), NASS)
+          MINSIZE = int(IBCKSZ2 / 2)
+          TOPDIAG = max(2*MINSIZE + MAXI_CLUSTER-1, TOPDIAG)
+        ENDIF
+!$      CHUNK = max( KEEP(360)/2,
+!$   &               ((NBROWF+NOMP-1)/NOMP +2) / 3 )
+!$OMP   PARALLEL DO PRIVATE(APOS,JJ3,JJ8) SCHEDULE(STATIC,CHUNK)
+!$OMP&  IF (NBROWF .GT. KEEP(360) .AND. NOMP .GT. 1)
+        DO JJ8 = 0_8, int(NBROWF-1,8)
+          APOS = POSELT+ JJ8*int(NBCOLF,8)
+          JJ3  = min( int(NBCOLF,8)  - 1_8, 
+     &           JJ8 + int(NBCOLF-NBROWF,8) + TOPDIAG )
+          A(APOS: APOS+JJ3) = ZERO
+        ENDDO
+!$OMP   END PARALLEL DO
+      ENDIF
       K1 = IOLDPS + HF + NBROWF
       K2 = K1 + NASS - 1
       JPOS = 1

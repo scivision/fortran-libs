@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -12,9 +12,11 @@ C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       INTEGER FUNCTION MUMPS_BLOC2_GET_NSLAVESMIN 
      &         ( SLAVEF, K48, K821, K50,
-     &         NFRONT, NCB, K375)
+     &         NFRONT, NCB, K375, K119)
       IMPLICIT NONE
-      INTEGER,    INTENT (IN) :: SLAVEF, K48, K50, NFRONT, NCB, K375
+      INTEGER,    INTENT (IN) :: SLAVEF, K48, K50, NFRONT, NCB
+      INTEGER,    INTENT (IN) :: K375
+      INTEGER,    INTENT (IN) :: K119
       INTEGER(8), INTENT (IN) :: K821
       INTEGER NSLAVESMIN, NASS, KMAX
       REAL Wmaster, Wtotal, Wmax
@@ -25,7 +27,8 @@ C
       KMAX = MUMPS_REG_GETKMAX( K821, NCB )
       NASS = NFRONT - NCB
       NSLAVESMIN  = 1
-      IF ( K48 .EQ.0 .OR. (K48.EQ.5 .AND.K50.EQ.0)) THEN 
+      IF ( K48 .EQ.0 .OR.
+     &    (K48.EQ.5 .AND.  (K119.EQ.1. OR.K50.EQ.0))) THEN 
          NSLAVESMIN = max(NCB/max(1,KMAX),1)
       ELSE IF (K48 .EQ. 3 .OR.(K48.EQ.5 .AND.K50.NE.0) ) THEN
         Wmax    = MUMPS_BLOC2_COUT(KMAX,NFRONT,NASS)
@@ -37,7 +40,9 @@ C
          NSLAVESMIN = max ( nint ( Wtotal / Wmax ), 1 )
         ENDIF
         IF (K48 .EQ. 5) THEN
-          NSLAVESMIN = max ( NSLAVESMIN/2, 1 )
+          IF (K119.EQ.2) THEN
+            NSLAVESMIN = max ( NSLAVESMIN/2, 1 )
+          ENDIF
         END IF
       ELSE IF (K48 .EQ. 4 ) THEN
          IF ( K821 > 0_8 ) THEN
@@ -79,9 +84,9 @@ C
       END FUNCTION MUMPS_BLOC2_GET_NSLAVESMIN 
       INTEGER FUNCTION MUMPS_BLOC2_GET_NSLAVESMAX 
      &        ( SLAVEF, K48, K821, K50,
-     &          NFRONT, NCB, K375)
+     &          NFRONT, NCB, K375, K119 )
       IMPLICIT NONE
-      INTEGER, INTENT (IN) :: SLAVEF, K48, K50,NFRONT, NCB, K375
+      INTEGER, INTENT (IN) :: SLAVEF, K48, K50,NFRONT, NCB, K375, K119
       INTEGER(8), INTENT(IN) :: K821
       INTEGER NSLAVESMAX, KMAX, KMIN
       INTEGER NSLAVESMIN
@@ -100,7 +105,7 @@ C
          NSLAVESMAX = SLAVEF-1
       ENDIF
       NSLAVESMIN = MUMPS_BLOC2_GET_NSLAVESMIN(
-     &     SLAVEF, K48, K821, K50, NFRONT, NCB, K375 )
+     &     SLAVEF, K48, K821, K50, NFRONT, NCB, K375, K119 )
       NSLAVESMAX = max ( NSLAVESMAX, NSLAVESMIN )
       MUMPS_BLOC2_GET_NSLAVESMAX = 
      &               min ( NSLAVESMAX, NCB )
@@ -125,7 +130,7 @@ C
      &        MUMPS_BLOC2_GET_NSLAVESMIN
       IF ( WHAT .NE. 1 .and. WHAT .NE. 2 ) THEN
         IF (WHAT .NE. 4 .and. WHAT .NE. 5 .AND.
-     &       KEEP(48).NE.5 ) THEN
+     &        KEEP(48).NE.5 ) THEN
         WRITE(*,*) "Internal error 1 in MUMPS_MAX_SURFCB_NBROWS"
         CALL MUMPS_ABORT()
         END IF
@@ -134,7 +139,7 @@ C
       IF (WHAT .EQ.1.OR.WHAT.EQ.2) THEN
         NSLAVES = MUMPS_BLOC2_GET_NSLAVESMIN( SLAVEF, KEEP(48),
      &            KEEP8(21), KEEP(50),
-     &            NFR, NCB, KEEP(375) )
+     &            NFR, NCB, KEEP(375), KEEP(119) )
       ELSE
         NSLAVES=SLAVEF
       ENDIF
@@ -402,10 +407,10 @@ C
       END FUNCTION MUMPS_BLOC2_COUT
       INTEGER FUNCTION MUMPS_REG_GET_NSLAVES 
      &      (K821, K48, K50, SLAVEF, 
-     &      NCB, NFRONT, NSLAVES_less, NMB_OF_CAND, K375)
+     &      NCB, NFRONT, NSLAVES_less, NMB_OF_CAND, K375, K119)
       IMPLICIT NONE
       INTEGER, INTENT( IN ) :: NCB, NFRONT, NSLAVES_less, 
-     &                  K48, K50, SLAVEF, NMB_OF_CAND, K375
+     &                  K48, K50, SLAVEF, NMB_OF_CAND, K375, K119
       INTEGER(8), INTENT(IN) :: K821
       INTEGER NSLAVES
       INTEGER KMAX, NPIV,
@@ -422,11 +427,11 @@ C
       IF ( (K48.EQ.0).OR. (K48.EQ.3) ) THEN
          KMAX = MUMPS_REG_GETKMAX( K821, NCB )
          NSLAVES_ref = MUMPS_BLOC2_GET_NSLAVESMIN(
-     &     SLAVEF, K48, K821, K50, NFRONT, NCB, K375 )
+     &     SLAVEF, K48, K821, K50, NFRONT, NCB, K375, K119 )
          NSLAVES = NSLAVES_ref
          IF ( NSLAVES_ref.LT.SLAVEF ) THEN
            NSLAVES_max = MUMPS_BLOC2_GET_NSLAVESMAX(
-     &       SLAVEF, K48, K821, K50, NFRONT, NCB, K375 )
+     &       SLAVEF, K48, K821, K50, NFRONT, NCB, K375, K119 )
            IF ( NSLAVES_max .LT. NSLAVES_less ) THEN
             NSLAVES =  NSLAVES_max
            ELSE 
@@ -486,7 +491,7 @@ C
        RETURN
       ENDIF
       IF (KEEP(48).NE.0.and.KEEP(48).NE.3.and.KEEP(48).NE.4
-     &.and.KEEP(48).NE.5) THEN
+     &     .and.KEEP(48).NE.5) THEN
         WRITE(*,*) 'Error in MUMPS_BLOC2_GET_ISLAVE: undef strat'  
         CALL MUMPS_ABORT()
       ENDIF

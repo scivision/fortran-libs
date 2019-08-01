@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -23,19 +23,19 @@ C
      &    NBFIN, MYID, SLAVEF,
      &
      &    OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &    FILS, PTRARW, PTRAIW,
+     &    FILS, DAD, PTRARW, PTRAIW,
      &    INTARR, DBLARR,ICNTL,KEEP,KEEP8,DKEEP,ND,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE  
      &               , LRGROUPS
      &     )
       USE DMUMPS_BUF
+      USE DMUMPS_STRUC_DEF, ONLY : DMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'dmumps_root.h'
       INCLUDE 'mpif.h'
       TYPE (DMUMPS_ROOT_STRUC) :: root
       INTEGER IROOT
-      INTEGER ICNTL( 40 ), KEEP( 500 )
+      INTEGER ICNTL( 60 ), KEEP( 500 )
       INTEGER(8) KEEP8(150)
       DOUBLE PRECISION    DKEEP(230)
       INTEGER COMM_LOAD, ASS_IRECV
@@ -65,7 +65,7 @@ C
       INTEGER ISTEP_TO_INIV2(KEEP(71)), 
      &        TAB_POS_IN_PERE(SLAVEF+2,max(1,KEEP(56)))
       DOUBLE PRECISION OPASSW, OPELIW
-      INTEGER ITLOC( N+KEEP(253) ), FILS( N )
+      INTEGER ITLOC( N+KEEP(253) ), FILS( N ), DAD( KEEP(28) )
       DOUBLE PRECISION :: RHS_MUMPS(KEEP(255))
       INTEGER(8), INTENT(IN) :: PTRARW( LPTRAR ), PTRAIW( LPTRAR )
       INTEGER ND(KEEP(28)), FRERE(KEEP(28))
@@ -91,7 +91,7 @@ C
           IF ( PDEST .NE. MYID ) THEN
            CALL DMUMPS_BUF_SEND_ROOT2SLAVE(NFRONT, 
      &     NB_CONTRI_GLOBAL, PDEST, COMM, KEEP, IERR)
-              if (IERR.lt.0) then
+           if (IERR.lt.0) then
                 write(6,*) ' error detected by ',
      &          'DMUMPS_BUF_SEND_ROOT2SLAVE'
                 CALL MUMPS_ABORT()
@@ -112,7 +112,7 @@ C
      &    NBFIN, MYID, SLAVEF,
      &
      &    OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &    FILS, PTRARW, PTRAIW,
+     &    FILS, DAD, PTRARW, PTRAIW,
      &    INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,ND )
        IF (IFLAG < 0 ) RETURN
       HF = 6 + KEEP(IXSZ)
@@ -135,7 +135,7 @@ C
           IPOS_SON  = PIMASTER(STEP(IN))
           IF (IPOS_SON .EQ. 0) GOTO 100
           NELIM_SON   = IW(IPOS_SON+1+KEEP(IXSZ))
-              if (NELIM_SON.eq.0) then
+          if (NELIM_SON.eq.0) then
                 write(6,*) ' error 1 in process_last_rtnelind'
                 CALL MUMPS_ABORT()
               endif
@@ -159,7 +159,7 @@ C
             IF (PDEST.NE.MYID) THEN
              CALL DMUMPS_BUF_SEND_ROOT2SON(IN, NELIM_SENT,
      &        PDEST, COMM, KEEP, IERR )
-               if (IERR.lt.0) then
+             if (IERR.lt.0) then
                 write(6,*) ' error detected by ',
      &          'DMUMPS_BUF_SEND_ROOT2SLAVE'
                 CALL MUMPS_ABORT()
@@ -179,7 +179,7 @@ C
      &       NBFIN, MYID, SLAVEF,
      &
      &       OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &       FILS, PTRARW, PTRAIW,
+     &       FILS, DAD, PTRARW, PTRAIW,
      &       INTARR, DBLARR, ICNTL, KEEP, KEEP8, DKEEP, ND, FRERE,
      &       LPTRAR, NELT, FRTPTR, FRTELT, 
      &       ISTEP_TO_INIV2, TAB_POS_IN_PERE
@@ -208,8 +208,8 @@ C
              IPOS_SON  = PIMASTER(STEP(IN))
             ENDIF
           END DO
-          CALL  DMUMPS_FREE_BLOCK_CB( .FALSE.,MYID,N, IPOS_SON, 
-     &       PTRAST(STEP(IN)),
+          CALL  DMUMPS_FREE_BLOCK_CB_STATIC(
+     &       .FALSE., MYID, N, IPOS_SON,
      &       IW, LIW,
      &       LRLU, LRLUS, IPTRLU,
      &       IWPOSCB, LA, KEEP,KEEP8, .FALSE.

@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.1.2, released
-#  on Mon Oct  2 07:37:01 UTC 2017
+#  This file is part of MUMPS 5.2.1, released
+#  on Fri Jun 14 14:46:05 UTC 2019
 #
 # These settings for a PC under Debian/linux with standard packages :
 # metis (parmetis), scotch (ptscotch), openmpi, gfortran
@@ -61,10 +61,9 @@ LIBOTHERS = -lpthread
 CDEFS   = -DAdd_
 
 #Begin Optimized options
-# uncomment -fopenmp in lines below to benefit from OpenMP
-OPTF    = -O # -fopenmp
-OPTL    = -O # -fopenmp
-OPTC    = -O # -fopenmp
+OPTF    = -O -fopenmp
+OPTL    = -O -fopenmp
+OPTC    = -O -fopenmp
 #End Optimized options
  
 INCS = $(INCSEQ)

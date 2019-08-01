@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.1.2, released
-#  on Mon Oct  2 07:37:01 UTC 2017
+#  This file is part of MUMPS 5.2.1, released
+#  on Fri Jun 14 14:46:05 UTC 2019
 #
 # We are grateful to Evgenii Rudnyi for his help and suggestions
 # regarding Windows installation.
@@ -94,7 +94,7 @@ LIBOTHERS = -link $(PATHORDERINGS)
 CDEFS   = -DAdd_
 
 #Begin Optimized options
-OPTF    = -O -MD -Dintel_ -fpp
+OPTF    = -O -MD -Dintel_ -DGEMMT_AVAILABLE -fpp
 OPTL    = 
 OPTC    = -O2 -MD
 #End Optimized options

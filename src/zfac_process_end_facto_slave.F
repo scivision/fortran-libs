@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -22,7 +22,7 @@ C
      &    PAMASTER,
      &    NSTK, COMP, IFLAG, IERROR, NBPROCFILS,
      &    IPOOL, LPOOL, LEAF, NBFIN, SLAVEF,
-     &    OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, PTRARW, PTRAIW,
+     &    OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD, PTRARW, PTRAIW,
      &    INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE 
@@ -33,15 +33,15 @@ C
       USE MUMPS_FAC_MAPROW_DATA_M
 #endif
       USE ZMUMPS_LR_DATA_M  
+      USE ZMUMPS_STRUC_DEF, ONLY : ZMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'zmumps_root.h'
       INCLUDE 'mumps_headers.h'
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
       INTEGER INODE, FPERE
       TYPE (ZMUMPS_ROOT_STRUC) :: root
       INTEGER COMM, MYID
-      INTEGER ICNTL( 40 ), KEEP( 500 )
+      INTEGER ICNTL( 60 ), KEEP( 500 )
       INTEGER(8) KEEP8(150)
       DOUBLE PRECISION    DKEEP(230)
       INTEGER COMM_LOAD, ASS_IRECV
@@ -68,7 +68,7 @@ C
       INTEGER IPOOL( LPOOL )
       INTEGER NBFIN, SLAVEF
       DOUBLE PRECISION OPASSW, OPELIW
-      INTEGER ITLOC( N + KEEP(253) ), FILS( N )
+      INTEGER ITLOC( N + KEEP(253) ), FILS( N ), DAD( KEEP(28) )
       COMPLEX(kind=8) :: RHS_MUMPS(KEEP(255))
       INTEGER ND( KEEP(28) )
       INTEGER(8), INTENT(IN) :: PTRARW( LPTRAR ), PTRAIW( LPTRAR )
@@ -92,11 +92,14 @@ C
       INTEGER NPIV, LCONT, NELIM, NASS, NCOL_TO_SEND,
      &        SHIFT_LIST_ROW_SON, SHIFT_LIST_COL_SON
       INTEGER(8) :: SHIFT_VAL_SON
-      INTEGER(8) MEM_GAIN 
+      INTEGER(8) :: MEM_GAIN 
+      INTEGER(8) :: DYN_SIZE
 #if ! defined(NO_FDM_MAPROW)
       TYPE(MAPROW_STRUC_T), POINTER :: MRS
 #endif
       INTEGER :: IWHANDLER_SAVE
+      INTEGER    :: LRSTATUS
+      LOGICAL    :: CB_STORED_IN_BLRSTRUC, COMPRESS_CB
         IF (KEEP(50).EQ.0) THEN
           IHDR_REC=6
         ELSE
@@ -104,39 +107,67 @@ C
         ENDIF
         IOLDPS = PTRIST(STEP(INODE))
         IWHANDLER_SAVE = IW(IOLDPS+XXA)
-        CALL ZMUMPS_BLR_END_FRONT( IW(IOLDPS+XXF), IFLAG, KEEP8, .TRUE.)
+        LRSTATUS = IW(IOLDPS+XXLR)
+        COMPRESS_CB    = ((LRSTATUS.EQ.1).OR.
+     &                  (LRSTATUS.EQ.3))
+        IF (.NOT.
+     &       (
+     &         (KEEP(486).EQ.2) 
+     &       )
+     &       .AND..NOT.COMPRESS_CB) THEN
+          CALL ZMUMPS_BLR_END_FRONT(IW(IOLDPS+XXF), IFLAG, KEEP8)
+        ENDIF
         IW(IOLDPS+XXS)=S_ALL
-         IF (KEEP(214).EQ.1) THEN
+         IOLDPS = PTRIST(STEP(INODE))
+         LRSTATUS = IW(IOLDPS+XXLR)
+         IF ( (KEEP(214).EQ.1)
+     &      ) THEN
           CALL ZMUMPS_STACK_BAND( N, INODE,
      &    PTRIST, PTRAST, PTLUST_S, PTRFAC, IW, LIW, A, LA,
      &    LRLU, LRLUS, IWPOS, IWPOSCB, POSFAC, COMP, 
      &    IPTRLU, OPELIW, STEP, PIMASTER, PAMASTER,
-     &    IFLAG, IERROR, SLAVEF, MYID, COMM,
+     &    IFLAG, IERROR, SLAVEF, PROCNODE_STEPS, DAD, MYID, COMM,
      &    KEEP,KEEP8, DKEEP, ITYPE2
      &     )
-          IOLDPS = PTRIST(STEP(INODE))
+          IOLDPS = PTRIST(STEP(INODE)) 
           IF (KEEP(38).NE.FPERE) THEN
-            IW(IOLDPS+XXS)=S_NOLCBNOCONTIG
-            IF (KEEP(216).NE.3) THEN
-             MEM_GAIN=int(IW( IOLDPS + 2 + KEEP(IXSZ) ),8)*
-     &                int(IW( IOLDPS + 3 + KEEP(IXSZ) ),8)
-             LRLUS = LRLUS+MEM_GAIN
-             KEEP8(70) = KEEP8(70) + MEM_GAIN
-             KEEP8(71) = KEEP8(71) + MEM_GAIN
-             CALL ZMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
+            CB_STORED_IN_BLRSTRUC = .FALSE.
+            LRSTATUS              = IW(IOLDPS+XXLR)
+            IF ((LRSTATUS.EQ.1).OR.(LRSTATUS.EQ.3)) THEN
+              CB_STORED_IN_BLRSTRUC = .TRUE.
+              IW(IOLDPS+XXS) = S_NOLNOCB
+              CALL MUMPS_GETI8(MEM_GAIN, IW(IOLDPS+XXR))
+              LRLUS  = LRLUS + MEM_GAIN
+              KEEP8(69) = KEEP8(69) - MEM_GAIN
+              CALL ZMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
      &              LA-LRLUS,0_8,-MEM_GAIN,KEEP,KEEP8,LRLUS)
+            ELSE
+              IW(IOLDPS+XXS)=S_NOLCBNOCONTIG
+              CALL MUMPS_GETI8( DYN_SIZE, IW(IOLDPS+XXD))
+              IF (DYN_SIZE .GT.0) THEN
+              ELSE IF (KEEP(216).NE.3) THEN
+               MEM_GAIN=int(IW( IOLDPS + 2 + KEEP(IXSZ) ),8)*
+     &                int(IW( IOLDPS + 3 + KEEP(IXSZ) ),8)
+               LRLUS = LRLUS+MEM_GAIN
+               KEEP8(69) = KEEP8(69) - MEM_GAIN
+               CALL ZMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
+     &              LA-LRLUS,0_8,-MEM_GAIN,KEEP,KEEP8,LRLUS)
+              ENDIF
             ENDIF
           ENDIF
-          IF (KEEP(216).EQ.2) THEN
+          CALL MUMPS_GETI8( DYN_SIZE, IW(IOLDPS+XXD))
+          IF (DYN_SIZE > 0_8) THEN
+          ELSE IF (KEEP(216).EQ.2) THEN
            IF (FPERE.NE.KEEP(38)) THEN
-           CALL ZMUMPS_MAKECBCONTIG(A,LA,PTRAST(STEP(INODE)),
-     &         IW( IOLDPS + 2 + KEEP(IXSZ) ),
-     &         IW( IOLDPS + KEEP(IXSZ) ),
-     &         IW( IOLDPS + 3 + KEEP(IXSZ) )+
-     &         IW( IOLDPS + KEEP(IXSZ) ), 0,
-     &         IW( IOLDPS + XXS ), 0_8 )
-           IW(IOLDPS+XXS)=S_NOLCBCONTIG
-           IW(IOLDPS+XXS)=S_NOLCBCONTIG
+             IF (.NOT. CB_STORED_IN_BLRSTRUC) THEN
+                CALL ZMUMPS_MAKECBCONTIG(A,LA,PTRAST(STEP(INODE)),
+     &            IW( IOLDPS + 2 + KEEP(IXSZ) ),
+     &            IW( IOLDPS + KEEP(IXSZ) ),
+     &            IW( IOLDPS + 3 + KEEP(IXSZ) )+
+     &            IW( IOLDPS + KEEP(IXSZ) ), 0,
+     &            IW( IOLDPS + XXS ), 0_8 )
+                IW(IOLDPS+XXS)=S_NOLCBCONTIG
+             ENDIF
            ENDIF
           ENDIF 
          ENDIF 
@@ -168,7 +199,7 @@ C
      &    PAMASTER,
      &    NSTK, COMP, IFLAG, IERROR, NBPROCFILS,
      &    IPOOL, LPOOL, LEAF, NBFIN, SLAVEF,
-     &    OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, PTRARW, PTRAIW,
+     &    OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD, PTRARW, PTRAIW,
      &    INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,.FALSE.,ND,FRERE,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE 
@@ -181,7 +212,8 @@ C
      &    PTRIST, PTRAST, PTLUST_S, PTRFAC, IW, LIW, A, LA,
      &    LRLU, LRLUS, IWPOS, IWPOSCB, POSFAC, COMP,
      &    IPTRLU, OPELIW, STEP, PIMASTER, PAMASTER,
-     &    IFLAG, IERROR, SLAVEF, MYID, COMM, KEEP,KEEP8,DKEEP, ITYPE2
+     &    IFLAG, IERROR, SLAVEF, PROCNODE_STEPS, DAD, MYID,
+     &    COMM, KEEP,KEEP8,DKEEP, ITYPE2
      &    )
          ENDIF
          CALL ZMUMPS_FREE_BAND( N, INODE, PTRIST, PTRAST, IW, LIW,
@@ -203,8 +235,7 @@ C
      &                     LIW-IOLDPS+1,
      &                     MEM_GAIN, KEEP(IXSZ) )
            LRLUS = LRLUS + MEM_GAIN
-           KEEP8(70) = KEEP8(70) + MEM_GAIN
-           KEEP8(71) = KEEP8(71) + MEM_GAIN
+           KEEP8(69) = KEEP8(69) - MEM_GAIN
               CALL ZMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
      &                LA-LRLUS,0_8,-MEM_GAIN,KEEP,KEEP8,LRLUS)
             IF (KEEP(216).EQ.2) THEN
@@ -255,7 +286,7 @@ C
      &  NBFIN, ICNTL, KEEP,KEEP8,DKEEP,
      &  root, OPASSW, OPELIW,
      &  ITLOC, RHS_MUMPS,
-     &  FILS, PTRARW, PTRAIW, INTARR, DBLARR, ND, FRERE,
+     &  FILS, DAD, PTRARW, PTRAIW, INTARR, DBLARR, ND, FRERE,
      &  LPTRAR, NELT, FRTPTR, FRTELT, 
      &
      &  ISTEP_TO_INIV2, TAB_POS_IN_PERE 

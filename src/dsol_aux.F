@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -254,12 +254,13 @@ C
    10 CONTINUE
       RETURN
       END SUBROUTINE DMUMPS_SOL_MULR
-      SUBROUTINE DMUMPS_SOL_B(N, KASE, X, EST, W, IW)
+      SUBROUTINE DMUMPS_SOL_B(N, KASE, X, EST, W, IW, GRAIN)
       INTEGER, intent(in)    :: N
       INTEGER, intent(inout) :: KASE
       INTEGER IW(N)
       DOUBLE PRECISION W(N), X(N)
       DOUBLE PRECISION, intent(inout)    :: EST
+      INTEGER, intent(in)    :: GRAIN
       INTRINSIC abs, nint, real, sign
       INTEGER DMUMPS_IXAMAX
       EXTERNAL DMUMPS_IXAMAX
@@ -309,7 +310,7 @@ C
       JUMP = 2
       RETURN
    40 CONTINUE
-      J = DMUMPS_IXAMAX(N, X, 1)
+      J = DMUMPS_IXAMAX(N, X, 1, GRAIN)
       ITER = 2
    50 CONTINUE
       DO 60 I = 1, N
@@ -337,7 +338,7 @@ C
       RETURN
   120 CONTINUE
       JLAST = J
-      J = DMUMPS_IXAMAX(N, X, 1)
+      J = DMUMPS_IXAMAX(N, X, 1, GRAIN)
       IF ((abs(X(JLAST)) .NE. abs(X(J))) .AND. (ITER .LT. ITMAX)) THEN
         ITER = ITER + 1
         GOTO 50
@@ -810,7 +811,7 @@ C
       SUBROUTINE DMUMPS_SOL_OMEGA(N, RHS,
      &    X, Y, R_W, C_W, IW, IFLAG,
      &    OMEGA, NOITER, TESTConv, 
-     &    LP, ARRET )
+     &    LP, ARRET, GRAIN )
       IMPLICIT NONE
       INTEGER N,  IFLAG
       INTEGER IW(N,2)
@@ -822,6 +823,7 @@ C
       LOGICAL TESTConv
       DOUBLE PRECISION OMEGA(2)
       DOUBLE PRECISION ARRET
+      INTEGER, intent(in) :: GRAIN
       DOUBLE PRECISION, PARAMETER :: CGCE=0.2D0
       DOUBLE PRECISION, PARAMETER :: CTAU=1.0D3
       INTEGER I, IMAX
@@ -833,7 +835,7 @@ C
       INTEGER DMUMPS_IXAMAX
       INTRINSIC  abs, max
       SAVE  OM1, OLDOMG
-      IMAX = DMUMPS_IXAMAX(N, X, 1)
+      IMAX = DMUMPS_IXAMAX(N, X, 1, GRAIN)
       DXMAX = abs(X(IMAX))
       OMEGA(1) = ZERO
       OMEGA(2) = ZERO
@@ -932,7 +934,7 @@ C
    10 CONTINUE
    30 CONTINUE
    35 CONTINUE
-      IMAX = DMUMPS_IXAMAX(N, X, 1)
+      IMAX = DMUMPS_IXAMAX(N, X, 1, KEEP(361))
       DXMAX = abs(X(IMAX))
       DO I = 1, N
         IF (IW(I, 1) .EQ. 1) THEN
@@ -948,11 +950,11 @@ C
       DO I = 1, N
         C_W(I) = X(I) * D(I)
       ENDDO
-      IMAX = DMUMPS_IXAMAX(N, C_W(1), 1)
+      IMAX = DMUMPS_IXAMAX(N, C_W(1), 1, KEEP(361))
       DXIMAX = abs(C_W(IMAX))
       IF (.NOT.LCOND1) GOTO 130
   100 CONTINUE
-      CALL DMUMPS_SOL_B(N, KASE, Y, COND(1), C_W, IW(1, 2))
+      CALL DMUMPS_SOL_B(N, KASE, Y, COND(1), C_W, IW(1, 2), KEEP(361))
       IF (KASE .EQ. 0) GOTO 120
       IF (KASE .EQ. 1) CALL DMUMPS_SOL_MULR(N, Y, D)
       IF (KASE .EQ. 2) CALL DMUMPS_SOL_MULR(N, Y, R_W)
@@ -969,7 +971,7 @@ C
       IF (.NOT.LCOND2) GOTO 170
       KASE = 0
   140 CONTINUE
-      CALL DMUMPS_SOL_B(N, KASE, Y, COND(2), C_W, IW(1, 2))
+      CALL DMUMPS_SOL_B(N, KASE, Y, COND(2), C_W, IW(1, 2), KEEP(361))
       IF (KASE .EQ. 0) GOTO 160
       IF (KASE .EQ. 1) CALL DMUMPS_SOL_MULR(N, Y, D)
       IF (KASE .EQ. 2) CALL DMUMPS_SOL_MULR(N, Y, R_W(1, 2))
@@ -1072,7 +1074,7 @@ C
       SUBROUTINE DMUMPS_SOL_Q(MTYPE, IFLAG, N,
      &    LHS, WRHS, W, RES, GIVNORM, ANORM, XNORM, SCLNRM,
      &    MPRINT, ICNTL, KEEP,KEEP8)
-      INTEGER MTYPE,N,IFLAG,ICNTL(40), KEEP(500)
+      INTEGER MTYPE,N,IFLAG,ICNTL(60), KEEP(500)
       INTEGER(8) KEEP8(150)
       DOUBLE PRECISION RES(N),LHS(N)
       DOUBLE PRECISION WRHS(N)
@@ -1128,3 +1130,439 @@ C
      &       ' RINFOG(6):SCALED RESIDUAL ...... (MAX-NORM)=',1PD9.2)
       RETURN
       END SUBROUTINE DMUMPS_SOL_Q
+      SUBROUTINE DMUMPS_SOLVE_FWD_TRSOLVE (A, LA, APOS, NPIV, LDADIAG, 
+     &           NRHS_B, WCB, LWCB, LDA_WCB, PPIV_COURANT, MTYPE, KEEP)
+       INTEGER, INTENT(IN) :: MTYPE, LDADIAG, NPIV, KEEP(500)
+       INTEGER, INTENT(IN) :: NRHS_B, LDA_WCB
+       INTEGER(8), INTENT(IN) ::  LA, APOS, LWCB, PPIV_COURANT
+       DOUBLE PRECISION, INTENT(IN) :: A(LA)
+       DOUBLE PRECISION, INTENT(INOUT) :: WCB(LWCB)
+      DOUBLE PRECISION ONE
+      PARAMETER (ONE = 1.0D0)
+          IF (KEEP(50).NE.0 .OR. MTYPE .eq. 1 ) THEN
+#if defined(MUMPS_USE_BLAS2)
+               IF ( NRHS_B == 1 ) THEN
+                  CALL dtrsv( 'U', 'T', 'U', NPIV, A(APOS), LDADIAG,
+     &                   WCB(PPIV_COURANT), 1 )
+               ELSE
+#endif
+                  CALL dtrsm( 'L','U','T','U', NPIV, NRHS_B, ONE,
+     &                   A(APOS), LDADIAG, WCB(PPIV_COURANT),
+     &                   LDA_WCB )
+#if defined(MUMPS_USE_BLAS2)
+               ENDIF
+#endif
+          ELSE
+#if defined(MUMPS_USE_BLAS2)
+               IF ( NRHS_B == 1 ) THEN
+                  CALL dtrsv( 'L', 'N', 'N', NPIV, A(APOS), LDADIAG,
+     &                   WCB(PPIV_COURANT), 1 )
+               ELSE
+#endif
+                  CALL dtrsm( 'L','L','N','N', NPIV, NRHS_B, ONE,
+     &                   A(APOS), LDADIAG, WCB(PPIV_COURANT),
+     &                   LDA_WCB )
+#if defined(MUMPS_USE_BLAS2)
+               ENDIF
+#endif
+          ENDIF
+      RETURN
+      END SUBROUTINE DMUMPS_SOLVE_FWD_TRSOLVE
+      SUBROUTINE DMUMPS_SOLVE_GEMM_UPDATE 
+     &           (A, LA, APOS1, NX, LDA, NY,
+     &           NRHS_B, WCB, LWCB, PTRX, LDX,
+     &           PTRY, LDY,
+     &           MTYPE, KEEP, COEF_Y )
+       INTEGER, INTENT(IN) :: MTYPE, NY, NX, KEEP(500)
+       INTEGER, INTENT(IN) :: NRHS_B, LDY, LDA, LDX
+       INTEGER(8), INTENT(IN) ::  LA, APOS1, LWCB, PTRX, 
+     &                            PTRY
+       DOUBLE PRECISION, INTENT(IN) :: A(LA)
+       DOUBLE PRECISION, INTENT(INOUT) :: WCB(LWCB)
+       DOUBLE PRECISION, INTENT(IN) :: COEF_Y
+      DOUBLE PRECISION ALPHA, ZERO, ONE
+      PARAMETER (ZERO = 0.0D0, ONE = 1.0D0, ALPHA=-1.0D0)
+         IF ( NX .NE. 0 .AND. NY.NE.0 ) THEN
+            IF ( MTYPE .eq. 1 ) THEN
+#if defined(MUMPS_USE_BLAS2)
+               IF ( NRHS_B == 1 ) THEN
+                  CALL dgemv('T', NX, NY, ALPHA, A(APOS1),
+     &            LDA,  WCB(PTRX), 1, COEF_Y,
+     &            WCB(PTRY), 1)
+               ELSE
+#endif
+                  CALL dgemm('T', 'N', NY, NRHS_B, NX, ALPHA,
+     &            A(APOS1), LDA, WCB(PTRX), LDX, COEF_Y,
+     &            WCB(PTRY), LDY)
+#if defined(MUMPS_USE_BLAS2)
+               END IF
+#endif
+            ELSE                
+#if defined(MUMPS_USE_BLAS2)
+               IF ( NRHS_B == 1 ) THEN
+                  CALL dgemv('N',NY, NX, ALPHA, A(APOS1),
+     &                 LDA, WCB(PTRX), 1,
+     &                 COEF_Y, WCB(PTRY), 1 )
+               ELSE
+#endif
+                  CALL dgemm('N', 'N', NY, NRHS_B, NX, ALPHA,
+     &                 A(APOS1), LDA, WCB(PTRX), LDX,
+     &                 COEF_Y, WCB(PTRY), LDY)
+#if defined(MUMPS_USE_BLAS2)
+               END IF
+#endif
+            END IF
+         END IF
+      RETURN
+      END SUBROUTINE DMUMPS_SOLVE_GEMM_UPDATE
+      SUBROUTINE DMUMPS_SOLVE_LD_AND_RELOAD (
+     &  INODE, N, NPIV, LIELL, NELIM, NSLAVES,
+     &  PPIV_COURANT, 
+     &  IW, IPOS, LIW, 
+     &  A, LA, APOS,
+     &  WCB, LWCB, LD_WCBPIV, 
+     &  RHSCOMP, LRHSCOMP, NRHS, 
+     &  POSINRHSCOMP_FWD, JBDEB, JBFIN, 
+     &  MTYPE, KEEP, OOCWRITE_COMPATIBLE_WITH_BLR
+     &  )
+      USE DMUMPS_OOC 
+      INTEGER, INTENT(IN) :: MTYPE, INODE, N, NPIV, LIELL,
+     &                       NELIM, NSLAVES
+      INTEGER, INTENT(IN) :: LRHSCOMP, NRHS, LIW, JBDEB, JBFIN
+      INTEGER, INTENT(IN) :: IW(LIW), IPOS, POSINRHSCOMP_FWD(N)
+      INTEGER(8), INTENT(IN) :: LWCB, APOS, LA, PPIV_COURANT
+      INTEGER, INTENT(IN) :: LD_WCBPIV
+      INTEGER, INTENT(IN) :: KEEP(500)
+      DOUBLE PRECISION, INTENT(IN) ::  WCB( LWCB ), A( LA )
+#if defined(RHSCOMP_BYROWS)
+      INTEGER    :: I
+      DOUBLE PRECISION, INTENT(INOUT) :: RHSCOMP(NRHS, LRHSCOMP)
+#else
+      DOUBLE PRECISION, INTENT(INOUT) :: RHSCOMP(LRHSCOMP, NRHS)
+#endif
+      LOGICAL, INTENT(IN) :: OOCWRITE_COMPATIBLE_WITH_BLR
+      INTEGER    :: TempNROW, J1, J3, PANEL_SIZE, TYPEF
+      INTEGER    :: IPOSINRHSCOMP, JJ, K, NBK, LDAJ, 
+     &              LDAJ_ini, NBK_ini, LDAJ_FIRST_PANEL, NRHS_B
+      INTEGER(8) :: IFR8 , APOS1, APOS2, APOSOFF, IFR_ini8, 
+     &              POSWCB1, POSWCB2
+      DOUBLE PRECISION    :: VALPIV, A11, A22, A12, DETPIV
+!$    LOGICAL :: OMP_FLAG
+      DOUBLE PRECISION ONE
+      PARAMETER (ONE = 1.0D0)
+      NRHS_B = JBFIN-JBDEB+1
+      IF ( MTYPE .EQ. 1 .OR. KEEP(50) .NE. 0 ) THEN
+         J1 = IPOS + 1
+         J3 = IPOS + NPIV
+      ELSE
+         J1 = IPOS + LIELL + 1
+         J3 = IPOS + LIELL + NPIV
+      END IF
+      IPOSINRHSCOMP =  POSINRHSCOMP_FWD(IW(J1)) 
+      IF ( KEEP(50) .eq. 0 ) THEN
+         IF (KEEP(350).EQ.0) THEN
+           DO K=JBDEB,JBFIN
+             IFR8 =  PPIV_COURANT + int(K-JBDEB,8)*int(LD_WCBPIV,8)
+#if defined(RHSCOMP_BYROWS)
+             RHSCOMP(K,IPOSINRHSCOMP:IPOSINRHSCOMP+NPIV-1) =
+#else
+             RHSCOMP(IPOSINRHSCOMP:IPOSINRHSCOMP+NPIV-1,K) =
+#endif
+     &            WCB(IFR8:IFR8+int(NPIV-1,8))
+           ENDDO
+         ELSE IF (KEEP(350).EQ.1.OR.KEEP(350).EQ.2) THEN
+#if defined(RHSCOMP_BYROWS)
+!$         OMP_FLAG = (NPIV.GE.KEEP(362).AND.NRHS_B*NPIV.GE.KEEP(363))
+!$OMP      PARALLEL DO PRIVATE(IFR8,K) IF (OMP_FLAG)
+           DO I=1,NPIV
+             IFR8 =  PPIV_COURANT + I-1
+             DO K=JBDEB,JBFIN
+               RHSCOMP(K,IPOSINRHSCOMP+I-1) =
+     &              WCB(IFR8+(K-JBDEB)*LD_WCBPIV)
+             ENDDO
+           ENDDO
+!$OMP      END PARALLEL DO
+#else
+!$         OMP_FLAG=(NRHS_B.GE.KEEP(362).AND.NRHS_B*NPIV.GE.KEEP(363))
+!$OMP PARALLEL DO PRIVATE(IFR8) IF (OMP_FLAG)
+           DO K=JBDEB,JBFIN
+             IFR8 =  PPIV_COURANT + (K-JBDEB)*LD_WCBPIV
+             RHSCOMP(IPOSINRHSCOMP:IPOSINRHSCOMP+NPIV-1, K) =
+     &            WCB(IFR8:IFR8+int(NPIV-1,8))
+           ENDDO
+!$OMP END PARALLEL DO
+#endif
+        ELSE
+           WRITE(*,*) "UNKNOWN VERSION OF KEEP(350)"
+           CALL MUMPS_ABORT()
+         ENDIF
+      ELSE
+         IFR8 = PPIV_COURANT - 1_8
+         IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN 
+          IF (MTYPE.EQ.1) THEN
+            IF ((MTYPE.EQ.1).AND.NSLAVES.NE.0) THEN
+              TempNROW= NPIV+NELIM
+              LDAJ_FIRST_PANEL=TempNROW
+            ELSE
+              TempNROW= LIELL
+              LDAJ_FIRST_PANEL=TempNROW
+            ENDIF
+            TYPEF=TYPEF_L
+          ELSE 
+            TempNROW= NPIV
+            LDAJ_FIRST_PANEL=LIELL  
+            TYPEF= TYPEF_U
+          ENDIF
+          PANEL_SIZE = DMUMPS_OOC_PANEL_SIZE( LDAJ_FIRST_PANEL )
+          LDAJ = TempNROW  
+         ELSE                
+            LDAJ = NPIV 
+         ENDIF
+         APOS1 = APOS
+         JJ    = J1
+         IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN 
+            NBK   = 0           
+         ENDIF
+        IF (KEEP(350).EQ.0) THEN
+         DO 
+            IF(JJ .GT. J3) EXIT
+            IFR8 = IFR8 + 1_8
+            IF(IW(JJ+LIELL) .GT. 0) THEN
+              VALPIV  = ONE/A( APOS1 )
+              DO K=JBDEB, JBFIN
+#if defined(RHSCOMP_BYROWS)
+                  RHSCOMP(K, IPOSINRHSCOMP+JJ-J1) = 
+     &                 WCB( IFR8+(K-JBDEB)*LD_WCBPIV ) * VALPIV
+#else
+                  RHSCOMP(IPOSINRHSCOMP+JJ-J1 , K ) = 
+     &                 WCB( IFR8+(K-JBDEB)*LD_WCBPIV ) * VALPIV
+#endif
+              END DO
+              IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN 
+                NBK = NBK+1
+                IF (NBK.EQ.PANEL_SIZE) THEN
+                  NBK = 0
+                  LDAJ = LDAJ - PANEL_SIZE
+                ENDIF
+              ENDIF
+              APOS1 = APOS1 + int(LDAJ + 1,8)
+              JJ = JJ+1
+            ELSE
+              IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN 
+                NBK = NBK+1
+              ENDIF
+              APOS2 = APOS1+int(LDAJ+1,8)
+              IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN 
+                APOSOFF = APOS1+int(LDAJ,8)
+              ELSE
+                APOSOFF=APOS1+1_8
+              ENDIF
+              A11 = A(APOS1)
+              A22 = A(APOS2)
+              A12 = A(APOSOFF)
+              DETPIV = A11*A22 - A12**2
+              A22 = A11/DETPIV
+              A11 = A(APOS2)/DETPIV
+              A12 = -A12/DETPIV
+              DO K=JBDEB, JBFIN
+                  POSWCB1 = IFR8+int(K-JBDEB,8)*int(LD_WCBPIV,8)
+                  POSWCB2 = POSWCB1+1_8
+#if defined(RHSCOMP_BYROWS)
+                  RHSCOMP(K,IPOSINRHSCOMP+JJ-J1) =
+     &               WCB(POSWCB1)*A11
+     &               + WCB(POSWCB2)*A12
+                  RHSCOMP(K,IPOSINRHSCOMP+JJ-J1+1) = 
+     &                 WCB(POSWCB1)*A12
+     &                 + WCB(POSWCB2)*A22
+#else
+                  RHSCOMP(IPOSINRHSCOMP+JJ-J1,K) =
+     &               WCB(POSWCB1)*A11
+     &               + WCB(POSWCB2)*A12
+                  RHSCOMP(IPOSINRHSCOMP+JJ-J1+1,K) = 
+     &                 WCB(POSWCB1)*A12
+     &                 + WCB(POSWCB2)*A22
+#endif
+              END DO
+              IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN 
+                 NBK = NBK+1
+                 IF (NBK.GE.PANEL_SIZE) THEN
+                    LDAJ = LDAJ - NBK
+                    NBK = 0
+                 ENDIF
+              ENDIF
+              APOS1 = APOS2 + int(LDAJ + 1,8)
+              JJ = JJ+2
+              IFR8 = IFR8+1_8
+            ENDIF
+         ENDDO
+        ELSE IF (KEEP(350).EQ.1.OR.KEEP(350).EQ.2) THEN
+         IFR_ini8 = PPIV_COURANT - 1_8
+         LDAJ_ini = LDAJ   
+         IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) 
+     &                                      NBK_ini = NBK  
+!$           OMP_FLAG = ( JBFIN-JBDEB+1.GE.KEEP(362) .AND.
+!$   &                  ((J3-J1+1)*(JBFIN-JBDEB+1) .GE. KEEP(363)))
+!$OMP  PARALLEL DO PRIVATE(JJ,IFR8,NBK,APOS1,APOS2,APOSOFF,VALPIV,
+!$OMP&      POSWCB1, POSWCB2,A11,A22,A12,DETPIV,LDAJ)  IF(OMP_FLAG)
+         DO K = JBDEB, JBFIN
+            IFR8  = IFR_ini8 + int(K-JBDEB,8)*int(LD_WCBPIV,8)
+            NBK   = NBK_ini
+            APOS1 = APOS
+            LDAJ  = LDAJ_ini
+            JJ    = J1
+          DO 
+            IF (JJ .GT. J3) EXIT
+            IFR8  = IFR8 + 1_8
+            IF (IW(JJ+LIELL) .GT. 0) THEN
+               VALPIV  = ONE/A( APOS1 )
+#if defined(RHSCOMP_BYROWS)
+                RHSCOMP(K, IPOSINRHSCOMP+JJ-J1) = 
+     &                 WCB( IFR8 ) * VALPIV
+#else
+                 RHSCOMP(IPOSINRHSCOMP+JJ-J1 , K ) = 
+     &                 WCB( IFR8 ) * VALPIV
+#endif
+              IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR)
+     &        THEN
+                NBK = NBK+1
+                IF (NBK.EQ.PANEL_SIZE) THEN
+                  NBK = 0
+                  LDAJ = LDAJ - PANEL_SIZE
+                ENDIF
+              ENDIF
+              APOS1 = APOS1 + int(LDAJ + 1,8)
+              JJ = JJ+1
+            ELSE
+              IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR)
+     &        THEN
+                NBK = NBK+1
+              ENDIF
+              APOS2 = APOS1+int(LDAJ+1,8)
+              IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR)
+     &        THEN
+                APOSOFF = APOS1+int(LDAJ,8)
+              ELSE
+                APOSOFF=APOS1+1_8
+              ENDIF
+              A11 = A(APOS1)
+              A22 = A(APOS2)
+              A12 = A(APOSOFF)
+              DETPIV = A11*A22 - A12**2
+              A22 = A11/DETPIV
+              A11 = A(APOS2)/DETPIV
+              A12 = -A12/DETPIV
+              POSWCB1 = IFR8
+              POSWCB2 = POSWCB1+1_8
+#if defined(RHSCOMP_BYROWS)
+              RHSCOMP(K,IPOSINRHSCOMP+JJ-J1) =
+     &               WCB(POSWCB1)*A11
+     &               + WCB(POSWCB2)*A12
+              RHSCOMP(K,IPOSINRHSCOMP+JJ-J1+1) = 
+     &                 WCB(POSWCB1)*A12
+     &                 + WCB(POSWCB2)*A22
+#else
+              RHSCOMP(IPOSINRHSCOMP+JJ-J1,K) =
+     &               WCB(POSWCB1)*A11
+     &               + WCB(POSWCB2)*A12
+              RHSCOMP(IPOSINRHSCOMP+JJ-J1+1,K) = 
+     &                 WCB(POSWCB1)*A12
+     &                 + WCB(POSWCB2)*A22
+#endif
+              IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR)
+     &        THEN
+                 NBK = NBK+1
+                 IF (NBK.GE.PANEL_SIZE) THEN
+                    LDAJ = LDAJ - NBK
+                    NBK = 0
+                 ENDIF
+              ENDIF
+              APOS1 = APOS2 + int(LDAJ + 1,8)
+              JJ = JJ+2
+              IFR8 = IFR8+1_8
+            ENDIF  
+           ENDDO   
+         ENDDO     
+!$OMP END PARALLEL DO
+      ELSE
+             WRITE(*,*) "UNKNOWN VERSION OF KEEP(350)"
+             CALL MUMPS_ABORT()
+         ENDIF
+      END IF
+      RETURN
+      END SUBROUTINE DMUMPS_SOLVE_LD_AND_RELOAD
+      SUBROUTINE DMUMPS_SET_SCALING_LOC( scaling_data, N, ILOC, LILOC,
+     &  COMM, MYID, I_AM_SLAVE, MASTER, NB_BYTES, NB_BYTES_MAX,
+     &  K16_8, LP, LPOK, ICNTL, INFO )
+      IMPLICIT NONE
+      type scaling_data_t
+        SEQUENCE
+        DOUBLE PRECISION, dimension(:), pointer :: SCALING
+        DOUBLE PRECISION, dimension(:), pointer :: SCALING_LOC
+      end type scaling_data_t
+      type (scaling_data_t), INTENT(INOUT) :: scaling_data
+      INTEGER, INTENT(IN) :: N, LILOC, COMM, MYID, MASTER, LP
+      INTEGER, INTENT(IN) :: ILOC(LILOC)
+      INTEGER(8), INTENT(INOUT) :: NB_BYTES, NB_BYTES_MAX
+      INTEGER(8), INTENT(IN) :: K16_8 
+      LOGICAL, INTENT(IN) :: I_AM_SLAVE, LPOK
+      INTEGER, INTENT(INOUT) :: INFO(80)
+      INTEGER, INTENT(IN) :: ICNTL(60)
+      DOUBLE PRECISION, POINTER, DIMENSION(:) :: SCALING
+      INTEGER :: I, IERR_MPI, allocok
+      INCLUDE 'mpif.h'
+      NULLIFY(scaling_data%SCALING_LOC)
+      IF (I_AM_SLAVE) THEN
+        ALLOCATE(scaling_data%SCALING_LOC(max(1,LILOC)),
+     &  stat=allocok)
+        IF (allocok > 0) THEN
+          INFO(1)=-13
+          INFO(2)=max(1,LILOC)
+          GOTO 35
+        ENDIF
+        NB_BYTES     = NB_BYTES + int(max(1,LILOC),8)*K16_8
+        NB_BYTES_MAX = max(NB_BYTES_MAX,NB_BYTES)
+      ENDIF
+      IF (MYID .NE. MASTER) THEN
+        ALLOCATE(SCALING(N), stat=allocok)
+        IF (allocok > 0) THEN
+          IF (LPOK) THEN
+            WRITE(LP,*) 'Error allocating temporary scaling array'
+          ENDIF
+          INFO(1)=-13
+          INFO(2)=N
+          GOTO 35
+        ENDIF
+        NB_BYTES     = NB_BYTES + int(N,8)*K16_8
+        NB_BYTES_MAX = max(NB_BYTES_MAX,NB_BYTES)
+      ELSE
+        SCALING => scaling_data%SCALING
+      ENDIF
+ 35   CONTINUE
+      CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &                         COMM, MYID )
+      IF (INFO(1) .LT. 0) GOTO 90
+      CALL MPI_BCAST( SCALING(1), N, MPI_DOUBLE_PRECISION,
+     &                MASTER, COMM, IERR_MPI)
+      IF ( I_AM_SLAVE ) THEN
+        DO I = 1, LILOC
+          IF (ILOC(I) .GE. 1 .AND. ILOC(I) .LE. N) THEN
+            scaling_data%SCALING_LOC(I) = SCALING(ILOC(I))
+          ENDIF
+        ENDDO
+      ENDIF
+ 90   CONTINUE
+      IF (MYID.NE. MASTER) THEN
+        IF (associated(SCALING)) THEN
+          DEALLOCATE(SCALING)
+          NB_BYTES     = NB_BYTES - int(N,8)*K16_8
+        ENDIF
+      ENDIF
+      NULLIFY(SCALING)
+      IF (INFO(1) .LT. 0) THEN
+        IF (associated(scaling_data%SCALING_LOC)) THEN
+          DEALLOCATE(scaling_data%SCALING_LOC)
+          NULLIFY(scaling_data%SCALING_LOC)
+        ENDIF
+      ENDIF
+      RETURN
+      END SUBROUTINE DMUMPS_SET_SCALING_LOC

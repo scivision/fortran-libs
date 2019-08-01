@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -24,7 +24,7 @@ C
      &             PIMASTER, PAMASTER,
      &             NSTK_S,NBPROCFILS,PROCNODE_STEPS, root,
      &             OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &             FILS, PTRARW, PTRAIW,
+     &             FILS, DAD, PTRARW, PTRAIW,
      &             INTARR, DBLARR, ICNTL, KEEP,KEEP8, ND, FRERE,
      &             LPTRAR, NELT, FRTPTR, FRTELT, SEUIL,
      &             ISTEP_TO_INIV2, TAB_POS_IN_PERE, AVOID_DELAYED,
@@ -40,10 +40,11 @@ C
       USE DMUMPS_LR_CORE
       USE DMUMPS_LR_TYPE
       USE DMUMPS_LR_STATS
-      USE DMUMPS_ANA_LR
+      USE DMUMPS_ANA_LR, ONLY : GET_CUT
+      USE DMUMPS_LR_DATA_M
 !$    USE OMP_LIB
+      USE DMUMPS_STRUC_DEF, ONLY : DMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'dmumps_root.h'
       INTEGER COMM_LOAD, ASS_IRECV
       INTEGER N, INODE, FPERE, LIW, NOFFW, NPVW
       INTEGER(8) :: LA
@@ -53,7 +54,7 @@ C
       TYPE (DMUMPS_ROOT_STRUC) :: root
       INTEGER COMM, MYID, LBUFR, LBUFR_BYTES
       INTEGER LPTRAR, NELT
-      INTEGER ICNTL(40), KEEP(500)
+      INTEGER ICNTL(60), KEEP(500)
       INTEGER(8) KEEP8(150)
       INTEGER NBFIN, SLAVEF,
      &        IFLAG, IERROR, LEAF, LPOOL
@@ -61,7 +62,7 @@ C
       INTEGER IWPOS, IWPOSCB, COMP 
       INTEGER FRTPTR( N + 1 ), FRTELT( NELT )
       INTEGER BUFR( LBUFR ), IPOOL(LPOOL),
-     &        ITLOC(N+KEEP(253)), FILS(N),
+     &        ITLOC(N+KEEP(253)), FILS(N), DAD( KEEP(28) ),
      &        ND( KEEP(28) ), FRERE( KEEP(28) )
       INTEGER(8), INTENT(IN) :: PTRARW(LPTRAR), PTRAIW(LPTRAR)
       DOUBLE PRECISION :: RHS_MUMPS(KEEP(255))
@@ -89,7 +90,7 @@ C
       INTEGER Inextpiv
       LOGICAL LASTBL 
       INTEGER(8) :: POSELT
-      INTEGER IOLDPS, allocok, K263
+      INTEGER IOLDPS, allocok, K263,J
       INTEGER idummy 
       DOUBLE PRECISION    UUTEMP
       LOGICAL STATICMODE
@@ -104,8 +105,12 @@ C
       TYPE(IO_BLOCK) :: MonBloc 
       LOGICAL LAST_CALL
       INTEGER CURRENT_BLR, NELIM
-      LOGICAL LR_ACTIVATED
-      INTEGER PIVOT_OPTION, LAST_COL
+      LOGICAL LR_ACTIVATED, COMPRESS_PANEL
+      LOGICAL OOCWRITE_COMPATIBLE_WITH_BLR
+      INTEGER PIVOT_OPTION, LAST_COL, FIRST_COL
+      INTEGER FIRST_BLOCK, LAST_BLOCK
+      INTEGER :: INFO_TMP(2)
+      INTEGER :: MAXI_RANK
       INTEGER HF, NPARTSASS, NPARTSCB, NB_BLR, END_I
       INTEGER MAXI_CLUSTER, LWORK
       INTEGER T1, T2, COUNT_RATE, T1P, T2P, CRP
@@ -117,17 +122,35 @@ C
      &        LOC_TRSM_TIME,
      &        LOC_FRFRONTS_TIME, LOC_LR_MODULE_TIME,
      &        LOC_FAC_I_TIME, LOC_FAC_MQ_TIME, LOC_FAC_SQ_TIME
-      INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR
-      TYPE(LRB_TYPE), POINTER, DIMENSION(:) :: BLR_L, BLR_U, BLR_SEND
       TYPE(LRB_TYPE), DIMENSION(1), TARGET  :: BLR_DUMMY
+      INTEGER, POINTER, DIMENSION(:)        :: PTDummy
+      TYPE(LRB_TYPE), POINTER, DIMENSION(:) :: ACC_LUA
+      INTEGER, POINTER, DIMENSION(:)        :: BEGS_BLR
+      TYPE(LRB_TYPE), POINTER, DIMENSION(:) :: BLR_L, BLR_U, BLR_SEND
+      DOUBLE PRECISION, POINTER, DIMENSION(:)        :: DIAG
+      TYPE(LRB_TYPE), POINTER, DIMENSION(:) :: BLR_PANEL
+      INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR_TMP, BEGS_BLR_STATIC
+      INTEGER :: DIAGSIZ_STA, DIAGSIZ_DYN, DPOS, LorU, I, IP, MEM,
+     &           MEM_TOT
+      INTEGER(8) :: POSELT_DIAG
+      CHARACTER(len=1) :: DIR
       DOUBLE PRECISION, ALLOCATABLE :: WORK(:), TAU(:)
       INTEGER, ALLOCATABLE :: JPVT(:)
       DOUBLE PRECISION, ALLOCATABLE :: RWORK(:)
       DOUBLE PRECISION, ALLOCATABLE :: BLOCK(:,:)
       INTEGER :: OMP_NUM
+      INTEGER(8) :: UPOS, LPOS
+      INTEGER :: MY_NUM
       INTEGER :: NOMP
       INCLUDE 'mumps_headers.h'
       NULLIFY(BLR_L,BLR_U) 
+      NULLIFY(PTDummy)
+      NULLIFY(ACC_LUA)
+      NULLIFY(BEGS_BLR)
+      NULLIFY(BLR_L, BLR_U, BLR_SEND)
+      NULLIFY(DIAG)
+      NULLIFY(BLR_PANEL)
+      NULLIFY( BEGS_BLR_TMP, BEGS_BLR_STATIC)
       IF (KEEP(486).NE.0) THEN
         LOC_UPDT_TIME = 0.D0
         LOC_PROMOTING_TIME = 0.D0
@@ -148,6 +171,19 @@ C
       ENDIF
       NOMP=1
 !$    NOMP=OMP_GET_MAX_THREADS()
+      idummy  = 0
+      IOLDPS = PTLUST_S(STEP( INODE ))
+      POSELT = PTRAST(STEP( INODE ))
+      XSIZE  = KEEP(IXSZ)
+      NFRONT = IW(IOLDPS+XSIZE)
+      NASS   = iabs(IW(IOLDPS+2+XSIZE))
+      IW(IOLDPS+3+XSIZE) =  -99999
+      LR_ACTIVATED   = (IW(IOLDPS+XXLR).GT.0)
+      COMPRESS_PANEL = (IW(IOLDPS+XXLR).GE.2)
+      OOCWRITE_COMPATIBLE_WITH_BLR = 
+     &          ( .NOT.LR_ACTIVATED.OR.  (.NOT.COMPRESS_PANEL).OR.
+     &            (KEEP(486).NE.2) 
+     &          )
       INOPV = 0
       SEUIL_LOC = SEUIL
       IF(KEEP(97) .EQ. 0) THEN
@@ -163,18 +199,14 @@ C
          UUTEMP=UU
       ENDIF
       PIVOT_OPTION = KEEP(468)
-      IF (UUTEMP == 0.0D0 .AND. KEEP(201).NE.1) THEN
+      IF ( UUTEMP == 0.0D0 .AND.
+     &    .NOT.( 
+     &  (KEEP(201).EQ.1).AND. OOCWRITE_COMPATIBLE_WITH_BLR
+     &         ) 
+     &     )
+     &     THEN  
+          PIVOT_OPTION = 0
       ENDIF
-      idummy  = 0
-      IOLDPS = PTLUST_S(STEP( INODE ))
-      POSELT = PTRAST(STEP( INODE ))
-      XSIZE  = KEEP(IXSZ)
-      NFRONT = IW(IOLDPS+XSIZE)
-      NASS   = iabs(IW(IOLDPS+2+XSIZE))
-      IW(IOLDPS+3+XSIZE) =  -99999
-      LR_ACTIVATED= .FALSE.        
-      NULLIFY(BEGS_BLR)
-      LR_ACTIVATED   = (IW(IOLDPS+XXLR).GT.0)
       IF (NASS.LT.KEEP(4)) THEN
         NBKJIB_ORIG = NASS
       ELSE IF (NASS .GT. KEEP(3)) THEN
@@ -188,6 +220,8 @@ C
           NBLR_ORIG  = -9999 
       ENDIF
       IF (LR_ACTIVATED) THEN
+         K263 = 1   
+      ELSEIF (PIVOT_OPTION.LT.3) THEN
          K263 = 1   
       ELSE
          K263 = KEEP(263)
@@ -206,7 +240,7 @@ C
         IERROR =NASS
         GO TO 490
       END IF
-      IF (KEEP(201).EQ.1) THEN 
+      IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN 
           CALL MUMPS_GETI8(LAFAC,IW(IOLDPS+XXR))
           LIWFAC    = IW(IOLDPS+XXI)
           LNextPiv2beWritten = 1 
@@ -227,13 +261,24 @@ C
       ENDIF
       IF (LR_ACTIVATED) THEN
              PIVOT_OPTION = 4
+             IF (KEEP(475).EQ.1) THEN
+                 PIVOT_OPTION = 3
+             ELSEIF (KEEP(475).EQ.2) THEN
+                 PIVOT_OPTION = 2
+             ELSEIF (KEEP(475).EQ.3) THEN
+               IF (UUTEMP == 0.0D0) THEN
+                 PIVOT_OPTION = 0
+               ELSE
+                 PIVOT_OPTION = 1
+               ENDIF
+             ENDIF
              CNT_NODES = CNT_NODES + 1 
              CALL SYSTEM_CLOCK(TTOT1)
-      ELSE IF (KEEP(486).GT.0) THEN
+      ELSE IF (KEEP(486).NE.0) THEN
              CALL SYSTEM_CLOCK(TTOT1FR)
       ENDIF
       HF = 6 + IW(IOLDPS+5+XSIZE)+XSIZE
-      IF (KEEP(201).EQ.1) THEN  
+      IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN  
        IF (PIVOT_OPTION.LT.3) PIVOT_OPTION=3
       ENDIF
       IF (LR_ACTIVATED) THEN
@@ -244,6 +289,7 @@ C
      &        NFRONT-NASS, KEEP(488), .FALSE., KEEP(472))     
          NB_BLR = NPARTSASS + NPARTSCB
          call MAX_CLUSTER(BEGS_BLR,NB_BLR,MAXI_CLUSTER)
+         MAXI_RANK = KEEP(479)*MAXI_CLUSTER
          LWORK = MAXI_CLUSTER*MAXI_CLUSTER
          OMP_NUM = 1
 #if defined(BLR_MT)
@@ -259,6 +305,47 @@ C
            IERROR = OMP_NUM*(LWORK + MAXI_CLUSTER*(MAXI_CLUSTER+4))
            GOTO 480
          ENDIF
+         ALLOCATE(ACC_LUA(OMP_NUM),stat=allocok)
+         IF (allocok > 0) THEN
+            IFLAG  = -13 
+            IERROR = OMP_NUM
+            GOTO 480
+         ENDIF
+         IF (KEEP(480).GE.3) THEN
+           DO MY_NUM=1,OMP_NUM
+             CALL ALLOC_LRB(ACC_LUA(MY_NUM), MAXI_RANK, MAXI_RANK, 
+     &                      MAXI_CLUSTER, MAXI_CLUSTER, .TRUE., 
+     &                      IFLAG, IERROR, KEEP8)
+             IF (IFLAG.LT.0) GOTO 500
+             ACC_LUA(MY_NUM)%K = 0
+           ENDDO
+         ENDIF
+      ENDIF
+      IF (LR_ACTIVATED.AND.
+     &    (KEEP(480).NE.0
+     &       .OR.
+     &       (
+     &         (KEEP(486).EQ.2) 
+     &       )
+     &    )
+     &   ) THEN
+        INFO_TMP(1) = IFLAG
+        INFO_TMP(2) = IERROR
+        CALL DMUMPS_BLR_INIT_FRONT(IW(IOLDPS+XXF), INFO_TMP)
+        IFLAG  = INFO_TMP(1) 
+        IERROR = INFO_TMP(2) 
+        IF (IFLAG.LT.0) GOTO 500
+        CALL DMUMPS_BLR_SAVE_INIT(IW(IOLDPS+XXF), 
+     &              .FALSE., 
+     &              .TRUE., 
+     &              .FALSE., 
+     &              NPARTSASS, 
+     &              BEGS_BLR, PTDummy, 
+     &              huge(NPARTSASS),  
+     &              INFO_TMP)
+        IFLAG  = INFO_TMP(1) 
+        IERROR = INFO_TMP(2) 
+        IF (IFLAG.LT.0) GOTO 500
       ENDIF
       LASTBL = .FALSE.
       DO WHILE (IEND_BLR < NASS ) 
@@ -282,6 +369,16 @@ C
               IFLAG  = -13
               IERROR = OMP_NUM*(LWORK + MAXI_CLUSTER*(MAXI_CLUSTER+4))
               GOTO 490
+            ENDIF
+            IF (KEEP(480).GE.3) THEN
+              DO MY_NUM=1,OMP_NUM
+                CALL DEALLOC_LRB(ACC_LUA(MY_NUM), KEEP8)
+                CALL ALLOC_LRB(ACC_LUA(MY_NUM), MAXI_RANK, MAXI_RANK, 
+     &                       MAXI_CLUSTER, MAXI_CLUSTER, .TRUE.,
+     &                       IFLAG, IERROR, KEEP8)
+                IF (IFLAG.LT.0) GOTO 500
+                ACC_LUA(MY_NUM)%K = 0
+              ENDDO
             ENDIF
           ENDIF
         ENDIF
@@ -310,7 +407,7 @@ C
      &      PP_FIRST2SWAP_U,  MonBloc%LastPanelWritten_U,
      &      PP_LastPIVRPTRFilled_U,
      &      PIVOT_OPTION, LR_ACTIVATED, IEND_BLR, 
-     &      Inextpiv,
+     &      Inextpiv, OOCWRITE_COMPATIBLE_WITH_BLR,
      &      IPIV 
      &      )
             IF (LR_ACTIVATED) THEN
@@ -356,33 +453,26 @@ C
           IF (K263.EQ.0) THEN
             NELIM = IEND_BLR - NPIV
             CALL DMUMPS_SEND_FACTORED_BLK( COMM_LOAD, ASS_IRECV, 
-     &             N, INODE, FPERE, IW, LIW, 
-     &             IOLDPS, POSELT, A, LA, NFRONT,
-     &             IBEG_BLOCK, NPIV, IPIV, NASS,LASTBL, idummy, 
-     &             COMM, MYID, BUFR, LBUFR, LBUFR_BYTES,NBFIN,LEAF,
-     &             IFLAG, IERROR, IPOOL,LPOOL,
-     &             SLAVEF, POSFAC, IWPOS, IWPOSCB, IPTRLU, LRLU,
-     &             LRLUS, COMP,
-     &             PTRIST, PTRAST, PTLUST_S, PTRFAC, STEP,
-     &             PIMASTER, PAMASTER,
-     &             NSTK_S,NBPROCFILS,PROCNODE_STEPS, root,
-     &             OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &             FILS, PTRARW, PTRAIW,
-     &             INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,ND,FRERE,
-     &             LPTRAR, NELT, FRTPTR, FRTELT, 
-     &             ISTEP_TO_INIV2, TAB_POS_IN_PERE
-     &             , NELIM, .FALSE. 
-     &             , NPARTSASS, CURRENT_BLR
-     &             , BLR_DUMMY, LRGROUPS
-     & )
+     &           N, INODE, FPERE, IW, LIW, IOLDPS, POSELT, A, LA,
+     &           NFRONT, IBEG_BLOCK, NPIV, IPIV, NASS,LASTBL, idummy, 
+     &           COMM, MYID, BUFR, LBUFR, LBUFR_BYTES,NBFIN,LEAF,
+     &           IFLAG, IERROR, IPOOL,LPOOL,
+     &           SLAVEF, POSFAC, IWPOS, IWPOSCB, IPTRLU, LRLU,
+     &           LRLUS, COMP, PTRIST, PTRAST, PTLUST_S, PTRFAC, STEP,
+     &           PIMASTER, PAMASTER, NSTK_S,NBPROCFILS,PROCNODE_STEPS,
+     &           root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
+     &           FILS, DAD, PTRARW, PTRAIW, INTARR,DBLARR,
+     &           ICNTL,KEEP,KEEP8,
+     &           DKEEP,ND,FRERE, LPTRAR, NELT, FRTPTR, FRTELT, 
+     &           ISTEP_TO_INIV2, TAB_POS_IN_PERE
+     &           , NELIM, .FALSE. 
+     &           , NPARTSASS, CURRENT_BLR
+     &           , BLR_DUMMY, LRGROUPS
+     &           )
           END IF
           IF ( IFLAG .LT. 0 ) GOTO 500
-          IF ( KEEP(201).EQ.1.AND.(PIVOT_OPTION.GE.3) 
-     &        .AND.
-     &          ( .NOT. LR_ACTIVATED .OR.
-     &            (KEEP(485).EQ.0) 
-     &          ) 
-     &       ) THEN  
+          IF ( KEEP(201).EQ.1 .AND. OOCWRITE_COMPATIBLE_WITH_BLR
+     &         .AND.(PIVOT_OPTION.GE.3) ) THEN  
             MonBloc%LastPiv= IW(IOLDPS+1+XSIZE)
             STRAT          = STRAT_TRY_WRITE
             LAST_CALL      = .FALSE.
@@ -397,9 +487,9 @@ C
               GOTO 490
             ENDIF
           ENDIF
-          CALL DMUMPS_BUF_TEST()
           NPIV       =  IW(IOLDPS+1+XSIZE)
           IF ( IEND_BLR .GT. IEND_BLOCK ) THEN
+              CALL DMUMPS_BUF_TEST()
               IF (LR_ACTIVATED) THEN
                   CALL SYSTEM_CLOCK(T1P)
               ENDIF
@@ -412,7 +502,9 @@ C
               ENDIF
               CALL DMUMPS_FAC_SQ(IBEG_BLOCK, IEND_BLOCK,
      &            NPIV, NFRONT, IEND_BLR, LAST_COL,
-     &            A, LA, POSELT, .FALSE., .TRUE.,
+     &            A, LA, POSELT, 
+     &            -77777, 
+     &            .TRUE., .FALSE., .TRUE.,
      &            .FALSE. ) 
               IF (LR_ACTIVATED) THEN
                   CALL SYSTEM_CLOCK(T2P,CRP)
@@ -427,119 +519,90 @@ C
           CALL SYSTEM_CLOCK(T2,COUNT_RATE)
           LOC_FRPANELS_TIME = LOC_FRPANELS_TIME +
      &                        dble(T2-T1)/dble(COUNT_RATE)
+          CALL SYSTEM_CLOCK(T1)
           CALL UPDATE_FLOP_STATS_PANEL(NFRONT - IBEG_BLR + 1, 
      &                                 NPIV   - IBEG_BLR + 1, 2, 0)
         ENDIF
         IF (LR_ACTIVATED) THEN
+          ALLOCATE(BLR_U(NB_BLR-CURRENT_BLR),stat=allocok)
+          IF (allocok > 0) THEN
+             IFLAG  = -13
+             IERROR = NB_BLR-CURRENT_BLR
+             GOTO 490
+          ENDIF 
+          ALLOCATE(BLR_L(NPARTSASS-CURRENT_BLR),stat=allocok)
+          IF (allocok > 0) THEN
+             IFLAG  = -13
+             IERROR = NPARTSASS-CURRENT_BLR
+             GOTO 490
+          ENDIF 
           NELIM = IEND_BLR - NPIV
           IF (NELIM .EQ. IEND_BLR - IBEG_BLR + 1) THEN
+            IF (KEEP(480).GE.2
+     &       .OR.
+     &       (
+     &         (KEEP(486).EQ.2) 
+     &       )
+     &          ) THEN
+              DO J=1,NB_BLR-CURRENT_BLR
+                 BLR_U(J)%M=0
+                 BLR_U(J)%N=0
+                 BLR_U(J)%K=0
+                 BLR_U(J)%KSVD=0
+                 BLR_U(J)%ISLR=.FALSE.
+                 NULLIFY(BLR_U(J)%Q)
+                 NULLIFY(BLR_U(J)%R)
+              ENDDO
+              CALL DMUMPS_BLR_SAVE_PANEL_LORU (
+     &              IW(IOLDPS+XXF),
+     &              1, 
+     &              CURRENT_BLR, BLR_U)
+              DO J=1,NPARTSASS-CURRENT_BLR
+                 BLR_L(J)%M=0
+                 BLR_L(J)%N=0
+                 BLR_L(J)%K=0
+                 BLR_L(J)%KSVD=0
+                 BLR_L(J)%ISLR=.FALSE.
+                 NULLIFY(BLR_L(J)%Q)
+                 NULLIFY(BLR_L(J)%R)
+              ENDDO
+              CALL DMUMPS_BLR_SAVE_PANEL_LORU (
+     &              IW(IOLDPS+XXF),
+     &              0, 
+     &              CURRENT_BLR, BLR_L)
+              NULLIFY(BLR_L)
+              NULLIFY(BLR_U)
+            ENDIF
             GOTO 101
           ENDIF
             END_I=NB_BLR
-          ALLOCATE(BLR_U(NB_BLR-CURRENT_BLR)) 
           CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)          
 !$OMP PARALLEL 
 #endif
           CALL DMUMPS_COMPRESS_PANEL(A, LA, POSELT, IFLAG, IERROR, 
      &       NFRONT,
-     &       BEGS_BLR, NB_BLR, DKEEP(8), KEEP(473), BLR_U, CURRENT_BLR,
+     &       BEGS_BLR, NB_BLR, DKEEP(8), KEEP(466), KEEP(473), BLR_U, 
+     &       CURRENT_BLR,
      &       'H', WORK, TAU, JPVT, LWORK, RWORK,
      &       BLOCK, MAXI_CLUSTER, NELIM, 
-     &       .FALSE., 0, 0, 2, KEEP(483), KEEP(470), KEEP8,
+     &       .FALSE., 0, 0, 2, KEEP(483), KEEP8,
      &       END_I_IN=END_I
      &        )
           IF (IFLAG.LT.0) GOTO 300
-#if defined(BLR_MT)          
-!$OMP BARRIER
-!$OMP MASTER
-#endif          
-          CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-          LOC_DEMOTING_TIME = LOC_DEMOTING_TIME + 
-     &              DBLE(T2-T1)/DBLE(COUNT_RATE)
-          CALL STATS_STORE_BLR_PANEL_MRY(BLR_U,
-     &               NB_BLR-CURRENT_BLR-NPARTSCB,
-     &               NPARTSCB, 'H', 2)
-            CALL SYSTEM_CLOCK(T1)
-#if defined(BLR_MT)          
-!$OMP END MASTER
-#endif          
- 300      CONTINUE         
-#if defined(BLR_MT)          
-!$OMP END PARALLEL
-#endif          
-        ENDIF
- 101    CONTINUE       
-        IF (K263.NE.0) THEN
-          NELIM = IEND_BLR - NPIV
-          BLR_SEND=>BLR_DUMMY
-          IF (associated(BLR_U)) THEN
-            BLR_SEND=>BLR_U
+          IF ((KEEP(480).NE.0.AND.NB_BLR.GT.CURRENT_BLR)
+     &       .OR.
+     &       (
+     &         (KEEP(486).EQ.2) 
+     &       )
+     &       ) THEN
+            IF (KEEP(480).LT.5) THEN
+              CALL DMUMPS_BLR_SAVE_PANEL_LORU(
+     &            IW(IOLDPS+XXF),
+     &            1, 
+     &            CURRENT_BLR, BLR_U)
+            ENDIF
           ENDIF
-          CALL DMUMPS_SEND_FACTORED_BLK( COMM_LOAD, ASS_IRECV, 
-     &             N, INODE, FPERE, IW, LIW, 
-     &             IOLDPS, POSELT, A, LA, NFRONT,
-     &             IBEG_BLR, NPIV, IPIV, NASS,LASTBL, idummy, 
-     &             COMM, MYID, BUFR, LBUFR, LBUFR_BYTES,NBFIN,LEAF,
-     &             IFLAG, IERROR, IPOOL,LPOOL,
-     &             SLAVEF, POSFAC, IWPOS, IWPOSCB, IPTRLU, LRLU,
-     &             LRLUS, COMP,
-     &             PTRIST, PTRAST, PTLUST_S, PTRFAC, STEP,
-     &             PIMASTER, PAMASTER,
-     &             NSTK_S,NBPROCFILS,PROCNODE_STEPS, root,
-     &             OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &             FILS, PTRARW, PTRAIW,
-     &             INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,ND,FRERE,
-     &             LPTRAR, NELT, FRTPTR, FRTELT, 
-     &             ISTEP_TO_INIV2, TAB_POS_IN_PERE
-     &             , NELIM, LR_ACTIVATED
-     &             , NPARTSASS, CURRENT_BLR
-     &             , BLR_SEND, LRGROUPS
-     &             )
-        ENDIF
-        IF (.NOT. LR_ACTIVATED) THEN
-          IF (PIVOT_OPTION.GE.3) THEN
-            LAST_COL = NFRONT
-          ELSE
-            LAST_COL = NASS
-          ENDIF
-          IF (IEND_BLR .LT. NASS) THEN
-              CALL DMUMPS_FAC_SQ(IBEG_BLR, IEND_BLR,
-     &            NPIV, NFRONT, NASS, LAST_COL,
-     &            A, LA, POSELT, (PIVOT_OPTION.LT.2), .TRUE.
-     &            , (KEEP(377) .EQ. 1) 
-     &            )
-          ENDIF
-        ELSE
-         NELIM = IEND_BLR - NPIV
-         IF (NELIM .EQ. IEND_BLR - IBEG_BLR + 1) THEN
-            GOTO 100
-         ENDIF
-           CALL SYSTEM_CLOCK(T1)
-           IF (IEND_BLR.LT.NFRONT) THEN
-              CALL DMUMPS_FAC_SQ(IBEG_BLR, IEND_BLR,
-     &            NPIV, NFRONT, NASS, 
-     &            -77777, 
-     &            A, LA, POSELT, .FALSE., .FALSE.,
-     &            .FALSE. ) 
-           ENDIF
-           CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-           LOC_TRSM_TIME = LOC_TRSM_TIME + 
-     &              DBLE(T2-T1)/DBLE(COUNT_RATE)
-         CALL SYSTEM_CLOCK(T1)
-         ALLOCATE(BLR_L(NPARTSASS-CURRENT_BLR)) 
-#if defined(BLR_MT)          
-!$OMP PARALLEL 
-#endif
-         CALL DMUMPS_COMPRESS_PANEL(A, LA, POSELT, IFLAG, IERROR, 
-     &        NFRONT,
-     &        BEGS_BLR, NPARTSASS, DKEEP(8), KEEP(473), BLR_L,
-     &        CURRENT_BLR, 'V', WORK, TAU, JPVT, LWORK, RWORK,
-     &        BLOCK, MAXI_CLUSTER, NELIM,
-     &        .FALSE., 0, 0,
-     &        2, KEEP(483), KEEP(470), KEEP8 
-     &        )
-         IF (IFLAG.LT.0) GOTO 400
 #if defined(BLR_MT)          
 !$OMP BARRIER
 !$OMP MASTER
@@ -548,59 +611,354 @@ C
           LOC_DEMOTING_TIME = LOC_DEMOTING_TIME + 
      &              DBLE(T2-T1)/DBLE(COUNT_RATE)
           CALL SYSTEM_CLOCK(T1)
+          CALL STATS_STORE_BLR_PANEL_MRY(BLR_U,
+     &               NB_BLR-CURRENT_BLR-NPARTSCB,
+     &               NPARTSCB, 'H', 2)
 #if defined(BLR_MT)          
 !$OMP END MASTER
 #endif          
+          IF (PIVOT_OPTION.LT.3) THEN
+            IF (PIVOT_OPTION.LT.2) THEN
+              FIRST_BLOCK = CURRENT_BLR+1
+            ELSE
+              FIRST_BLOCK = NPARTSASS+1
+            ENDIF
+              LAST_BLOCK=NB_BLR
+            CALL DMUMPS_BLR_PANEL_LRTRSM(A, LA, POSELT, NFRONT,
+     &           IBEG_BLR, 
+     &           NB_BLR, BLR_U, CURRENT_BLR,
+     &           FIRST_BLOCK, LAST_BLOCK, 2, 0, 1,
+     &           .FALSE.)
+#if defined(BLR_MT)          
+!$OMP MASTER
+#endif          
+            CALL SYSTEM_CLOCK(T2,COUNT_RATE)
+            LOC_TRSM_TIME = LOC_TRSM_TIME + 
+     &              DBLE(T2-T1)/DBLE(COUNT_RATE)
+            CALL SYSTEM_CLOCK(T1)
+#if defined(BLR_MT)          
+!$OMP END MASTER
+#endif          
+          ENDIF
+ 300      CONTINUE         
+#if defined(BLR_MT)          
+!$OMP END PARALLEL
+#endif          
+        ENDIF
+ 101    CONTINUE       
+        IF (LR_ACTIVATED .OR. (K263.NE.0.AND.PIVOT_OPTION.GE.3)) THEN
+          NELIM = IEND_BLR - NPIV
+          BLR_SEND=>BLR_DUMMY
+          IF (associated(BLR_U)) THEN
+            BLR_SEND=>BLR_U
+          ENDIF
+          CALL DMUMPS_SEND_FACTORED_BLK( COMM_LOAD, ASS_IRECV, 
+     &         N, INODE, FPERE, IW, LIW, IOLDPS, POSELT, A, LA, NFRONT,
+     &         IBEG_BLR, NPIV, IPIV, NASS,LASTBL, idummy, 
+     &         COMM, MYID, BUFR, LBUFR, LBUFR_BYTES,NBFIN,LEAF,
+     &         IFLAG, IERROR, IPOOL,LPOOL,
+     &         SLAVEF, POSFAC, IWPOS, IWPOSCB, IPTRLU, LRLU,
+     &         LRLUS, COMP, PTRIST, PTRAST, PTLUST_S, PTRFAC, STEP,
+     &         PIMASTER, PAMASTER, NSTK_S,NBPROCFILS,PROCNODE_STEPS,
+     &         root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
+     &         FILS, DAD, PTRARW, PTRAIW,
+     &         INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,ND,FRERE,
+     &         LPTRAR, NELT, FRTPTR, FRTELT, 
+     &         ISTEP_TO_INIV2, TAB_POS_IN_PERE
+     &         , NELIM, LR_ACTIVATED
+     &         , NPARTSASS, CURRENT_BLR
+     &         , BLR_SEND, LRGROUPS
+     &         )
+        ENDIF
+        IF (.NOT. LR_ACTIVATED) THEN
+          LAST_COL = NFRONT
+          IF (PIVOT_OPTION.EQ.2) THEN
+            FIRST_COL = NASS
+          ELSE
+            FIRST_COL = NPIV
+          ENDIF
+          IF (IEND_BLR.LT.NASS .OR. PIVOT_OPTION.LT.3) THEN
+            CALL DMUMPS_FAC_SQ(IBEG_BLR, IEND_BLR,
+     &            NPIV, NFRONT, NASS, LAST_COL,
+     &            A, LA, POSELT, FIRST_COL, .TRUE., (PIVOT_OPTION.LT.3),
+     &            .TRUE., (KEEP(377).EQ.1) 
+     &            )
+          ENDIF
+          IF (K263.NE.0 .AND. PIVOT_OPTION.LT.3) THEN
+            NELIM = IEND_BLR - NPIV
+            BLR_SEND=>BLR_DUMMY
+            IF (associated(BLR_U)) THEN
+              BLR_SEND=>BLR_U
+            ENDIF
+            CALL DMUMPS_SEND_FACTORED_BLK( COMM_LOAD, ASS_IRECV, 
+     &           N, INODE, FPERE, IW, LIW, IOLDPS, POSELT, A, LA,
+     &           NFRONT, IBEG_BLR, NPIV, IPIV, NASS,LASTBL, idummy, 
+     &           COMM, MYID, BUFR, LBUFR, LBUFR_BYTES,NBFIN,LEAF,
+     &           IFLAG, IERROR, IPOOL,LPOOL,
+     &           SLAVEF, POSFAC, IWPOS, IWPOSCB, IPTRLU, LRLU,
+     &           LRLUS, COMP, PTRIST, PTRAST, PTLUST_S, PTRFAC, STEP,
+     &           PIMASTER, PAMASTER, NSTK_S,NBPROCFILS,PROCNODE_STEPS,
+     &           root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
+     &           FILS, DAD, PTRARW, PTRAIW,
+     &           INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,ND,FRERE,
+     &           LPTRAR, NELT, FRTPTR, FRTELT, 
+     &           ISTEP_TO_INIV2, TAB_POS_IN_PERE
+     &           , NELIM, LR_ACTIVATED
+     &           , NPARTSASS, CURRENT_BLR
+     &           , BLR_SEND, LRGROUPS
+     &           )
+          ENDIF
+        ELSE
+         NELIM = IEND_BLR - NPIV
+         IF (NELIM .EQ. IEND_BLR - IBEG_BLR + 1) THEN
+            IF (KEEP(480).GE.2) THEN
+              IF (IEND_BLR.LT.NASS) THEN
+#if defined(BLR_MT)
+!$OMP PARALLEL
+#endif
+                CALL DMUMPS_BLR_UPD_PANEL_LEFT(A, LA, POSELT,
+     &          NFRONT, IW(IOLDPS+XXF), 0, 
+     &          BEGS_BLR, BEGS_BLR, CURRENT_BLR, ACC_LUA,
+     &          NB_BLR, NPARTSASS, NELIM,
+     &          2, 0, 
+     &          .FALSE., IFLAG, IERROR, 0,
+     &          KEEP(481), DKEEP(8), KEEP(466), KEEP(477), 
+     &          KEEP(480), KEEP(479), KEEP(478), KEEP(476), 
+     &          KEEP(483), MAXI_CLUSTER, MAXI_RANK,
+     &          KEEP(474), 0, BLR_U, KEEP8
+     &          )
+                IF (IFLAG.LT.0) GOTO 600
+                CALL DMUMPS_BLR_UPD_PANEL_LEFT(A, LA, POSELT,
+     &          NFRONT, IW(IOLDPS+XXF), 1, 
+     &          BEGS_BLR, BEGS_BLR, CURRENT_BLR, ACC_LUA,
+     &          NB_BLR, NPARTSASS, NELIM,
+     &          2, 0, 
+     &          .FALSE., IFLAG, IERROR, 0,
+     &          KEEP(481), DKEEP(8), KEEP(466), KEEP(477), 
+     &          KEEP(480), KEEP(479), KEEP(478), KEEP(476), 
+     &          KEEP(483), MAXI_CLUSTER, MAXI_RANK,
+     &          KEEP(474), 0, BLR_U, KEEP8,
+     &          END_I_IN=END_I
+     &          )
+ 600            CONTINUE                
+#if defined(BLR_MT)
+!$OMP END PARALLEL
+#endif
+                IF (IFLAG.LT.0) GOTO 490
+              ENDIF
+            ENDIF
+            IF (KEEP(486).EQ.3) THEN
+              IF (KEEP(480).EQ.0) THEN
+                DEALLOCATE(BLR_U,BLR_L)
+                NULLIFY(BLR_L)
+                NULLIFY(BLR_U)
+              ENDIF
+            ENDIF
+            GOTO 100
+         ENDIF
+         IF (KEEP(475).EQ.0) THEN
+           CALL SYSTEM_CLOCK(T1)
+           IF (IEND_BLR.LT.NFRONT) THEN
+              CALL DMUMPS_FAC_SQ(IBEG_BLR, IEND_BLR,
+     &            NPIV, NFRONT, NASS, 
+     &            -77777, 
+     &            A, LA, POSELT,
+     &            -77777, 
+     &            .TRUE., .FALSE., .FALSE.,
+     &            .FALSE. ) 
+           ENDIF
+           CALL SYSTEM_CLOCK(T2,COUNT_RATE)
+           LOC_TRSM_TIME = LOC_TRSM_TIME + 
+     &              DBLE(T2-T1)/DBLE(COUNT_RATE)
+          ENDIF
+         CALL SYSTEM_CLOCK(T1)
+#if defined(BLR_MT)          
+!$OMP PARALLEL 
+#endif
+         CALL DMUMPS_COMPRESS_PANEL(A, LA, POSELT, IFLAG, IERROR, 
+     &        NFRONT,
+     &        BEGS_BLR, NPARTSASS, DKEEP(8), KEEP(466), KEEP(473), 
+     &        BLR_L,
+     &        CURRENT_BLR, 'V', WORK, TAU, JPVT, LWORK, RWORK,
+     &        BLOCK, MAXI_CLUSTER, NELIM,
+     &        .FALSE., 0, 0,
+     &        2, KEEP(483), KEEP8 
+     &        )
+#if defined(BLR_MT)
+!$OMP MASTER
+#endif
+         IF ((KEEP(480).NE.0.AND.NB_BLR.GT.CURRENT_BLR)
+     &       .OR.
+     &       (
+     &         (KEEP(486).EQ.2) 
+     &       )
+     &       ) THEN
+            IF (KEEP(480).LT.5) THEN
+              CALL DMUMPS_BLR_SAVE_PANEL_LORU (
+     &             IW(IOLDPS+XXF),
+     &             0, 
+     &             CURRENT_BLR, BLR_L)
+            ENDIF
+          ENDIF
+          CALL SYSTEM_CLOCK(T2,COUNT_RATE)
+          LOC_DEMOTING_TIME = LOC_DEMOTING_TIME + 
+     &              DBLE(T2-T1)/DBLE(COUNT_RATE)
+          CALL SYSTEM_CLOCK(T1)
+#if defined(BLR_MT)          
+!$OMP END MASTER
+!$OMP BARRIER
+#endif          
+          IF (IFLAG.LT.0) GOTO 400
+          IF (KEEP(475).GT.0) THEN
+            CALL DMUMPS_BLR_PANEL_LRTRSM(A, LA, POSELT, NFRONT,
+     &                IBEG_BLR,
+     &                NPARTSASS, BLR_L, CURRENT_BLR, CURRENT_BLR+1, 
+     &                NPARTSASS, 2, 0, 0, .FALSE.) 
+#if defined(BLR_MT)          
+!$OMP BARRIER
+!$OMP MASTER
+#endif          
+            CALL SYSTEM_CLOCK(T2,COUNT_RATE)
+            LOC_TRSM_TIME = LOC_TRSM_TIME + 
+     &              DBLE(T2-T1)/DBLE(COUNT_RATE)
+            CALL SYSTEM_CLOCK(T1)
+#if defined(BLR_MT)          
+!$OMP END MASTER
+#endif          
+          ENDIF
+          IF (KEEP(480).GE.2) THEN
+            UPOS = POSELT+int(BEGS_BLR(CURRENT_BLR)-1,8)*int(NFRONT,8)
+     &                   +int(BEGS_BLR(CURRENT_BLR+1)-NELIM-1,8)
+            LPOS = POSELT+int(BEGS_BLR(CURRENT_BLR+1)-1,8)*int(NFRONT,8)
+     &                   +int(BEGS_BLR(CURRENT_BLR+1)-NELIM-1,8)
+            CALL DMUMPS_BLR_UPD_NELIM_VAR_L(A, LA, UPOS, A, LA, LPOS,
+     &        IFLAG, IERROR, NFRONT, NFRONT,
+     &        BEGS_BLR, CURRENT_BLR, BLR_L, NPARTSASS,
+     &        CURRENT_BLR+1, NELIM, 'N') 
+            IF (IFLAG.LT.0) GOTO 444
+            IF (IEND_BLR.LT.NASS) THEN
+              CALL DMUMPS_BLR_UPD_PANEL_LEFT(A, LA, POSELT,
+     &          NFRONT, IW(IOLDPS+XXF), 0, 
+     &          BEGS_BLR, BEGS_BLR, CURRENT_BLR, ACC_LUA,
+     &          NB_BLR, NPARTSASS, NELIM,
+     &          2, 0, 
+     &          .FALSE., IFLAG, IERROR, 0,
+     &          KEEP(481), DKEEP(8), KEEP(466), KEEP(477), 
+     &          KEEP(480), KEEP(479), KEEP(478), KEEP(476), 
+     &          KEEP(483), MAXI_CLUSTER, MAXI_RANK,
+     &          KEEP(474), 0, BLR_U, KEEP8
+     &          )
+              IF (IFLAG.LT.0) GOTO 442
+              CALL DMUMPS_BLR_UPD_PANEL_LEFT(A, LA, POSELT,
+     &          NFRONT, IW(IOLDPS+XXF), 1, 
+     &          BEGS_BLR, BEGS_BLR, CURRENT_BLR, ACC_LUA,
+     &          NB_BLR, NPARTSASS, NELIM,
+     &          2, 0, 
+     &          .FALSE., IFLAG, IERROR, 0,
+     &          KEEP(481), DKEEP(8), KEEP(466), KEEP(477), 
+     &          KEEP(480), KEEP(479), KEEP(478), KEEP(476), 
+     &          KEEP(483), MAXI_CLUSTER, MAXI_RANK,
+     &          KEEP(474), 0, BLR_U, KEEP8,
+     &          END_I_IN=END_I
+     &          )
+ 442          CONTINUE
+            ENDIF
+ 444        CONTINUE
+          ELSE
             CALL DMUMPS_BLR_UPDATE_TRAILING(A, LA, POSELT, 
      &        IFLAG, IERROR, NFRONT,
      &        BEGS_BLR, BEGS_BLR, CURRENT_BLR, BLR_L, NPARTSASS,
      &        BLR_U, NB_BLR, NELIM, .FALSE., 0,
-     &        2, 0, KEEP(470), 
-     &        KEEP(481), DKEEP(8), KEEP(477) 
+     &        2, 0, 
+     &        KEEP(481), DKEEP(8), KEEP(466), KEEP(477) 
      &        )
+          ENDIF
+#if defined(BLR_MT)          
+!$OMP BARRIER
+#endif
+          IF (IFLAG.LT.0) GOTO 400
+#if defined(BLR_MT)          
+!$OMP MASTER
+#endif          
+          CALL SYSTEM_CLOCK(T2,COUNT_RATE)
+          LOC_UPDT_TIME = LOC_UPDT_TIME + 
+     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
+          CALL SYSTEM_CLOCK(T1)
+#if defined(BLR_MT)          
+!$OMP END MASTER
+#endif          
+          IF (KEEP(475).GT.0) THEN
+            FIRST_BLOCK = CURRENT_BLR+1
+            IF (KEEP(486).EQ.2.AND.UU.EQ.0) THEN
+              LAST_BLOCK = CURRENT_BLR
+            ELSE
+              LAST_BLOCK = NPARTSASS
+            ENDIF
+            CALL DMUMPS_DECOMPRESS_PANEL(A, LA, POSELT, NFRONT,
+     &      NFRONT, .TRUE.,  
+     &      BEGS_BLR(CURRENT_BLR),
+     &      BEGS_BLR(CURRENT_BLR+1), NPARTSASS, BLR_L, CURRENT_BLR, 'V',
+     &      BEG_I_IN=FIRST_BLOCK, END_I_IN=LAST_BLOCK)
+#if defined(BLR_MT)          
+!$OMP MASTER
+#endif          
+            CALL SYSTEM_CLOCK(T2,COUNT_RATE)
+            LOC_PROMOTING_TIME = LOC_PROMOTING_TIME + 
+     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
+            CALL SYSTEM_CLOCK(T1)
+#if defined(BLR_MT)          
+!$OMP END MASTER
+#endif          
+          ENDIF
+         IF (KEEP(475).GE.2) THEN
+           IF (KEEP(475).EQ.2) THEN
+             FIRST_BLOCK = NPARTSASS+1
+           ELSE
+             FIRST_BLOCK = CURRENT_BLR+1
+           ENDIF
+           IF (KEEP(486).NE.2) THEN
+             LAST_BLOCK = END_I
+           ELSEIF(UU.GT.0) THEN
+             LAST_BLOCK = NPARTSASS
+           ELSE
+             LAST_BLOCK = CURRENT_BLR
+           ENDIF
+           CALL DMUMPS_DECOMPRESS_PANEL(A, LA, POSELT, NFRONT,
+     &       NFRONT, .TRUE.,   
+     &       BEGS_BLR(CURRENT_BLR),
+     &       BEGS_BLR(CURRENT_BLR+1), NB_BLR, BLR_U, CURRENT_BLR, 'H',
+     &       BEG_I_IN=FIRST_BLOCK, END_I_IN=LAST_BLOCK)
+#if defined(BLR_MT)          
+!$OMP MASTER
+#endif          
+           CALL SYSTEM_CLOCK(T2,COUNT_RATE)
+           LOC_PROMOTING_TIME = LOC_PROMOTING_TIME + 
+     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
+#if defined(BLR_MT)          
+!$OMP END MASTER
+#endif          
+         ENDIF
  400      CONTINUE
 #if defined(BLR_MT)          
 !$OMP END PARALLEL
 #endif          
           IF (IFLAG.LT.0) GOTO 490
-          CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-          LOC_UPDT_TIME = LOC_UPDT_TIME + 
-     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
           CALL STATS_STORE_BLR_PANEL_MRY(BLR_L,
      &               NB_BLR-CURRENT_BLR-NPARTSCB,
      &               0, 'V', 2)
-           IF (KEEP(485).NE.0) THEN
-             CALL SYSTEM_CLOCK(T1)
-             CALL DMUMPS_DECOMPRESS_PANEL(A, LA, POSELT, NFRONT,
-     &             .FALSE., 
-     &        BEGS_BLR(CURRENT_BLR), BEGS_BLR(CURRENT_BLR+1), 
-     &        NPARTSASS, BLR_L, CURRENT_BLR, 'V', NFRONT, KEEP(470))
-             CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-             LOC_PROMOTING_TIME = LOC_PROMOTING_TIME + 
-     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
-           ENDIF 
-           IF (KEEP(485).NE.0) THEN
-             CALL SYSTEM_CLOCK(T1)
-             CALL DMUMPS_DECOMPRESS_PANEL(A, LA, POSELT, NFRONT,
-     &        .FALSE.,   
-     &         BEGS_BLR(CURRENT_BLR),
-     &         BEGS_BLR(CURRENT_BLR+1), NB_BLR, BLR_U, CURRENT_BLR, 'H',
-     &         NFRONT, KEEP(470),
-     &         END_I_IN=END_I
-     &         )
-             CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-             LOC_PROMOTING_TIME = LOC_PROMOTING_TIME + 
-     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
-           ENDIF
-            CALL DEALLOC_BLR_PANEL (BLR_U, NB_BLR-CURRENT_BLR, KEEP8,
-     &                             .TRUE.)
-            CALL DEALLOC_BLR_PANEL (BLR_L, NPARTSASS-CURRENT_BLR, KEEP8,
-     &                             .TRUE.)
-            DEALLOCATE(BLR_U,BLR_L)
+          IF (KEEP(486).EQ.3) THEN
+            IF (KEEP(480).EQ.0.OR.NB_BLR.EQ.CURRENT_BLR) THEN
+              CALL DEALLOC_BLR_PANEL(BLR_U, NB_BLR-CURRENT_BLR,
+     &                      KEEP8)
+              CALL DEALLOC_BLR_PANEL(BLR_L, NPARTSASS-CURRENT_BLR, 
+     &                      KEEP8)
+              DEALLOCATE(BLR_U,BLR_L)
+            ENDIF
+          ENDIF
           NULLIFY(BLR_L)
           NULLIFY(BLR_U)
         ENDIF
-        IF (KEEP(201).EQ.1) THEN 
+        IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN 
           STRAT            = STRAT_TRY_WRITE
           MonBloc%LastPiv  = NPIV
           LAST_CALL= .FALSE.
@@ -618,21 +976,166 @@ C
  100    CONTINUE
       END DO 
       IF (LR_ACTIVATED) THEN
+          IBEG_BLR = IW(IOLDPS+1+XSIZE) + 1 
+          BEGS_BLR( CURRENT_BLR + 1 ) = IBEG_BLR
+          CALL SYSTEM_CLOCK(T1)
+         IF ( (KEEP(486).EQ.2) 
+     &       ) THEN
+            CALL DMUMPS_BLR_RETRIEVE_BEGSBLR_STA(IW(IOLDPS+XXF),
+     &                        BEGS_BLR_STATIC)
+            IF (UU.GT.0) THEN
+              allocate(BEGS_BLR_TMP(NB_BLR+1),stat=allocok)
+              IF (allocok > 0) THEN
+                IFLAG  = -13
+                IERROR = NB_BLR+1
+                GOTO 490
+             ENDIF
+             DO IP=1,NB_BLR+1
+                BEGS_BLR_TMP(IP) = BEGS_BLR_STATIC(IP)
+             ENDDO
+            ENDIF
+          ENDIF
+          IF (
+     &         (KEEP(486).EQ.2) 
+     &       ) THEN
+            MEM_TOT = 0
+#if defined(BLR_MT)          
+!$OMP PARALLEL 
+!$OMP& PRIVATE(IP, LorU, DIR, NELIM)
+#endif
+#if defined(BLR_MT)
+!$OMP DO PRIVATE(DIAG, DIAGSIZ_STA, DIAGSIZ_DYN, DPOS, POSELT_DIAG, MEM)
+!$OMP&   REDUCTION(+:MEM_TOT)
+#endif
+            DO IP=1,NPARTSASS
+              IF (IFLAG.LT.0) CYCLE
+              DIAGSIZ_DYN = BEGS_BLR(IP+1)-BEGS_BLR(IP)
+              DIAGSIZ_STA = BEGS_BLR_STATIC(IP+1)-BEGS_BLR(IP)
+              MEM = DIAGSIZ_DYN*(2*DIAGSIZ_STA-DIAGSIZ_DYN)
+              MEM_TOT = MEM_TOT + MEM
+              ALLOCATE(DIAG(MEM), stat=allocok)
+              IF (allocok > 0) THEN
+                IFLAG  = -13
+                IERROR = MEM
+                CYCLE
+              ENDIF 
+              DPOS = 1
+              POSELT_DIAG = POSELT + int(BEGS_BLR(IP)-1,8)*int(NFRONT,8)
+     &                             + int(BEGS_BLR(IP)-1,8)
+              DO I=1,DIAGSIZ_STA
+                IF (I.LE.DIAGSIZ_DYN) THEN
+                  DIAG(DPOS:DPOS+DIAGSIZ_STA-1) =
+     &                   A(POSELT_DIAG:POSELT_DIAG+int(DIAGSIZ_STA-1,8))
+                  DPOS = DPOS + DIAGSIZ_STA
+                ELSE
+                  DIAG(DPOS:DPOS+DIAGSIZ_DYN-1) =
+     &                   A(POSELT_DIAG:POSELT_DIAG+int(DIAGSIZ_DYN-1,8))
+                  DPOS = DPOS + DIAGSIZ_DYN
+                ENDIF
+                POSELT_DIAG = POSELT_DIAG + int(NFRONT,8)
+              ENDDO
+              CALL DMUMPS_BLR_SAVE_DIAG_BLOCK(
+     &              IW(IOLDPS+XXF),
+     &              IP, DIAG)
+            ENDDO
+#if defined(BLR_MT)
+!$OMP ENDDO
+!$OMP SINGLE
+#endif
+            KEEP8(69) = KEEP8(69) + int(MEM_TOT,8)
+            KEEP8(68) = max(KEEP8(69), KEEP8(68))
+            KEEP8(71) = KEEP8(71) + int(MEM_TOT,8)
+            KEEP8(70) = max(KEEP8(71), KEEP8(70))
+#if ! defined(NODYNAMICCB)
+            KEEP8(74) = max(KEEP8(74), KEEP8(71)+KEEP8(73))
+            IF ( KEEP8(74) .GT. KEEP8(75) ) THEN
+             IFLAG = -19
+             CALL MUMPS_SET_IERROR(
+     &             (KEEP8(74)-KEEP8(75)), IERROR)
+            ENDIF
+#endif
+            CALL SYSTEM_CLOCK(T2,COUNT_RATE)
+            ACC_DIAGCOPY_TIME = ACC_DIAGCOPY_TIME + 
+     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
+            CALL SYSTEM_CLOCK(T1)
+#if defined(BLR_MT)
+!$OMP END SINGLE
+#endif
+            IF (IFLAG.LT.0) GOTO 460
+            IF (UU.GT.0) THEN
+              DO IP=1,NPARTSASS
+                NELIM = BEGS_BLR_TMP(IP+1)-BEGS_BLR(IP+1)
+                DO LorU=0,1
+#if defined(BLR_MT)
+!$OMP SINGLE
+#endif
+                  CALL DMUMPS_BLR_RETRIEVE_PANEL_LORU(
+     &             IW(IOLDPS+XXF), LorU, IP, BLR_PANEL)
+                  CALL DEALLOC_BLR_PANEL(BLR_PANEL, NPARTSASS-IP, KEEP8)
+#if defined(BLR_MT)
+!$OMP END SINGLE
+#endif
+                  IF (LorU.EQ.0) THEN 
+                    DIR = 'V'
+                  ELSE
+                    DIR = 'H'
+                  ENDIF
+                  CALL DMUMPS_COMPRESS_PANEL(A, LA, POSELT, IFLAG,
+     &              IERROR, NFRONT, BEGS_BLR_TMP,
+     &              NB_BLR, DKEEP(8), KEEP(466), KEEP(473),
+     &              BLR_PANEL, IP,
+     &              DIR, WORK, TAU, JPVT, LWORK, RWORK,
+     &              BLOCK, MAXI_CLUSTER, NELIM,
+     &              .FALSE., 0, 0,
+     &              2, KEEP(483), KEEP8,
+     &              END_I_IN=NPARTSASS, FR_SWAP=.TRUE.
+     &             )
+#if defined(BLR_MT)
+!$OMP BARRIER
+#endif
+                  IF (IFLAG.LT.0) GOTO 445
+                ENDDO
+#if defined(BLR_MT)
+!$OMP BARRIER
+!$OMP SINGLE
+#endif
+                BEGS_BLR_TMP(IP+1) = BEGS_BLR(IP+1)
+#if defined(BLR_MT)
+!$OMP END SINGLE
+#endif
+              ENDDO
+#if defined(BLR_MT)
+!$OMP BARRIER
+!$OMP MASTER
+#endif
+              CALL SYSTEM_CLOCK(T2,COUNT_RATE)
+              ACC_FRSWAP_TIME = ACC_FRSWAP_TIME + 
+     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
+              CALL SYSTEM_CLOCK(T1)
+#if defined(BLR_MT)
+!$OMP END MASTER
+#endif
+ 445          CONTINUE
+            ENDIF 
+ 460        CONTINUE          
+#if defined(BLR_MT)          
+!$OMP END PARALLEL
+#endif
+            IF (UU.GT.0) THEN
+              deallocate(BEGS_BLR_TMP)
+            ENDIF
+          ENDIF 
+          IF ( (KEEP(486).EQ.2) 
+     &       ) THEN
+            CALL DMUMPS_BLR_SAVE_BEGS_BLR_DYN(IW(IOLDPS+XXF),
+     &        BEGS_BLR)
+          ENDIF  
          CALL STATS_COMPUTE_MRY_FRONT_TYPE2(NASS, NFRONT, 0, INODE,
      &                                      NELIM)
          CALL SYSTEM_CLOCK(TTOT2,COUNT_RATETOT)
          CALL STATS_COMPUTE_FLOP_FRONT_TYPE2(NFRONT, NASS, KEEP(50),
      &                      STEP_STATS(INODE), NELIM )
          LOC_LR_MODULE_TIME = DBLE(TTOT2-TTOT1)/DBLE(COUNT_RATETOT)
-        IF (allocated(RWORK))  DEALLOCATE(RWORK)
-        IF (allocated(work)) DEALLOCATE(WORK)
-        IF (allocated(TAU)) DEALLOCATE(TAU)
-        IF (allocated(JPVT)) DEALLOCATE(JPVT)
-        IF (allocated(BLOCK)) DEALLOCATE(BLOCK)
-         IF (associated(BEGS_BLR)) THEN
-           DEALLOCATE(BEGS_BLR)
-           NULLIFY(BEGS_BLR)
-         ENDIF
       ENDIF
       IF (KEEP(486).NE.0) THEN
         IF (.NOT.LR_ACTIVATED) THEN
@@ -648,7 +1151,7 @@ C
      &                        LOC_FAC_I_TIME, LOC_FAC_MQ_TIME,
      &                        LOC_FAC_SQ_TIME)
       ENDIF
-      IF (KEEP(201).EQ.1) THEN 
+      IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN 
           STRAT        = STRAT_WRITE_MAX   
           MonBloc%Last = .TRUE.
           MonBloc%LastPiv  = IW(IOLDPS+1+XSIZE)
@@ -666,14 +1169,51 @@ C
           CALL DMUMPS_OOC_PP_TRYRELEASE_SPACE (IWPOS, 
      &      IOLDPS, IW, LIW, MonBloc , NFRONT, KEEP)
       ENDIF
-      GOTO 500
+      GOTO 700
  480  CONTINUE
-      write(*,*) 'Allocation problem in BLR routine
-     &     DMUMPS_FAC_FRONT_LU_TYPE2: ',
-     &     'not enough memory? memory requested = ' , IERROR
  490  CONTINUE
-      CALL DMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
  500  CONTINUE
+      CALL DMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
+ 700  CONTINUE
+      IF (LR_ACTIVATED) THEN
+        IF (allocated(RWORK))  DEALLOCATE(RWORK)
+        IF (allocated(WORK)) DEALLOCATE(WORK)
+        IF (allocated(TAU)) DEALLOCATE(TAU)
+        IF (allocated(JPVT)) DEALLOCATE(JPVT)
+        IF (allocated(BLOCK)) DEALLOCATE(BLOCK)
+        IF (associated(ACC_LUA)) THEN
+         IF (KEEP(480).GE.3) THEN
+           DO MY_NUM=1,OMP_NUM
+             CALL DEALLOC_LRB(ACC_LUA(MY_NUM), KEEP8)
+           ENDDO
+         ENDIF
+         DEALLOCATE(ACC_LUA)
+        ENDIF
+        IF (associated(BEGS_BLR)) THEN
+           DEALLOCATE(BEGS_BLR)
+           NULLIFY(BEGS_BLR)
+        ENDIF
+      ENDIF
+      IF (LR_ACTIVATED.AND.KEEP(480).NE.0) THEN
+        IF (.NOT.
+     &       (
+     &         (KEEP(486).EQ.2) 
+     &       )
+     &     ) 
+     &  THEN
+          CALL DMUMPS_BLR_FREE_ALL_PANELS(IW(IOLDPS+XXF), 2, 
+     &                      KEEP8)
+        ENDIF
+      ENDIF
+      IF (LR_ACTIVATED) THEN
+        IF (.NOT.
+     &       (
+     &         (KEEP(486).EQ.2) 
+     &       )
+     &     ) THEN
+          CALL DMUMPS_BLR_END_FRONT( IW(IOLDPS+XXF),IFLAG,KEEP8)
+        ENDIF
+      ENDIF
       DEALLOCATE( IPIV )
       RETURN
       END SUBROUTINE DMUMPS_FAC2_LU

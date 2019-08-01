@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -12,13 +12,13 @@ C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE SMUMPS_GET_NS_OPTIONS_FACTO(N,KEEP,ICNTL,MPG)
       IMPLICIT NONE
-          INTEGER N, KEEP(500), ICNTL(40), MPG
+          INTEGER N, KEEP(500), ICNTL(60), MPG
           KEEP(19)=0
           RETURN
       END SUBROUTINE SMUMPS_GET_NS_OPTIONS_FACTO
       SUBROUTINE SMUMPS_GET_NS_OPTIONS_SOLVE(ICNTL,KEEP,MPG,INFO)
       IMPLICIT NONE
-      INTEGER KEEP(500), MPG, INFO(40), ICNTL(40)
+      INTEGER KEEP(500), MPG, INFO(80), ICNTL(60)
       IF (KEEP(19).EQ.0.AND.KEEP(110).EQ.0) THEN
         IF (KEEP(111).NE.0) THEN
          INFO(1) = -37

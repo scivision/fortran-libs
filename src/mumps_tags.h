@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -76,13 +76,19 @@ C -----------------------------------------
      &        Master2Slave,
      &        GatherSol,
      &        ScatterRhsI,
-     &        ScatterRhsR
+     &        ScatterRhsR,
+     &        DistRhsI,
+     &        DistRhsR
       PARAMETER( RACINE_SOLVE = 14,
      &           ContVec      = 11,
      &           Master2Slave = 12,
      &           GatherSol    = 13,
      &           ScatterRhsI  = 54,
-     &           ScatterRhsR  = 55)
+     &           ScatterRhsR  = 55,
+     &           DistRhsI     = 51,
+     &           DistRhsR     = 52)
+      INTEGER, PARAMETER :: DIST_RHS_INT    = 56
+      INTEGER, PARAMETER :: DIST_RHS_SCALAR = 57
 C -----------------------------------------
 C   Tags for backsolve
 C -----------------------------------------

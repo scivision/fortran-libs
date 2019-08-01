@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -17,8 +17,8 @@ C
      &           STEP, INFO, LDLT, QR,
      &           WK, LWK, KEEP,KEEP8,DKEEP,OPELIW)
         USE SMUMPS_LR_STATS, ONLY: UPDATE_FLOPS_STATS_ROOT
+        USE SMUMPS_STRUC_DEF, ONLY : SMUMPS_ROOT_STRUC
         IMPLICIT NONE
-      INCLUDE 'smumps_root.h'
       INCLUDE 'mpif.h'
       TYPE ( SMUMPS_ROOT_STRUC ) :: root
       INTEGER N, IROOT, COMM, LIW, MYID, IFREE, MASTER_OF_ROOT
@@ -76,7 +76,7 @@ C
      &      root%TOT_ROOT_SIZE, root%MBLOCK, root%NBLOCK,
      &      0, 0, root%CNTXT_BLACS, LOCAL_M, IERR )
         IF ( LDLT.EQ.2 ) THEN
-            IF(root%MBLOCK.NE.root%NBLOCK) THEN
+           IF(root%MBLOCK.NE.root%NBLOCK) THEN
               WRITE(*,*) ' Error: symmetrization only works for'
               WRITE(*,*) ' square block sizes, MBLOCK/NBLOCK=',
      &        root%MBLOCK, root%NBLOCK
@@ -85,7 +85,7 @@ C
             IF ( LWK .LT. min(
      &           int(root%MBLOCK,8) * int(root%NBLOCK,8),
      &           int(root%TOT_ROOT_SIZE,8)* int(root%TOT_ROOT_SIZE,8 )
-     &         )) THEN
+     &           )) THEN
                WRITE(*,*) 'Not enough workspace for symmetrization.'
                CALL MUMPS_ABORT()
             END IF
@@ -134,7 +134,7 @@ C
      &                 * int(root%TOT_ROOT_SIZE,8)
         ELSE
           ENTRIES_ROOT = int(root%TOT_ROOT_SIZE,8)
-     &                 * int(root%TOT_ROOT_SIZE,8)
+     &                 * int(root%TOT_ROOT_SIZE+1,8)/2_8
         ENDIF
         KEEP8(10)=KEEP8(10) + ENTRIES_ROOT /
      &                        int(root%NPROW * root%NPCOL,8)
@@ -143,11 +143,11 @@ C
      &    mod(ENTRIES_ROOT, int(root%NPROW*root%NPCOL,8))
         ENDIF
         IF (KEEP(258).NE.0) THEN
-          IF (root%MBLOCK.NE.root%NBLOCK) THEN
+           IF (root%MBLOCK.NE.root%NBLOCK) THEN
             write(*,*) "Internal error in SMUMPS_FACTO_ROOT:",
      &      "Block size different for rows and columns",
      &      root%MBLOCK, root%NBLOCK
-            CALL MUMPS_ABORT() 
+            CALL MUMPS_ABORT()
           ENDIF
           CALL SMUMPS_GETDETER2D(root%MBLOCK, root%IPIV(1),root%MYROW,
      &         root%MYCOL, root%NPROW, root%NPCOL, A(IAPOS), LOCAL_M,

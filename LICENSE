@@ -1,6 +1,6 @@
 
-  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-  University of Bordeaux.
+  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+  Mumps Technologies, University of Bordeaux.
 
   This version of MUMPS is provided to you free of charge. It is
   released under the CeCILL-C license,
@@ -15,12 +15,14 @@
 
    [1] P. R. Amestoy, I. S. Duff, J. Koster and  J.-Y. L'Excellent,
    A fully asynchronous multifrontal solver using distributed dynamic
-   scheduling, SIAM Journal of Matrix Analysis and Applications,
+   scheduling, SIAM Journal on Matrix Analysis and Applications,
    Vol 23, No 1, pp 15-41 (2001).
 
-   [2] P. R. Amestoy, A. Guermouche, J.-Y. L'Excellent and
-   S. Pralet, Hybrid scheduling for the parallel solution of linear
-   systems. Parallel Computing Vol 32 (2), pp 136-156 (2006).
+   [2] P. R. Amestoy, A. Buttari, J.-Y. L'Excellent and T. Mary, 
+   Performance and scalability of the block low-rank multifrontal 
+   factorization on multicore architectures, 
+   ACM Transactions on Mathematical Software,
+   Vol 45, Issue 1, pp 2:1-2:26 (2019)
 
   As a counterpart to the access to the source code and rights to copy,
   modify and redistribute granted by the license, users are provided only

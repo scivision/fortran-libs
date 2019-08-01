@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -24,7 +24,8 @@ C
      &                   PP_FIRST2SWAP_L, PP_LastPanelonDisk,
      &                   PP_LastPIVRPTRIndexFilled, 
      &                   PIVOT_OPTION,   
-     &                   Inextpiv, IEND_BLR)
+     &                   Inextpiv, IEND_BLR, 
+     &                   OOCWRITE_COMPATIBLE_WITH_BLR)
       USE MUMPS_OOC_COMMON, ONLY : TYPEF_L   
       USE SMUMPS_FAC_FRONT_AUX_M
       IMPLICIT NONE
@@ -37,6 +38,7 @@ C
       INTEGER PIVSIZ,LPIV
       INTEGER, intent(in)    :: PIVOT_OPTION, IEND_BLR
       INTEGER, intent(inout) :: Inextpiv
+      LOGICAL, intent(in)    :: OOCWRITE_COMPATIBLE_WITH_BLR
       INTEGER(8) :: LA
       REAL A(LA) 
       REAL UU, UULOC, SEUIL
@@ -92,7 +94,8 @@ C
       CSEUIL = SEUIL
       LDAFS  = NASS
       LDAFS8 = int(LDAFS,8)
-      IF (KEEP(201).EQ.1 .AND. KEEP(50).NE.1) THEN
+      IF (KEEP(201).EQ.1 .AND. KEEP(50).NE.1 .AND.
+     &    OOCWRITE_COMPATIBLE_WITH_BLR) THEN
              CALL SMUMPS_GET_OOC_PERM_PTR(TYPEF_L, NBPANELS_L, 
      &       I_PIVRPTR, I_PIVR, 
      &       IOLDPS+2*NFRONT+6+IW(IOLDPS+5+KEEP(IXSZ))
@@ -127,7 +130,8 @@ C
            ELSE IF (KEEP(258) .NE.0 ) THEN
              CALL SMUMPS_UPDATEDETER( A(APOS), DKEEP(6), KEEP(259) )
            ENDIF
-           IF (KEEP(201).EQ.1.AND.KEEP(50).NE.1) THEN
+           IF (KEEP(201).EQ.1.AND.KEEP(50).NE.1.AND.
+     &         OOCWRITE_COMPATIBLE_WITH_BLR) THEN
              CALL SMUMPS_STORE_PERMINFO( IW(I_PIVRPTR), NBPANELS_L,
      &               IW(I_PIVR), NASS, NPIVP1, NPIVP1, 
      &               PP_LastPanelonDisk,
@@ -140,9 +144,8 @@ C
         GW_FACTCUMUL = RONE
         IF (K219.EQ.3) THEN
          DO IPIV=1,NASS
-            APOS = POSELT + LDAFS8*int(IPIV-1,8) 
-            POSPV1 = APOS + int(IPIV - 1,8)
-            DIAG_ORIG (IPIV)  = abs(A(POSPV1))
+            DIAG_ORIG (IPIV)  = abs(A(POSELT +
+     &                              (LDAFS8+1_8)*int(IPIV-1,8)))
          ENDDO
         ELSE IF (K219.GE.4) THEN
          DIAG_ORIG  = RZERO
@@ -204,7 +207,7 @@ C
             J1 = POSPV1 + LDAFS8
             DO J=1, IEND_BLOCK - IPIV
                IF(abs(A(J1)) .GT. AMAX) THEN
-                  AMAX = max(abs(A(J1)),AMAX)
+                  AMAX = abs(A(J1))
                   JMAX = IPIV + J
                ENDIF
                J1 = J1 + LDAFS8
@@ -212,8 +215,8 @@ C
             RMAX_NOSLAVE = RZERO
             IF (PIVOT_OPTION.EQ.2) THEN
               DO J=1,NASS - IEND_BLOCK
-                RMAX_NOSLAVE = max(abs(A(J1)),RMAX_NOSLAVE)
-                J1 = J1 + LDAFS8
+                RMAX_NOSLAVE = max(abs(A(J1+LDAFS8*int(J-1,8))),
+     &                             RMAX_NOSLAVE)
               ENDDO
             ENDIF
             IF (K219.NE.0) THEN
@@ -262,14 +265,8 @@ C
                DO JJ=J1,J2
                   A(JJ) = ZERO
                ENDDO
-               J1 = POSPV1 + LDAFS8
-               DO J=1, IEND_BLOCK - IPIV
-                  A(J1) = ZERO
-                  J1 = J1 + LDAFS8
-               ENDDO
-               DO J=1,NASS - IEND_BLOCK
-                  A(J1) = ZERO
-                  J1 = J1 + LDAFS8
+               DO J=1, NASS-IPIV
+                 A(POSPV1+int(J,8)*LDAFS8) = ZERO
                ENDDO
                 VALTMP = max(1.0E10*RMAX, sqrt(huge(RMAX))/1.0E8)
                 A(POSPV1) = VALTMP
@@ -288,6 +285,8 @@ C
         END IF
          IF (NPIVP1.EQ.IEND_BLOCK) THEN
            GOTO 460
+         ELSE IF (JMAX .EQ.0) THEN
+           GOTO 460
          ENDIF
          IF (max(abs(PIVOT),RMAX,AMAX).LE.tiny(RMAX)) THEN
            GOTO 460
@@ -300,12 +299,11 @@ C
                      RMAX_NOSLAVE = max(RMAX_NOSLAVE,abs(A(JJ)))
                   ENDIF
                ENDDO
-               J1 = POSPV1 + LDAFS8
                DO J=1,NASS-IPIV
                   IF(IPIV+J .NE. JMAX) THEN
-                     RMAX_NOSLAVE = max(abs(A(J1)),RMAX_NOSLAVE)
+                     RMAX_NOSLAVE = max(abs(A(POSPV1+LDAFS8*int(J,8))),
+     &                                  RMAX_NOSLAVE)
                   ENDIF
-                  J1 = J1 + LDAFS8
                ENDDO
                RMAX = max(RMAX, RMAX_NOSLAVE)
             ENDIF            
@@ -421,7 +419,8 @@ C
                DIAG_ORIG(NPIVP1) = RSWOP 
               ENDIF
  416          CONTINUE
-              IF (KEEP(201).EQ.1.AND.KEEP(50).NE.1) THEN
+              IF (KEEP(201).EQ.1.AND.KEEP(50).NE.1.AND.
+     &            OOCWRITE_COMPATIBLE_WITH_BLR) THEN
                 CALL SMUMPS_STORE_PERMINFO( IW(I_PIVRPTR), NBPANELS_L,
      &               IW(I_PIVR), NASS, NPIVP1, LPIV, PP_LastPanelonDisk,
      &               PP_LastPIVRPTRIndexFilled)
@@ -628,19 +627,19 @@ C
      &             STEP, PIMASTER, PAMASTER,
      &             NSTK_S,NBPROCFILS,PROCNODE_STEPS, root,
      &             OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &             FILS, PTRARW, PTRAIW,
+     &             FILS, DAD, PTRARW, PTRAIW,
      &             INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
      &             LPTRAR, NELT, FRTPTR, FRTELT, 
      &             ISTEP_TO_INIV2, TAB_POS_IN_PERE
-     &             , NELIM, SEND_LR, NPARTSASS, CURRENT_BLR_PANEL
+     &             , NELIM, LR_ACTIVATED, NPARTSASS, CURRENT_BLR_PANEL
      &             , BLR_LorU 
      &             , LRGROUPS
      &            )
       USE SMUMPS_BUF
       USE SMUMPS_LOAD
       USE SMUMPS_LR_TYPE
+      USE SMUMPS_STRUC_DEF, ONLY : SMUMPS_ROOT_STRUC
       IMPLICIT NONE
-      INCLUDE 'smumps_root.h'
       INCLUDE 'mpif.h'
       TYPE (SMUMPS_ROOT_STRUC) :: root
       INTEGER COMM_LOAD, ASS_IRECV
@@ -657,11 +656,11 @@ C
       INTEGER(8) KEEP8(150)
       REAL    DKEEP(230)
       INTEGER NBFIN, IFLAG, IERROR, LEAF, LPOOL,
-     &        SLAVEF, ICNTL(40)
+     &        SLAVEF, ICNTL(60)
       INTEGER(8) :: POSFAC, IPTRLU, LRLU, LRLUS
       INTEGER IWPOS, IWPOSCB, COMP
       INTEGER BUFR( LBUFR ), IPOOL(LPOOL),
-     &        ITLOC(N+KEEP(253)), FILS(N),
+     &        ITLOC(N+KEEP(253)), FILS(N), DAD( KEEP(28) ),
      &        ND( KEEP(28) ), FRERE( KEEP(28) )
       INTEGER(8), INTENT(IN) :: PTRARW(LPTRAR), PTRAIW(LPTRAR)
       REAL :: RHS_MUMPS(KEEP(255))
@@ -677,7 +676,7 @@ C
       DOUBLE PRECISION OPASSW, OPELIW
       REAL DBLARR(KEEP8(26))
       INTEGER INTARR(KEEP8(27))
-      LOGICAL, intent(in) ::  SEND_LR  
+      LOGICAL, intent(in) ::  LR_ACTIVATED  
       TYPE (LRB_TYPE), DIMENSION(:) :: BLR_LorU
       INTEGER, intent(in) :: LRGROUPS(N)
       INTEGER ::  NELIM
@@ -689,8 +688,11 @@ C
       INTEGER :: STATUS(MPI_STATUS_SIZE)
       LOGICAL BLOCKING, SET_IRECV, MESSAGE_RECEIVED
       DOUBLE PRECISION FLOP1,FLOP2
+      LOGICAL COMPRESS_CB
+      COMPRESS_CB    = ((IW(IOLDPS+XXLR).EQ.1).OR.
+     &                    (IW(IOLDPS+XXLR).EQ.3))
       NSLAVES= IW(IOLDPS+5+KEEP(IXSZ))
-          IF (NSLAVES.EQ.0) THEN
+      IF (NSLAVES.EQ.0) THEN
            WRITE(6,*) ' ERROR 1 in SMUMPS_SEND_FACTORED_BLK '
            CALL MUMPS_ABORT()
           ENDIF
@@ -711,6 +713,12 @@ C
       IF ((NPIV.GT.0) .OR. 
      &    ((NPIV.EQ.0).AND.(LASTBL))
      &   ) THEN
+       IF ((NPIV.EQ.0).AND.(LASTBL)) THEN
+         IF (COMPRESS_CB) THEN
+         IW(IOLDPS+XXLR) = IW(IOLDPS+XXLR) -1
+         COMPRESS_CB = .FALSE.
+         ENDIF
+       ENDIF
         PDEST  = IOLDPS + 6 + KEEP(IXSZ)
         IF (( NPIV .NE. 0 ).AND.(KEEP(50).NE.0)) THEN
           NB_BLOC_FAC = NB_BLOC_FAC + 1
@@ -724,7 +732,7 @@ C
      &               NB_BLOC_FAC,
      &               NSLAVES, WIDTH, COMM,
      &               NELIM, NPARTSASS, CURRENT_BLR_PANEL,
-     &               SEND_LR, BLR_LorU, 
+     &               LR_ACTIVATED, BLR_LorU, 
      &        IERR )
           IF (IERR.EQ.-1) THEN
             BLOCKING  = .FALSE.
@@ -743,7 +751,7 @@ C
      &       NBPROCFILS,
      &       IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &       root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &       FILS, PTRARW, PTRAIW,
+     &       FILS, DAD, PTRARW, PTRAIW,
      &       INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
      &       LPTRAR, NELT, FRTPTR, FRTELT, 
      &       ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE.

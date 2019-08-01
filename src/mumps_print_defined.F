@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -17,6 +17,9 @@ C
       write(MPG,*) "================================================="
 #if defined(ZERO_TRIANGLE)
       write(MPG,*) "MUMPS compiled with option -DZERO_TRIANGLE"
+#endif
+#if defined(GEMMT_AVAILABLE)
+      write(MPG, *) "MUMPS compiled with option -DGEMMT_AVAILABLE"
 #endif
 #if defined(DETERMINISTIC_PARALLEL_GRAPH)
       write(MPG,*) "MUMPS compiled with option"
@@ -48,6 +51,10 @@ C
 #endif
 #if defined(MUMPS_USE_BLAS2)
       write(MPG,*) "MUMPS compiled with option -DMUMPS_USE_BLAS2"
+#endif
+      write(MPG,*) "This MUMPS version includes code for SAVE_RESTORE"
+#if defined(NODYNAMICCB)
+      write(MPG,*) "MUMPS compiled with option -DNODYNAMICCB"
 #endif
 #if defined(BLR_MT)
       write(MPG,*) "MUMPS compiled with option -DBLR_MT"

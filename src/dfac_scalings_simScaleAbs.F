@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -390,13 +390,6 @@ C
 C     MPI     [-----------------]
              REQUESTS = OCSNDRCVJA + OCSNDRCVVOL
              ISTATUS = REQUESTS + NUMPROCS
-C     Check done outside
-C     IF(ISTATUS + NUMPROCS * MPI_STATUS_SIZE - 1>INTSZ) THEN
-C     write(6,*) "Bora: ", ISTATUS + 
-C     &               NUMPROCS * MPI_STATUS_SIZE - 1,INTSZ
-C     write(6,*) "Bora : TODO. scimscaent_33 REPORT ERROR"
-C     CALL flush(6)
-C     ENDIF
 C     
 C     TMPWRK  [-----------------]
              TMPWORK = ISTATUS + MPI_STATUS_SIZE *  NUMPROCS
@@ -452,14 +445,6 @@ C     To avoid bound check errors...
              IF(ICSNDRCVVOL == 0) ISRCPTR = ISRCPTR - 1
              IF(OCSNDRCVVOL == 0) OSRCPTR = OSRCPTR - 1
           ENDIF
-C     Check done outside
-C     IF( OSRCPTR  + OCSNDRCVVOL - 1  > RESZ) THEN
-C     write(6,*) "Bora: NOTE: ", 
-C     &            OSRCPTR  + OCSNDRCVVOL - 1  , RESZ
-C     write(6,*)  "Bora: TODO. scimscaent_3 REPORT ERROR"
-C     CALL flush(6)
-C     ENDIF                    
-C     computation starts
           ITER = 1
           DO WHILE (ITER.LE.NB1+NB2+NB3)
 C     CLEAR temporary Dr and Dc
@@ -940,10 +925,6 @@ C     NUMPROCS IS 1
          ENDIF
 C     CALCULATE NECESSARY DOUBLE PRECISION SPACE
          RESZ = N + IRSNDRCVVOL + ORSNDRCVVOL
-C         write(6,*) 'Bora :', RESZ, N, IRSNDRCVVOL, ORSNDRCVVOL
-C         CALL flush(6)
-C     CALCULATE NECESSARY INT SPACE
-C     The last maxmn is tmpwork for setup comm and fillmyrowcol
          REGISTRE(1) = IRSNDRCVNUM 
          REGISTRE(2) = ORSNDRCVNUM
          REGISTRE(3) = IRSNDRCVVOL 
