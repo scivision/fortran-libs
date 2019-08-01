@@ -19,9 +19,6 @@ if scalapack_root == ''  # system
   if not scalapack_lib.found()
     scalapack_lib = fc.find_library('scalapack', required: false)
   endif
-  if not scalapack_lib.found()  # Mac Homebrew
-    scalapack_lib = fc.find_library('libscalapack.dylib', dirs: '/usr/local/opt/scalapack')
-  endif
 else
   message('searching for SCALAPACK in ' + scalapack_root)
   scalapack_lib = fc.find_library('scalapack', dirs : scalapack_root / 'lib')

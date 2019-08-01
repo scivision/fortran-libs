@@ -76,6 +76,8 @@ jobs:
     displayName: 'CTest'
 
 - job: MacOS_Meson
+  # need to figure out homebrew find scalapack on Mac--just try a physical Mac.
+  condition: False
   pool:
     vmImage: macOS-latest
 
