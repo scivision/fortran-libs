@@ -1,11 +1,8 @@
 
-lapack = dependency('lapack')
-blas = dependency('blas')
-
 mumpscfg = executable('mumpscfg', 'test_mumps.f90',
-  dependencies : [scalapack, lapack, blas, mpif],
+  dependencies : [scalapack, mpif],
   link_with : [mumps_lib, mumps_common, pord],
   include_directories : '../include',
   link_language: 'fortran')
 
-test('Mumps Config', mumpscfg)
+test('Mumps Config', mumpscfg, timeout: 15)

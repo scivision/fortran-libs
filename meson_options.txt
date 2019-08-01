@@ -1,1 +1,3 @@
 option('SCALAPACK_ROOT', type : 'string', description : 'root directory of SCALAPACK')
+option('ARITH', type: 'string', value: 'd', description: 'precision (s,d,c,z)')
+option('ordering', type: 'string', value: 'PORD', description: 'PORD, Scotch, Metis')
