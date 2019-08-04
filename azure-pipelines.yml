@@ -1,3 +1,6 @@
+variables:
+  cmake_version: 3.15.1
+
 jobs:
 - job: Ubuntu_CMake
   pool:
@@ -14,21 +17,25 @@ jobs:
     displayName: 'Install Linux prereqs'
   - script: |
       python -m pip install cmakeutils
-      cmake_setup 3.15.1 --prefix $(HOME)/.local
+      cmake_setup $(cmake_version) --prefix $(HOME)/.local
+      echo '##vso[task.setvariable variable=CMAKE_PATH]$(HOME)/.local/cmake-$(cmake_version)-Linux-x86_64/bin'
     displayName: 'install modern CMake'
-  - script: |
-      $(HOME)/.local/cmake-3.15.1-Linux-x86_64/bin/cmake -B build
-      $(HOME)/.local/cmake-3.15.1-Linux-x86_64/bin/cmake --build build --parallel
+  - script: $(CMAKE_PATH)/cmake -B build
     env:
       FC: gfortran
-    displayName: 'CMake: Configure and Build'
-  - script: $(HOME)/.local/cmake-3.15.1-Linux-x86_64/bin/ctest --parallel --output-on-failure
+    displayName: 'CMake Configure'
+  - script: $(CMAKE_PATH)/cmake --build build --parallel
+    displayName: 'CMake build'
+  - script: $(CMAKE_PATH)/ctest --parallel -V
     workingDirectory: build
-    displayName: 'CTest'
+    displayName: CTest
+  - publish: build/CMakeFiles/CMakeError.log
+    condition: failed()
+    artifact: LinuxCMakeTestLog
 
 - job: Ubuntu_Meson
   pool:
-    vmImage: 'ubuntu-latest'
+    vmImage: ubuntu-latest
 
   steps:
   - task: UsePythonVersion@0
@@ -51,7 +58,7 @@ jobs:
   - script: meson test -C build
     displayName: 'Meson build and test'
   - publish: build/meson-logs/testlog.txt
-    condition: succeededOrFailed()
+    condition: failed()
     artifact: TestLog_Ubuntu_Meson
 
 - job: MacOS_CMake
@@ -71,9 +78,12 @@ jobs:
     displayName: 'CMake configure and generate'
   - script: cmake --build build --parallel
     displayName: 'CMake build'
-  - script: ctest --parallel --output-on-failure
+  - script: ctest --parallel -V
     workingDirectory: build
-    displayName: 'CTest'
+    displayName: CTest
+  - publish: build/CMakeFiles/CMakeError.log
+    condition: failed()
+    artifact: MacCMakeTestLog
 
 - job: MacOS_Meson
   # need to figure out homebrew find scalapack on Mac--just try a physical Mac.
@@ -97,5 +107,5 @@ jobs:
   - script: meson test -C build
     displayName: 'Meson build and test'
   - publish: build/meson-logs/testlog.txt
-    condition: succeededOrFailed()
+    condition: failed()
     artifact: TestLog_Mac_Meson
