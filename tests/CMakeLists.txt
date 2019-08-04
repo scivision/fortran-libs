@@ -1,6 +1,6 @@
 # This test requires special configuration to work on Windows, as does any program using MPI:
 # https://www.scivision.dev/intel-mpi-windows-bug
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.13)
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Debug or Release")
 endif()
@@ -52,6 +52,9 @@ set_tests_properties(Simple PROPERTIES TIMEOUT 15)
 add_executable(Csimple simple.c)
 target_link_libraries(Csimple PRIVATE ${MUMPS_PREREQ_LIBS} MPI::MPI_C)
 target_include_directories(Csimple PRIVATE ${MUMPS_INCLUDE_DIRS})
+if(CMAKE_C_COMPILER_ID STREQUAL GNU)  # some setups do require this, seems a CMake bug.
+  target_link_libraries(Csimple PRIVATE gfortran)
+endif()
 add_test(NAME C_Simple
   COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS} $<TARGET_FILE:Csimple>)
 set_tests_properties(Simple PROPERTIES TIMEOUT 15)
