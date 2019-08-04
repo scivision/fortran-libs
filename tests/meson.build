@@ -7,12 +7,16 @@ else
   test_deps = [scalapack, mpif]
 endif
 
+mpiexec = find_program('mpiexec')
+
 mumpscfg = executable('mumpscfg', 'test_mumps.f90',
   dependencies : test_deps,
   link_with : [mumps_lib, mumps_common, pord],
   include_directories : '../include',
   link_language: 'fortran'
 )
+test('Mumps Config', mumpscfg, timeout: 15)
+
 
 simple = executable('simple', 'simple.f90',
   dependencies : test_deps,
@@ -20,11 +24,16 @@ simple = executable('simple', 'simple.f90',
   include_directories : '../include',
   link_language: 'fortran'
 )
-
-test('Mumps Config', mumpscfg, timeout: 15)
-
-mpiexec = find_program('mpiexec')
 test('Mumps Simple', mpiexec,
   args: ['-np', '2', simple],
   timeout: 15
 )
+
+c_simple = executable('c_simple', 'simple.c',
+  dependencies : [scalapack, blacs, mpic],
+  link_with : [mumps_lib, mumps_common, pord],
+  include_directories : '../include'
+)
+test('Mumps C', mpiexec,
+  args : ['-np', '2', c_simple],
+  timeout: 15)
