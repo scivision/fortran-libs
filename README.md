@@ -1,4 +1,4 @@
-[![Build Status](https://dev.azure.com/mhirsch0512/scalapack/_apis/build/status/scivision.mumps?branchName=master)](https://dev.azure.com/mhirsch0512/scalapack/_build/latest?definitionId=6&branchName=master)
+[![Build Status](https://dev.azure.com/mhirsch0512/MUMPS/_apis/build/status/scivision.mumps?branchName=master)](https://dev.azure.com/mhirsch0512/MUMPS/_build/latest?definitionId=6&branchName=master)
 [![Build status](https://ci.appveyor.com/api/projects/status/dyonair98wk9u5gv?svg=true)](https://ci.appveyor.com/project/scivision/mumps)
 ---
 

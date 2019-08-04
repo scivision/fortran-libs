@@ -24,8 +24,9 @@ endif()
 find_package(MPI REQUIRED COMPONENTS Fortran)
 find_package(LAPACK REQUIRED)
 find_package(SCALAPACK REQUIRED)
-find_package(BLACS)
-
+if(NOT CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
+  find_package(BLACS)
+endif()
 # some systems (Ubuntu 16.04) need BLACS explicitly, when it isn't statically compiled into libscalapack
 # other systems (homebrew, Ubuntu 18.04) link BLACS into libscalapack, and don't need BLACS as a separately linked library.
 set(MUMPS_PREREQ_LIBS ${MUMPS_LIBRARIES} ${SCALAPACK_LIBRARIES})
@@ -41,3 +42,11 @@ target_include_directories(mumpscfg PRIVATE ${MUMPS_INCLUDE_DIRS})
 add_test(NAME MumpsCfg
   COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS} $<TARGET_FILE:mumpscfg>)
 set_tests_properties(MumpsCfg PROPERTIES TIMEOUT 10)
+
+add_executable(simple simple.f90)
+target_link_libraries(simple PRIVATE ${MUMPS_PREREQ_LIBS})
+target_include_directories(simple PRIVATE ${MUMPS_INCLUDE_DIRS})
+
+add_test(NAME Simple
+  COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS} $<TARGET_FILE:simple>)
+set_tests_properties(Simple PROPERTIES TIMEOUT 15)

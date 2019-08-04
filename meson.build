@@ -22,11 +22,14 @@ if scalapack_root == ''  # system
   if not scalapack_lib.found()
     scalapack_lib = fc.find_library('scalapack', required: false)
   endif
+  if not scalapack_lib.found()
+    scalapack_lib = dependency('SCALAPACK', cmake_module_path: 'cmake/Modules')
+  endif
 else
   message('searching for SCALAPACK in ' + scalapack_root)
   scalapack_lib = fc.find_library('scalapack', dirs : scalapack_root / 'lib')
 endif
-lapack = dependency('lapack')
+lapack = dependency('lapack', cmake_module_path: 'cmake/Modules')
 blas = dependency('blas')
 threads = dependency('threads')
 scalapack = declare_dependency(dependencies: [scalapack_lib, lapack, blas, threads])

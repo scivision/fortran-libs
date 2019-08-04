@@ -26,7 +26,9 @@ mumps_par%icntl(2) = output_unit !  diagnosic, statistics, and warning messages
 mumps_par%icntl(3) = output_unit ! global info, for the host (myid==0)
 mumps_par%icntl(4) = 1           ! default is 2, this reduces verbosity
 
-if (.not. all(mumps_par%icntl(:4) == [0, 6, 6, 1])) error stop 'MUMPS parameters not correctly set'
+if (.not. all(mumps_par%icntl(:4) == [error_unit, output_unit, output_unit, 1])) then
+  error stop 'MUMPS parameters not correctly set'
+endif
 
 call mpi_finalize(ierr)
 if (ierr /= 0) error stop 'MPI finalize error'
