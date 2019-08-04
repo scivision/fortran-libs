@@ -13,8 +13,6 @@ install:
 - cmake --build build -j
 
 test_script:
-- cd tests/build
-- cmake ..
-- cmake --build . -j
+- cd build
 - ctest --output-on-failure
 
