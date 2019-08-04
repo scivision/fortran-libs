@@ -10,18 +10,14 @@ endif
 mpiexec = find_program('mpiexec')
 
 mumpscfg = executable('mumpscfg', 'test_mumps.f90',
-  dependencies : test_deps,
-  link_with : [mumps_lib, mumps_common, pord],
-  include_directories : '../include',
+  dependencies : [test_deps, mumps],
   link_language: 'fortran'
 )
 test('Mumps Config', mumpscfg, timeout: 15)
 
 
 simple = executable('simple', 'simple.f90',
-  dependencies : test_deps,
-  link_with : [mumps_lib, mumps_common, pord],
-  include_directories : '../include',
+  dependencies : [test_deps, mumps],
   link_language: 'fortran'
 )
 test('Mumps Simple', mpiexec,
@@ -30,9 +26,7 @@ test('Mumps Simple', mpiexec,
 )
 
 c_simple = executable('c_simple', 'simple.c',
-  dependencies : [scalapack, blacs, mpic],
-  link_with : [mumps_lib, mumps_common, pord],
-  include_directories : '../include'
+  dependencies : [mumps, scalapack, blacs, mpic],
 )
 test('Mumps C', mpiexec,
   args : ['-np', '2', c_simple],

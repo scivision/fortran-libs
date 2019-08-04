@@ -47,7 +47,7 @@ endif
 mumps_common = library('mumps_common',
   sources: [comm_src, comm_other_src],
   dependencies : [mpic, mpif, scalapack],
-  include_directories : '../include',
+  include_directories : mumps_inc,
   c_args: cargs,
   link_with : pord,
   install: true,
@@ -139,17 +139,17 @@ mumps_lib = library(arith + 'mumps',
   dependencies : [mpif, mpic, scalapack],
   fortran_args : defs, c_args : defs,
   link_with: mumps_common,
-  include_directories : '../include',
+  include_directories : mumps_inc,
   install: true,
   install_dir: install_dir,
 )
 
 
 install_headers(
-'../include'/arith+'mumps_c.h',
-'../include'/arith+'mumps_root.h',
-'../include'/arith+'mumps_struc.h',
-'../include/mumps_c_types.h',
-'../include/mumps_compat.h',
+'../include' / arith+'mumps_c.h',
+'../include' / arith+'mumps_root.h',
+'../include' / arith+'mumps_struc.h',
+'../include' / 'mumps_c_types.h',
+'../include' / 'mumps_compat.h',
 install_dir: install_dir / 'include',
 )

@@ -34,9 +34,15 @@ blas = dependency('blas')
 threads = dependency('threads')
 scalapack = declare_dependency(dependencies: [scalapack_lib, lapack, blas, threads])
 
+mumps_inc = include_directories('include')
 
 subdir('PORD')
 
 subdir('src')
+
+mumps = declare_dependency(
+include_directories: mumps_inc,
+link_with: [mumps_lib, mumps_common, pord]
+)
 
 subdir('tests')
