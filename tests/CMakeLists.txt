@@ -53,7 +53,7 @@ add_executable(Csimple simple.c)
 target_link_libraries(Csimple PRIVATE ${MUMPS_PREREQ_LIBS} MPI::MPI_C)
 target_include_directories(Csimple PRIVATE ${MUMPS_INCLUDE_DIRS})
 if(CMAKE_C_COMPILER_ID STREQUAL GNU)  # some setups do require this, seems a CMake bug.
-  target_link_libraries(Csimple PRIVATE gfortran)
+  target_link_libraries(Csimple PRIVATE gfortran m)
 endif()
 add_test(NAME C_Simple
   COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS} $<TARGET_FILE:Csimple>)
