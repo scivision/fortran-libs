@@ -18,22 +18,22 @@ mpif = dependency('mpi', language : 'fortran')
 # scalapack = dependency('scalapack')
 scalapack_root = get_option('SCALAPACK_ROOT')
 if scalapack_root == ''  # system
-  scalapack_lib = fc.find_library('scalapack-openmpi', required: false)
-  if not scalapack_lib.found()
-    scalapack_lib = fc.find_library('scalapack', required: false)
+  scalapack = fc.find_library('scalapack-openmpi', required: false)
+  if not scalapack.found()
+    scalapack = fc.find_library('scalapack', required: false)
   endif
-  if not scalapack_lib.found()
+  if not scalapack.found()
     scalapack_proj = subproject('scalapack')
-    scalapack_lib = scalapack_proj.get_variable('scalapack_lib')
+    scalapack = declare_dependency(link_with: scalapack_proj.get_variable('scalapack_lib'))
   endif
 else
   message('searching for SCALAPACK in ' + scalapack_root)
-  scalapack_lib = fc.find_library('scalapack', dirs : scalapack_root / 'lib')
+  scalapack = fc.find_library('scalapack', dirs : scalapack_root / 'lib')
 endif
 lapack = dependency('lapack', cmake_module_path: 'cmake/Modules')
 blas = dependency('blas')
 threads = dependency('threads')
-scalapack = declare_dependency(dependencies: [scalapack_lib, lapack, blas, threads])
+scalapack = declare_dependency(dependencies: [scalapack, lapack, blas, threads])
 
 mumps_inc = include_directories('include')
 
