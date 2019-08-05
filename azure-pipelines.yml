@@ -44,7 +44,7 @@ jobs:
       addToPath: true
   - script: |
       sudo apt update -q
-      sudo apt install -yq --no-install-recommends gfortran liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libopenmpi-dev
+      sudo apt install -yq --no-install-recommends gfortran liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libopenmpi-dev openmpi-bin
     displayName: 'Install Linux prereqs'
   - script: |
       python -m pip install meson
@@ -60,6 +60,34 @@ jobs:
   - publish: build/meson-logs/testlog.txt
     condition: failed()
     artifact: TestLog_Ubuntu_Meson
+
+- job: Meson_subproject_scalapack
+  pool:
+    vmImage: ubuntu-latest
+
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.6'
+      addToPath: true
+  - script: |
+      sudo apt update -q
+      sudo apt install -yq --no-install-recommends gfortran liblapack-dev libblacs-mpi-dev libopenmpi-dev openmpi-bin
+    displayName: 'Install Linux prereqs'
+  - script: |
+      python -m pip install meson
+      curl -Ls https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-linux.zip -o ninja-linux.zip
+      sudo unzip ninja-linux.zip -d /usr/local/bin/
+    displayName: 'install Meson'
+  - script: meson setup build
+    env:
+      FC: gfortran
+    displayName: 'Meson Configure and Generate'
+  - script: meson test -C build
+    displayName: 'Meson build and test'
+  - publish: build/meson-logs/testlog.txt
+    condition: failed()
+    artifact: TestLog_Meson_subproject_scalapack
 
 - job: MacOS_CMake
   pool:

@@ -3,7 +3,7 @@ project('MUMPS', 'c', 'fortran',
   meson_version: '>=0.50',
   default_options : ['default_library=static', 'buildtype=release', 'warning_level=0'])
 
-arith = get_option('ARITH')
+arith = get_option('arith')
 ordering = get_option('ordering')
 
 # under prefix.  example: --prefix ~/.local then ~/.local/mumps-5.2.1/lib{pord,common,dmumps}.a
@@ -23,7 +23,8 @@ if scalapack_root == ''  # system
     scalapack_lib = fc.find_library('scalapack', required: false)
   endif
   if not scalapack_lib.found()
-    scalapack_lib = dependency('SCALAPACK', cmake_module_path: 'cmake/Modules')
+    scalapack_proj = subproject('scalapack')
+    scalapack_lib = scalapack_proj.get_variable('scalapack_lib')
   endif
 else
   message('searching for SCALAPACK in ' + scalapack_root)
