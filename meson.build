@@ -31,7 +31,10 @@ else
   scalapack = fc.find_library('scalapack', dirs : scalapack_root / 'lib')
 endif
 lapack = dependency('lapack', cmake_module_path: 'cmake/Modules')
-blas = dependency('blas')
+blas = dependency('blas', required: false)
+if not blas.found()  # necessary for some systems incl. CentOS 7
+  blas = fc.find_library('blas')
+endif
 threads = dependency('threads')
 scalapack = declare_dependency(dependencies: [scalapack, lapack, blas, threads])
 
