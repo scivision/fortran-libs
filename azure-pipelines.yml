@@ -61,7 +61,7 @@ jobs:
     condition: failed()
     artifact: TestLog_Ubuntu_Meson
 
-- job: Meson_subproject_scalapack
+- job: subproject_scalapack_lapack_blas
   pool:
     vmImage: ubuntu-latest
 
@@ -72,7 +72,7 @@ jobs:
       addToPath: true
   - script: |
       sudo apt update -q
-      sudo apt install -yq --no-install-recommends gfortran liblapack-dev libblacs-mpi-dev libopenmpi-dev openmpi-bin
+      sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin
     displayName: 'Install Linux prereqs'
   - script: |
       python -m pip install meson
@@ -87,7 +87,7 @@ jobs:
     displayName: 'Meson build and test'
   - publish: build/meson-logs/testlog.txt
     condition: failed()
-    artifact: TestLog_Meson_subproject_scalapack
+    artifact: TestLog_subproject_scalapack_lapack_blas
 
 - job: MacOS_CMake
   pool:
