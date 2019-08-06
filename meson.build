@@ -22,19 +22,27 @@ if scalapack_root == ''  # system
   if not scalapack.found()
     scalapack = fc.find_library('scalapack', required: false)
   endif
-  if not scalapack.found()
-    scalapack_proj = subproject('scalapack')
-    scalapack = declare_dependency(link_with: scalapack_proj.get_variable('scalapack_lib'))
-  endif
 else
   message('searching for SCALAPACK in ' + scalapack_root)
-  scalapack = fc.find_library('scalapack', dirs : scalapack_root / 'lib')
+  scalapack = fc.find_library('scalapack', dirs : scalapack_root / 'lib', required: false)
 endif
-lapack = dependency('lapack', cmake_module_path: 'cmake/Modules')
+if not scalapack.found()
+  scalapack_proj = subproject('scalapack')
+  scalapack = declare_dependency(link_with: scalapack_proj.get_variable('scalapack_lib'))
+endif
+
+lapack = dependency('lapack', cmake_module_path: 'cmake/Modules', required: false)
 blas = dependency('blas', required: false)
 if not blas.found()  # necessary for some systems incl. CentOS 7
-  blas = fc.find_library('blas')
+  blas = fc.find_library('blas', required: false)
 endif
+if not lapack.found() or not blas.found()
+  lapack_proj = subproject('lapack')
+  lapack = scalapack_proj.get_variable('lapack')
+  blas = scalapack_proj.get_variable('blas')
+endif
+
+
 threads = dependency('threads')
 scalapack = declare_dependency(dependencies: [scalapack, lapack, blas, threads])
 
