@@ -1,7 +1,8 @@
 project('MUMPS', 'c', 'fortran',
   version : '5.2.1',
   meson_version: '>=0.50',
-  default_options : ['default_library=static', 'buildtype=release', 'warning_level=0'])
+  default_options : ['default_library=static', 'buildtype=release', 'warning_level=0',
+    'libdir=mumps-5.2.1/lib', 'includedir=mumps-5.2.1/include'])
 
 arith = get_option('arith')
 ordering = get_option('ordering')
@@ -38,8 +39,8 @@ if not blas.found()  # necessary for some systems incl. CentOS 7
 endif
 if not lapack.found() or not blas.found()
   lapack_proj = subproject('lapack')
-  lapack = scalapack_proj.get_variable('lapack')
-  blas = scalapack_proj.get_variable('blas')
+  lapack = lapack_proj.get_variable('lapack')
+  blas = lapack_proj.get_variable('blas')
 endif
 
 
@@ -51,6 +52,12 @@ mumps_inc = include_directories('include')
 subdir('PORD')
 
 subdir('src')
+
+# --- generate pkg-config
+pkg = import('pkgconfig')
+pkg.generate(mumps_lib,
+  url: 'https://github.com/scivision/mumps',
+  description: 'MUMPS')
 
 mumps = declare_dependency(
 include_directories: mumps_inc,

@@ -1,4 +1,4 @@
 [wrap-git]
 directory = lapack
 url = https://github.com/scivision/lapack.git
-revision = d94e4f8b
+revision = head
