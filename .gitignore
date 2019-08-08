@@ -1,15 +1,11 @@
 .mypy_cache/
 Makefile
-
+subprojects/
 build/
 
-scalapack/PBLAS/TESTING/
-scalapack/PBLAS/TIMING/
-scalapack/BLACS/INSTALL/
 MUMPS/examples
 cmake_install.cmake
 lib/
-bin/
 # Prerequisites
 *.d
 

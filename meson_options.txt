@@ -1,3 +1,4 @@
 option('SCALAPACK_ROOT', type : 'string', description : 'root directory of SCALAPACK')
 option('arith', type: 'string', value: 'd', description: 'precision (s,d,c,z)')
 option('ordering', type: 'string', value: 'PORD', description: 'PORD, Scotch, Metis')
+option('system_blas', type: 'boolean', value: false, description: 'use system libraries')

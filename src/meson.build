@@ -50,8 +50,7 @@ mumps_common = library('mumps_common',
   include_directories : mumps_inc,
   c_args: cargs,
   link_with : pord,
-  install: true,
-  install_dir: install_dir,
+  install: true
 )
 
 # -- MUMPS LIB
@@ -140,8 +139,7 @@ mumps_lib = library(arith + 'mumps',
   fortran_args : defs, c_args : defs,
   link_with: mumps_common,
   include_directories : mumps_inc,
-  install: true,
-  install_dir: install_dir,
+  install: true
 )
 
 
@@ -150,6 +148,5 @@ install_headers(
 '../include' / arith+'mumps_root.h',
 '../include' / arith+'mumps_struc.h',
 '../include' / 'mumps_c_types.h',
-'../include' / 'mumps_compat.h',
-install_dir: install_dir / 'include',
+'../include' / 'mumps_compat.h'
 )

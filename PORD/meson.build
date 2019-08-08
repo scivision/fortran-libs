@@ -5,5 +5,4 @@ pord_src = files('lib/graph.c', 'lib/gbipart.c', 'lib/gbisect.c', 'lib/ddcreate.
 pord = library('pord',
   sources: pord_src,
   include_directories : 'include',
-  install: true,
-  install_dir: install_dir)
+  install: true)
