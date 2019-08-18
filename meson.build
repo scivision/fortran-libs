@@ -8,6 +8,23 @@ arith = get_option('arith')
 ordering = get_option('ordering')
 
 fc = meson.get_compiler('fortran')
+fcid = fc.get_id()
+if fcid == 'intel-cl'
+  # /fpp is necessary for any Fortran preprocessing statement with Intel ifort on Windows
+  # https://software.intel.com/en-us/fortran-compiler-developer-guide-and-reference-fpp
+   add_project_arguments('/fpp', language: 'fortran')
+endif
+
+if meson.is_subproject()
+  # this acts like warning_level=0
+  if fcid == 'intel-cl'
+     add_project_arguments('/nowarn', language: 'fortran')
+  elif fcid == 'intel'
+    add_project_arguments('-nowarn', language: 'fortran')
+  else
+    add_project_arguments('-w', language: 'fortran')
+  endif
+endif
 
 mpic = dependency('mpi', language : 'c')
 mpif = dependency('mpi', language : 'fortran')
@@ -15,7 +32,7 @@ mpif = dependency('mpi', language : 'fortran')
 # dependency('scalapack') not yet working in Meson--cmake->meson bug within Meson, yielding long meson-log.txt
 # scalapack = dependency('scalapack')
 system_blas = get_option('system_blas')
-if system_blas
+if system_blas # or fcid.contains('intel')
   scalapack_root = get_option('SCALAPACK_ROOT')
   if scalapack_root == ''  # system
     scalapack = fc.find_library('scalapack-openmpi', required: false)
