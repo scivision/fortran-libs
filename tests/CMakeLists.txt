@@ -1,26 +1,9 @@
 # This test requires special configuration to work on Windows, as does any program using MPI:
 # https://www.scivision.dev/intel-mpi-windows-bug
-cmake_minimum_required(VERSION 3.13)
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release CACHE STRING "Debug or Release")
-endif()
-project(FortranLibsDemo C Fortran)
-enable_testing()
 
-get_directory_property(hasParent PARENT_DIRECTORY)
-if(NOT hasParent)
-  list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules/)
-  include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/compilers.cmake)
-
-  if(NOT DEFINED MUMPS_ROOT)
-    set(MUMPS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../)
-  endif()
-  find_package(MUMPS REQUIRED COMPONENTS d)
-  find_package(MPI REQUIRED COMPONENTS Fortran C)
-else()  # testing what we just built
-  set(MUMPS_LIBRARIES dmumps mumps_common pord)
-  set(MUMPS_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/include)
-endif()
+# testing what we just built
+set(MUMPS_LIBRARIES dmumps mumps_common pord)
+set(MUMPS_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/include)
 
 find_package(LAPACK REQUIRED)
 find_package(SCALAPACK REQUIRED)
