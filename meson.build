@@ -9,6 +9,9 @@ ordering = get_option('ordering')
 
 fc = meson.get_compiler('fortran')
 fcid = fc.get_id()
+cc = meson.get_compiler('c')
+ccid = cc.get_id()
+
 if fcid == 'intel-cl'
   # /fpp is necessary for any Fortran preprocessing statement with Intel ifort on Windows
   # https://software.intel.com/en-us/fortran-compiler-developer-guide-and-reference-fpp
@@ -26,9 +29,39 @@ if meson.is_subproject()
   endif
 endif
 
-mpic = dependency('mpi', language : 'c')
-mpif = dependency('mpi', language : 'fortran')
+# == MPI
+# check if MPI compiler wrapper is usable
+if fc.run('use mpi; end', name: 'Fortran MPI compiler wrapper').returncode() == 0
+  mpif = []
+  mpiroot = get_option('MPI_ROOT')
+  if mpiroot == ''
+    error('please specify -DMPI_ROOT= root path of MPI lib e.g. ~/lib/openmpi-3.1.4')
+  endif
+  mpiexec = find_program(mpiroot / 'bin/mpiexec')
+else
+  mpif = dependency('mpi', language : 'fortran')
+  mpiret = fc.run('use mpi; end', dependencies : mpif, name: 'Fortran MPI')
+  if mpiret.returncode() != 0
+    error('MPI does not link properly: ' + mpiret.stderr() + ' ' + mpiret.stdout())
+  endif
+  mpiexec = find_program('mpiexec')
+endif
 
+mpic_code = '''
+#include <mpi.h>
+int main() { MPI_Init(NULL, NULL); MPI_Finalize(); return 0;}
+'''
+if cc.run(mpic_code, name: 'C MPI compiler wrapper').returncode() == 0
+  mpic = []
+else
+  mpic = dependency('mpi', language : 'c')
+  mpiret = cc.run(mpic_code, dependencies : mpic, name: 'C MPI')
+  if mpiret.returncode() != 0
+    error('MPI does not link properly: ' + mpiret.stderr() + ' ' + mpiret.stdout())
+  endif
+endif
+
+# == Scalapack
 # dependency('scalapack') not yet working in Meson--cmake->meson bug within Meson, yielding long meson-log.txt
 # scalapack = dependency('scalapack')
 system_blas = get_option('system_blas')

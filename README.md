@@ -56,9 +56,17 @@ To fully specify prerequisite library locations add options like:
 FC=gfortran-9 <meson or cmake> -DSCALAPACK_ROOT=~/lib_gcc/scalapack -DMUMPS_ROOT=~/lib_gcc/mumps -DMPI_ROOT=~/lib_gcc/openmpi-3.1.3
 ```
 
+---
+
+If you need to specify MPI compiler wrappers, do like:
+
+```sh
+FC=~/lib_gcc/openmpi-3.1.4/bin/mpif90 CC=~/lib_gcc/openmpi-3.1.4/bin/mpicc meson build
+```
+
 ## prebuilt
 
-Instead of compiling, it's often easier to:
+Instead of compiling, one may install precompiled libraries by:
 
 * Ubuntu: `apt install libmumps-dev`
 * CentOS: `yum install MUMPS-openmpi`

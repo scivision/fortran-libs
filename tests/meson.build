@@ -7,8 +7,6 @@ else
   test_deps = [scalapack, mpif]
 endif
 
-mpiexec = find_program('mpiexec')
-
 mumpscfg = executable('mumpscfg', 'test_mumps.f90',
   dependencies : [test_deps, mumps],
   link_language: 'fortran'
@@ -25,9 +23,13 @@ test('Mumps Simple', mpiexec,
   timeout: 15
 )
 
-c_simple = executable('c_simple', 'simple.c',
-  dependencies : [mumps, scalapack, blacs, mpic],
-)
-test('Mumps C', mpiexec,
-  args : ['-np', '2', c_simple],
-  timeout: 15)
+# if using compiler wrapper, might not work when linking between languages.
+if get_option('test_c')
+  c_simple = executable('c_simple',
+    sources: 'simple.c',
+    dependencies : [mumps, scalapack, blacs, mpic])
+
+  test('Mumps C', mpiexec,
+    args : ['-np', '2', c_simple],
+    timeout: 15)
+endif
