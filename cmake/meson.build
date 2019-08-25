@@ -31,6 +31,7 @@ if mpiroot == ''
     warning('MPI_Fortran does not link properly: ' + mpiret.stderr() + ' ' + mpiret.stdout())
   endif
 else
+  fc.run('use mpi; integer :: i; call mpi_init(i); call mpi_finalize(i); end', name: 'Fortran MPI wrapper check')
   mpiexec = find_program(mpiroot / 'mpiexec')
   mpif = []
 endif
@@ -41,10 +42,11 @@ int main() { MPI_Init(NULL, NULL); MPI_Finalize(); return 0;}
 '''
 if mpiroot == ''
   mpic = dependency('mpi', language : 'c')
-  if cc.run(mpic_code, dependencies: mpic, name: 'C MPI compiler wrapper').returncode() != 0
+  if cc.run(mpic_code, dependencies: mpic, name: 'C MPI').returncode() != 0
     warning('MPI_C does not link properly')
   endif
 else
+  cc.run(mpic_code, name: 'C MPI compiler wrapper')
   mpic = []
 endif
 
