@@ -10,10 +10,10 @@ B=build
 mpidir=$R/lib_gcc/openmpi-3.1.4/bin
 
 #=======================================
-FC=$mpidir/mpif90
-CC=$mpidir/mpicc
-MPIFC=$FC
-MPICC=$CC
+export FC=$mpidir/mpif90
+export CC=$mpidir/mpicc
+export MPIFC=$FC
+export MPICC=$CC
 
 meson $B -DMPI_ROOT=$mpidir
 
