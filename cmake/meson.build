@@ -21,35 +21,31 @@ if meson.is_subproject()
 endif
 
 # == MPI
-# check if MPI compiler wrapper is usable
-if fc.run('use mpi; end', name: 'Fortran MPI compiler wrapper').returncode() == 0
-  mpif = []
-  mpiroot = get_option('MPI_ROOT')
-  if mpiroot == ''
-    error('please specify -DMPI_ROOT= root path of MPI lib e.g. ~/lib/openmpi-3.1.4')
-  endif
-  mpiexec = find_program(mpiroot / 'bin/mpiexec')
-else
+# if MPI_ROOT, assume compiler wrapper is usable
+mpiroot = get_option('MPI_ROOT')
+if mpiroot == ''
+  mpiexec = find_program('mpiexec')
   mpif = dependency('mpi', language : 'fortran')
   mpiret = fc.run('use mpi; end', dependencies : mpif, name: 'Fortran MPI')
   if mpiret.returncode() != 0
-    error('MPI does not link properly: ' + mpiret.stderr() + ' ' + mpiret.stdout())
+    warning('MPI_Fortran does not link properly: ' + mpiret.stderr() + ' ' + mpiret.stdout())
   endif
-  mpiexec = find_program('mpiexec')
+else
+  mpiexec = find_program(mpiroot / 'mpiexec')
+  mpif = []
 endif
 
 mpic_code = '''
 #include <mpi.h>
 int main() { MPI_Init(NULL, NULL); MPI_Finalize(); return 0;}
 '''
-if cc.run(mpic_code, name: 'C MPI compiler wrapper').returncode() == 0
-  mpic = []
-else
+if mpiroot == ''
   mpic = dependency('mpi', language : 'c')
-  mpiret = cc.run(mpic_code, dependencies : mpic, name: 'C MPI')
-  if mpiret.returncode() != 0
-    error('MPI does not link properly: ' + mpiret.stderr() + ' ' + mpiret.stdout())
+  if cc.run(mpic_code, dependencies: mpic, name: 'C MPI compiler wrapper').returncode() != 0
+    warning('MPI_C does not link properly')
   endif
+else
+  mpic = []
 endif
 
 # == Scalapack
