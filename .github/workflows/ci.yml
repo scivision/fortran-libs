@@ -76,3 +76,19 @@ jobs:
         FC: gfortran
     - name: Meson test
       run: meson test -C build
+
+  macosCmake:
+    needs: [linuxCmake]
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install dependencies
+      run: brew install gcc lapack cmake open-mpi scalapack
+    - name: CMake configure
+      run: cmake -B build
+      env:
+        FC: gfortran
+    - name: CMake build
+      run: cmake --build build --parallel
+    - name: Ctest
+      run: ctest -V
