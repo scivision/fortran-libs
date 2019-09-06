@@ -4,6 +4,37 @@ on: [push, pull_request]
 
 jobs:
 
+  linuxCmake:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+    - name: Install CMake
+      run: |
+        python -m pip install cmakeutils
+        cmake_setup ${cmake_version} --prefix ${HOME}/.local
+      env:
+        cmake_version: 3.15.3
+    - name: Install packages
+      run: sudo apt install -yq --no-install-recommends gfortran liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libopenmpi-dev openmpi-bin
+    - name: CMake configure
+      run: ${HOME}/.local/cmake-${cmake_version}-Linux-x86_64/bin/cmake -B build
+      env:
+        FC: gfortran
+        cmake_version: 3.15.3
+    - name: Cmake build
+      run: ${HOME}/.local/cmake-${cmake_version}-Linux-x86_64/bin/cmake --build build --parallel
+      env:
+        cmake_version: 3.15.3
+    - name: Ctest
+      run: ${HOME}/.local/cmake-${cmake_version}-Linux-x86_64/bin/ctest -V
+      env:
+        cmake_version: 3.15.3
+
+
   linuxMeson:
     runs-on: ubuntu-latest
     steps:
@@ -20,13 +51,14 @@ jobs:
     - name: Install packages
       run: sudo apt install -yq --no-install-recommends gfortran liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libopenmpi-dev openmpi-bin
     - name: Meson configure
-      run: meson setup build
+      run: meson setup build -Dsystem_blas=true
       env:
         FC: gfortran
     - name: Meson test
       run: meson test -C build
 
   macosMeson:
+    needs: [linuxMeson]
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v1
