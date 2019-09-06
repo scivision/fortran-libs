@@ -8,8 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
-    - name: Set up Python
-      uses: actions/setup-python@v1
+    - uses: actions/setup-python@v1
       with:
         python-version: 3.7
     - name: Install CMake
@@ -31,6 +30,7 @@ jobs:
         cmake_version: 3.15.3
     - name: Ctest
       run: ${HOME}/.local/cmake-${cmake_version}-Linux-x86_64/bin/ctest -V
+      working-directory: build
       env:
         cmake_version: 3.15.3
 
@@ -39,8 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
-    - name: Set up Python
-      uses: actions/setup-python@v1
+    - uses: actions/setup-python@v1
       with:
         python-version: 3.7
     - name: Install Meson
@@ -64,8 +63,7 @@ jobs:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v1
-    - name: Set up Python
-      uses: actions/setup-python@v1
+    - uses: actions/setup-python@v1
       with:
         python-version: 3.7
     - name: Install dependencies
@@ -99,3 +97,4 @@ jobs:
       run: cmake --build build --parallel
     - name: Ctest
       run: ctest -V
+      working-directory: build
