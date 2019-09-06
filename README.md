@@ -1,6 +1,5 @@
-[![Build Status](https://dev.azure.com/mhirsch0512/MUMPS/_apis/build/status/scivision.mumps?branchName=master)](https://dev.azure.com/mhirsch0512/MUMPS/_build/latest?definitionId=6&branchName=master)
-[![Build status](https://ci.appveyor.com/api/projects/status/dyonair98wk9u5gv?svg=true)](https://ci.appveyor.com/project/scivision/mumps)
----
+[![Actions Status](https://github.com/scivision/mumps/workflows/ci/badge.svg)](https://github.com/scivision/mumps/actions)
+
 
 # MUMPS
 
@@ -14,7 +13,7 @@ If the "mumpscfg" test doesn't build or pass, MUMPS is probably not built correc
 **Meson**
 
 ```sh
-meson build --prefix ~/local
+meson build
 
 meson install -C build
 
@@ -24,9 +23,9 @@ meson test -C build  # optional
 **CMake**
 
 ```sh
-cmake -B build -DCMAKE_INSTALL_PREFIX=~/local
+cmake -B build
 
-cmake --build build --parallel --target install
+cmake --build build --parallel
 
 cd build
 ctest --parallal -V  # optional
@@ -46,7 +45,7 @@ The build-time parameter `-Darith=d` may be optionally specified:
 
 ---
 
-use the `--prefix` option to install Scalapack under a directory.
+use the Meson `--prefix` option to install Scalapack under a directory.
 For example: `--prefix ~/mylibs` will install Scalapack under `~/mylibs/scalapack-2.0.2/`
 
 ---

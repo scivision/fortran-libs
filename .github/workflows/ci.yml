@@ -1,0 +1,46 @@
+name: ci
+
+on: [push, pull_request]
+
+jobs:
+
+  linuxMeson:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+    - name: Install Meson
+      run: |
+        python -m pip install meson
+        curl -Ls https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-linux.zip -o ninja-linux.zip
+        sudo unzip ninja-linux.zip -d /usr/local/bin/
+    - name: Install packages
+      run: sudo apt install -yq --no-install-recommends gfortran liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libopenmpi-dev openmpi-bin
+    - name: Meson configure
+      run: meson setup build
+      env:
+        FC: gfortran
+    - name: Meson test
+      run: meson test -C build
+
+  macosMeson:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+    - name: Install dependencies
+      run: |
+        brew install gcc ninja open-mpi
+        python -m pip install meson
+    - name: Meson configure
+      run: meson setup build
+      env:
+        FC: gfortran
+    - name: Meson test
+      run: meson test -C build

@@ -114,8 +114,6 @@ jobs:
     artifact: MacCMakeTestLog
 
 - job: MacOS_Meson
-  # need to figure out homebrew find scalapack on Mac--just try a physical Mac.
-  condition: False
   pool:
     vmImage: macOS-latest
 
@@ -125,7 +123,7 @@ jobs:
       versionSpec: '3.6'
       addToPath: true
   - script: |
-      brew install gcc lapack ninja open-mpi scalapack
+      brew install gcc ninja open-mpi
       python -m pip install meson
     displayName: 'Install Prereqs'
   - script: meson setup build
