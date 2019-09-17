@@ -55,38 +55,44 @@ mumps_common = library('mumps_common',
 
 # -- MUMPS LIB
 
+mumps_lib = []
+foreach a : ['s', 'd', 'c', 'z']
+if not arith.contains(a)
+  continue
+endif
+
 if mumps_version.version_compare('>=5.1') and mumps_version.version_compare('<5.2')
 
 src = files(
-arith+'ana_aux_par.F', arith+'ana_lr.F', arith+'fac_asm_master_m.F', arith+'fac_asm_master_ELT_m.F',
-arith+'omp_tps_m.F', arith+'mumps_comm_buffer.F', arith+'mumps_load.F', arith+'mumps_lr_data_m.F',
-arith+'mumps_ooc_buffer.F', arith+'mumps_ooc.F', arith+'mumps_struc_def.F', arith+'static_ptr_m.F',
-arith+'lr_core.F', arith+'lr_type.F', arith+'lr_stats.F', arith+'fac_lr.F', arith+'fac_omp_m.F',
-arith+'fac_par_m.F', arith+'fac_front_LU_type1.F', arith+'fac_front_LU_type2.F',
-arith+'fac_front_LDLT_type1.F', arith+'fac_front_LDLT_type2.F',
-arith+'fac_front_aux.F', arith+'fac_front_type2_aux.F',
-arith+'mumps_save_restore_files.F', arith+'mumps_save_restore.F'
+a+'ana_aux_par.F', a+'ana_lr.F', a+'fac_asm_master_m.F', a+'fac_asm_master_ELT_m.F',
+a+'omp_tps_m.F', a+'mumps_comm_buffer.F', a+'mumps_load.F', a+'mumps_lr_data_m.F',
+a+'mumps_ooc_buffer.F', a+'mumps_ooc.F', a+'mumps_struc_def.F', a+'static_ptr_m.F',
+a+'lr_core.F', a+'lr_type.F', a+'lr_stats.F', a+'fac_lr.F', a+'fac_omp_m.F',
+a+'fac_par_m.F', a+'fac_front_LU_type1.F', a+'fac_front_LU_type2.F',
+a+'fac_front_LDLT_type1.F', a+'fac_front_LDLT_type2.F',
+a+'fac_front_aux.F', a+'fac_front_type2_aux.F',
+a+'mumps_save_restore_files.F', a+'mumps_save_restore.F'
 )
 
 src_other = files(
-arith+'ini_driver.F', arith+'ana_driver.F', arith+'fac_driver.F', arith+'sol_driver.F',
-arith+'end_driver.F', arith+'ana_aux_ELT.F', arith+'ana_aux.F', arith+'ana_dist_m.F', arith+'ana_LDLT_preprocess.F',
-arith+'ana_reordertree.F', arith+'arrowheads.F', arith+'bcast_int.F', arith+'fac_asm_ELT.F', arith+'fac_asm.F',
-arith+'fac_b.F', arith+'fac_distrib_distentry.F', arith+'fac_distrib_ELT.F', arith+'fac_lastrtnelind.F',
-arith+'fac_mem_alloc_cb.F', arith+'fac_mem_compress_cb.F', arith+'fac_mem_free_block_cb.F', arith+'fac_mem_stack_aux.F',
-arith+'fac_mem_stack.F', arith+'fac_process_band.F', arith+'fac_process_blfac_slave.F', arith+'fac_process_blocfacto_LDLT.F',
-arith+'fac_process_blocfacto.F', arith+'fac_process_bf.F', arith+'fac_process_end_facto_slave.F',
-arith+'fac_process_contrib_type1.F', arith+'fac_process_contrib_type2.F', arith+'fac_process_contrib_type3.F',
-arith+'fac_process_maprow.F', arith+'fac_process_master2.F', arith+'fac_process_message.F',
-arith+'fac_process_root2slave.F', arith+'fac_process_root2son.F', arith+'fac_process_rtnelind.F',
-arith+'fac_root_parallel.F', arith+'fac_scalings.F', arith+'fac_determinant.F',
-arith+'fac_scalings_simScaleAbs.F', arith+'fac_scalings_simScale_util.F', arith+'fac_sol_pool.F',
-arith+'fac_type3_symmetrize.F', arith+'ini_defaults.F',
-arith+'mumps_driver.F', arith+'mumps_f77.F', arith+'mumps_iXamax.F',
-arith+'ana_mtrans.F', arith+'ooc_panel_piv.F', arith+'rank_revealing.F',
-arith+'sol_aux.F', arith+'sol_bwd_aux.F', arith+'sol_bwd.F', arith+'sol_c.F',
-arith+'sol_fwd_aux.F', arith+'sol_fwd.F', arith+'sol_matvec.F', arith+'sol_root_parallel.F',
-arith+'tools.F', arith+'type3_root.F',
+a+'ini_driver.F', a+'ana_driver.F', a+'fac_driver.F', a+'sol_driver.F',
+a+'end_driver.F', a+'ana_aux_ELT.F', a+'ana_aux.F', a+'ana_dist_m.F', a+'ana_LDLT_preprocess.F',
+a+'ana_reordertree.F', a+'arrowheads.F', a+'bcast_int.F', a+'fac_asm_ELT.F', a+'fac_asm.F',
+a+'fac_b.F', a+'fac_distrib_distentry.F', a+'fac_distrib_ELT.F', a+'fac_lastrtnelind.F',
+a+'fac_mem_alloc_cb.F', a+'fac_mem_compress_cb.F', a+'fac_mem_free_block_cb.F', a+'fac_mem_stack_aux.F',
+a+'fac_mem_stack.F', a+'fac_process_band.F', a+'fac_process_blfac_slave.F', a+'fac_process_blocfacto_LDLT.F',
+a+'fac_process_blocfacto.F', a+'fac_process_bf.F', a+'fac_process_end_facto_slave.F',
+a+'fac_process_contrib_type1.F', a+'fac_process_contrib_type2.F', a+'fac_process_contrib_type3.F',
+a+'fac_process_maprow.F', a+'fac_process_master2.F', a+'fac_process_message.F',
+a+'fac_process_root2slave.F', a+'fac_process_root2son.F', a+'fac_process_rtnelind.F',
+a+'fac_root_parallel.F', a+'fac_scalings.F', a+'fac_determinant.F',
+a+'fac_scalings_simScaleAbs.F', a+'fac_scalings_simScale_util.F', a+'fac_sol_pool.F',
+a+'fac_type3_symmetrize.F', a+'ini_defaults.F',
+a+'mumps_driver.F', a+'mumps_f77.F', a+'mumps_iXamax.F',
+a+'ana_mtrans.F', a+'ooc_panel_piv.F', a+'rank_revealing.F',
+a+'sol_aux.F', a+'sol_bwd_aux.F', a+'sol_bwd.F', a+'sol_c.F',
+a+'sol_fwd_aux.F', a+'sol_fwd.F', a+'sol_matvec.F', a+'sol_root_parallel.F',
+a+'tools.F', a+'type3_root.F',
 # duplicates from common, better way to do this?
 'fac_future_niv2_mod.F', 'mumps_ooc_common.F', 'mumps_memory_mod.F',
 'ana_orderings_wrappers_m.F', 'mumps_comm_ibcast.F', 'omp_tps_common_m.F', 'fac_ibct_data_m.F',
@@ -96,44 +102,44 @@ arith+'tools.F', arith+'type3_root.F',
 elif mumps_version.version_compare('>=5.2') and mumps_version.version_compare('<5.3')
 
 src = files(
-arith+'ana_aux.F', arith+'ana_aux_par.F', arith+'ana_lr.F', arith+'fac_asm_master_ELT_m.F', arith+'fac_asm_master_m.F',
-arith+'fac_front_aux.F', arith+'fac_front_LU_type1.F', arith+'fac_front_LU_type2.F',
-arith+'fac_front_LDLT_type1.F', arith+'fac_front_LDLT_type2.F', arith+'fac_front_type2_aux.F',
-arith+'fac_lr.F', arith+'fac_mem_dynamic.F', arith+'fac_omp_m.F', arith+'fac_par_m.F',
-arith+'lr_core.F', arith+'lr_stats.F', arith+'lr_type.F',
-arith+'mumps_comm_buffer.F', arith+'mumps_config_file.F', arith+'mumps_load.F', arith+'mumps_lr_data_m.F',
-arith+'mumps_ooc_buffer.F', arith+'mumps_ooc.F', arith+'mumps_sol_es.F',
-arith+'mumps_save_restore.F', arith+'mumps_save_restore_files.F',
-arith+'mumps_struc_def.F', arith+'omp_tps_m.F', arith+'sol_lr.F', arith+'static_ptr_m.F',
+a+'ana_aux.F', a+'ana_aux_par.F', a+'ana_lr.F', a+'fac_asm_master_ELT_m.F', a+'fac_asm_master_m.F',
+a+'fac_front_aux.F', a+'fac_front_LU_type1.F', a+'fac_front_LU_type2.F',
+a+'fac_front_LDLT_type1.F', a+'fac_front_LDLT_type2.F', a+'fac_front_type2_aux.F',
+a+'fac_lr.F', a+'fac_mem_dynamic.F', a+'fac_omp_m.F', a+'fac_par_m.F',
+a+'lr_core.F', a+'lr_stats.F', a+'lr_type.F',
+a+'mumps_comm_buffer.F', a+'mumps_config_file.F', a+'mumps_load.F', a+'mumps_lr_data_m.F',
+a+'mumps_ooc_buffer.F', a+'mumps_ooc.F', a+'mumps_sol_es.F',
+a+'mumps_save_restore.F', a+'mumps_save_restore_files.F',
+a+'mumps_struc_def.F', a+'omp_tps_m.F', a+'sol_lr.F', a+'static_ptr_m.F',
 )
 
 src_other = files(
-arith+'ini_driver.F', arith+'ana_driver.F', arith+'fac_driver.F', arith+'sol_driver.F', arith+'sol_distrhs.F',
-arith+'end_driver.F', arith+'ana_aux_ELT.F', arith+'ana_dist_m.F', arith+'ana_LDLT_preprocess.F',
-arith+'ana_reordertree.F', arith+'arrowheads.F', arith+'bcast_int.F', arith+'fac_asm_ELT.F',
-arith+'fac_asm.F', arith+'fac_b.F', arith+'fac_distrib_distentry.F', arith+'fac_distrib_ELT.F', arith+'fac_lastrtnelind.F',
-arith+'fac_mem_alloc_cb.F', arith+'fac_mem_compress_cb.F', arith+'fac_mem_free_block_cb.F',
-arith+'fac_mem_stack_aux.F', arith+'fac_mem_stack.F',
-arith+'fac_process_band.F', arith+'fac_process_blfac_slave.F', arith+'fac_process_blocfacto_LDLT.F', arith+'fac_process_blocfacto.F',
-arith+'fac_process_bf.F', arith+'fac_process_end_facto_slave.F',
-arith+'fac_process_contrib_type1.F', arith+'fac_process_contrib_type2.F', arith+'fac_process_contrib_type3.F',
-arith+'fac_process_maprow.F', arith+'fac_process_master2.F', arith+'fac_process_message.F',
-arith+'fac_process_root2slave.F', arith+'fac_process_root2son.F', arith+'fac_process_rtnelind.F', arith+'fac_root_parallel.F',
-arith+'fac_scalings.F', arith+'fac_determinant.F', arith+'fac_scalings_simScaleAbs.F', arith+'fac_scalings_simScale_util.F',
-arith+'fac_sol_pool.F', arith+'fac_type3_symmetrize.F', arith+'ini_defaults.F',
-arith+'mumps_driver.F', arith+'mumps_f77.F', arith+'mumps_gpu.c', arith+'mumps_iXamax.F',
-arith+'ana_mtrans.F', arith+'ooc_panel_piv.F', arith+'rank_revealing.F',
-arith+'sol_aux.F', arith+'sol_bwd_aux.F', arith+'sol_bwd.F', arith+'sol_c.F', arith+'sol_fwd_aux.F', arith+'sol_fwd.F', arith+'sol_matvec.F',
-arith+'sol_root_parallel.F', arith+'tools.F', arith+'type3_root.F'
+a+'ini_driver.F', a+'ana_driver.F', a+'fac_driver.F', a+'sol_driver.F', a+'sol_distrhs.F',
+a+'end_driver.F', a+'ana_aux_ELT.F', a+'ana_dist_m.F', a+'ana_LDLT_preprocess.F',
+a+'ana_reordertree.F', a+'arrowheads.F', a+'bcast_int.F', a+'fac_asm_ELT.F',
+a+'fac_asm.F', a+'fac_b.F', a+'fac_distrib_distentry.F', a+'fac_distrib_ELT.F', a+'fac_lastrtnelind.F',
+a+'fac_mem_alloc_cb.F', a+'fac_mem_compress_cb.F', a+'fac_mem_free_block_cb.F',
+a+'fac_mem_stack_aux.F', a+'fac_mem_stack.F',
+a+'fac_process_band.F', a+'fac_process_blfac_slave.F', a+'fac_process_blocfacto_LDLT.F', a+'fac_process_blocfacto.F',
+a+'fac_process_bf.F', a+'fac_process_end_facto_slave.F',
+a+'fac_process_contrib_type1.F', a+'fac_process_contrib_type2.F', a+'fac_process_contrib_type3.F',
+a+'fac_process_maprow.F', a+'fac_process_master2.F', a+'fac_process_message.F',
+a+'fac_process_root2slave.F', a+'fac_process_root2son.F', a+'fac_process_rtnelind.F', a+'fac_root_parallel.F',
+a+'fac_scalings.F', a+'fac_determinant.F', a+'fac_scalings_simScaleAbs.F', a+'fac_scalings_simScale_util.F',
+a+'fac_sol_pool.F', a+'fac_type3_symmetrize.F', a+'ini_defaults.F',
+a+'mumps_driver.F', a+'mumps_f77.F', a+'mumps_gpu.c', a+'mumps_iXamax.F',
+a+'ana_mtrans.F', a+'ooc_panel_piv.F', a+'rank_revealing.F',
+a+'sol_aux.F', a+'sol_bwd_aux.F', a+'sol_bwd.F', a+'sol_c.F', a+'sol_fwd_aux.F', a+'sol_fwd.F', a+'sol_matvec.F',
+a+'sol_root_parallel.F', a+'tools.F', a+'type3_root.F'
 )
 
 endif
 
 cint_src = files('mumps_c.c')
 
-defs = [cargs, '-DMUMPS_ARITH=MUMPS_ARITH_'+arith]
+defs = [cargs, '-DMUMPS_ARITH=MUMPS_ARITH_'+a]
 
-mumps_lib = library(arith + 'mumps',
+mumps_lib += library(a + 'mumps',
   sources: [cint_src, src, src_other],
   dependencies : [mpif, mpic, scalapack],
   fortran_args : defs, c_args : defs,
@@ -144,9 +150,11 @@ mumps_lib = library(arith + 'mumps',
 
 
 install_headers(
-'../include' / arith+'mumps_c.h',
-'../include' / arith+'mumps_root.h',
-'../include' / arith+'mumps_struc.h',
+'../include' / a+'mumps_c.h',
+'../include' / a+'mumps_root.h',
+'../include' / a+'mumps_struc.h',
 '../include' / 'mumps_c_types.h',
 '../include' / 'mumps_compat.h'
 )
+
+endforeach

@@ -9,6 +9,8 @@ ordering = get_option('ordering')
 
 subdir('cmake')
 
+message('arith: ' + arith)
+
 threads = dependency('threads')
 scalapack = declare_dependency(dependencies: [scalapack, lapack, blas, threads])
 
@@ -19,10 +21,10 @@ subdir('PORD')
 subdir('src')
 
 # --- generate pkg-config
-pkg = import('pkgconfig')
-pkg.generate(mumps_lib,
-  url: 'https://github.com/scivision/mumps',
-  description: 'MUMPS')
+#pkg = import('pkgconfig')
+#pkg.generate(mumps_lib,
+#  url: 'https://github.com/scivision/mumps',
+#  description: 'MUMPS')
 
 mumps = declare_dependency(
 include_directories: mumps_inc,

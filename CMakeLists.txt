@@ -11,7 +11,7 @@ enable_testing()
 cmake_policy(SET CMP0076 NEW)
 
 if(NOT DEFINED arith)
-  set(arith d)
+  set(arith "sd")
 endif()
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compilers.cmake)
@@ -41,10 +41,3 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 
   set(CMAKE_INSTALL_PREFIX "${HOME}/.local/mumps-${PROJECT_VERSION}" CACHE PATH "..." FORCE)
 endif()
-
-install(TARGETS pord mumps_common ${arith}mumps
-  ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}
-  LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX})
-
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/include  # no trailing slash!
-  DESTINATION ${CMAKE_INSTALL_PREFIX})
