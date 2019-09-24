@@ -1,0 +1,38 @@
+name: ci_macos
+
+on: [push, pull_request]
+
+jobs:
+
+  meson:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions/setup-python@v1
+      with:
+        python-version: '3.x'
+    - name: Install dependencies
+      run: |
+        brew install gcc ninja open-mpi
+        python -m pip install meson
+    - run: meson setup build
+      env:
+        FC: gfortran
+    - run: meson test -C build -v
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: MacOS_Meson_Testlog
+        path: build/meson-logs/testlog.txt
+
+  cmake:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v1
+    - run: brew install gcc lapack cmake open-mpi scalapack
+    - run: cmake -B build
+      env:
+        FC: gfortran
+    - run: cmake --build build --parallel
+    - run: ctest -V
+      working-directory: build

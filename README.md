@@ -1,5 +1,5 @@
-[![Actions Status](https://github.com/scivision/mumps/workflows/ci/badge.svg)](https://github.com/scivision/mumps/actions)
-
+[![Actions Status](https://github.com/scivision/mumps/workflows/ci_linux/badge.svg)](https://github.com/scivision/mumps/actions)
+[![Actions Status](https://github.com/scivision/mumps/workflows/ci_macos/badge.svg)](https://github.com/scivision/mumps/actions)
 
 # MUMPS
 
@@ -42,6 +42,8 @@ The build-time parameter `-Darith=d` may be optionally specified:
 -Darith=c  # complex64
 -Darith=z  # complex128
 ```
+
+More than one precision may be specified simultaneously like `-Darith=sd`
 
 ---
 
