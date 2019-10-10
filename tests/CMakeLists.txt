@@ -23,7 +23,7 @@ if(arith MATCHES "d")
   target_link_libraries(mumpscfg PRIVATE dmumps ${MUMPS_PREREQ_LIBS} MPI::MPI_Fortran)
   target_include_directories(mumpscfg PRIVATE ${MUMPS_INCLUDE_DIRS})
   add_test(NAME MumpsCfg
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS} $<TARGET_FILE:mumpscfg>)
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:mumpscfg>)
   set_tests_properties(MumpsCfg PROPERTIES TIMEOUT 10 RUN_SERIAL true)
 endif()
 
@@ -32,7 +32,7 @@ if(arith MATCHES "s")
   target_link_libraries(s_simple PRIVATE smumps ${MUMPS_PREREQ_LIBS} MPI::MPI_Fortran)
   target_include_directories(s_simple PRIVATE ${MUMPS_INCLUDE_DIRS})
   add_test(NAME SimpleReal32
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS} $<TARGET_FILE:s_simple>)
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:s_simple>)
   set_tests_properties(SimpleReal32 PROPERTIES TIMEOUT 15 RUN_SERIAL true)
 endif()
 
@@ -41,13 +41,13 @@ if(arith MATCHES "d")
   target_link_libraries(d_simple PRIVATE dmumps ${MUMPS_PREREQ_LIBS} MPI::MPI_Fortran)
   target_include_directories(d_simple PRIVATE ${MUMPS_INCLUDE_DIRS})
   add_test(NAME SimpleReal64
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS} $<TARGET_FILE:d_simple>)
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:d_simple>)
   set_tests_properties(SimpleReal64 PROPERTIES TIMEOUT 15 RUN_SERIAL true)
 
   add_executable(Csimple simple.c)
   target_link_libraries(Csimple PRIVATE dmumps ${MUMPS_PREREQ_LIBS} MPI::MPI_C)
   target_include_directories(Csimple PRIVATE ${MUMPS_INCLUDE_DIRS})
   add_test(NAME CSimpleReal64
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS} $<TARGET_FILE:Csimple>)
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:Csimple>)
   set_tests_properties(CSimpleReal64 PROPERTIES TIMEOUT 15 RUN_SERIAL true)
 endif()

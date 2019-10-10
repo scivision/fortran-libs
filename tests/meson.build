@@ -22,7 +22,8 @@ if arith.contains('s')
   )
   test('Mumps Simple real32', mpiexec,
     args: ['-np', '2', s_simple],
-    timeout: 15
+    timeout: 15,
+    is_parallel: false,
   )
 endif
 if arith.contains('d')
@@ -32,7 +33,8 @@ if arith.contains('d')
   )
   test('Mumps Simple real64', mpiexec,
     args: ['-np', '2', d_simple],
-    timeout: 15
+    timeout: 15,
+    is_parallel: false,
   )
 endif
 
@@ -44,5 +46,6 @@ if get_option('test_c') and arith.contains('d')
 
   test('Mumps C', mpiexec,
     args : ['-np', '2', c_simple],
-    timeout: 15)
+    timeout: 15,
+    is_parallel: false,)
 endif
