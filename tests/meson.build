@@ -1,3 +1,5 @@
+# Note: MacOS in some systems needed the library link_with and include_directories instead of declare_dependency
+
 
 # Ubuntu 16.04 requires explicit BLACS linking (also in CMake)
 #blacs = fc.find_library('blacs-openmpi', required: false)
@@ -9,7 +11,9 @@ test_deps = [scalapack, mpif]
 
 if arith.contains('d')
   mumpscfg = executable('mumpscfg', 'test_mumps.f90',
-    dependencies : [test_deps, mumps],
+    dependencies : [test_deps],
+    include_directories: mumps_inc,
+    link_with: [mumps_lib, mumps_common],
     link_language: 'fortran'
   )
   test('Mumps Config real64', mumpscfg, timeout: 15)
@@ -17,7 +21,9 @@ endif
 
 if arith.contains('s')
   s_simple = executable('s_simple', 's_simple.f90',
-    dependencies : [test_deps, mumps],
+    dependencies : [test_deps],
+    include_directories: mumps_inc,
+    link_with: [mumps_lib, mumps_common],
     link_language: 'fortran'
   )
   test('Mumps Simple real32', mpiexec,
@@ -28,7 +34,9 @@ if arith.contains('s')
 endif
 if arith.contains('d')
   d_simple = executable('d_simple', 'd_simple.f90',
-    dependencies : [test_deps, mumps],
+    dependencies : [test_deps],
+    include_directories: mumps_inc,
+    link_with: [mumps_lib, mumps_common],
     link_language: 'fortran'
   )
   test('Mumps Simple real64', mpiexec,
