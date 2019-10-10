@@ -11,10 +11,8 @@ jobs:
     - uses: actions/setup-python@v1
       with:
         python-version: '3.x'
-    - name: Install dependencies
-      run: |
-        brew install gcc ninja open-mpi
-        python -m pip install meson
+    - run: brew install gcc ninja open-mpi
+    - run: pip install meson
     - run: meson setup build
       env:
         FC: gfortran

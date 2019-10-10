@@ -31,6 +31,6 @@ include_directories: mumps_inc,
 link_with: [mumps_lib, mumps_common, pord]
 )
 
-if not meson.is_subproject() or get_option('buildtype') == 'debug'
+if not meson.is_subproject()
   subdir('tests')
 endif

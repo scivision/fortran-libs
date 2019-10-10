@@ -1,5 +1,6 @@
 option('SCALAPACK_ROOT', type : 'string', description : 'root directory of SCALAPACK', yield: true)
 option('MPI_ROOT', type : 'string', description : 'root directory of MPI', yield: true)
+option('CI', type: 'boolean', value: false, description : 'running on CI, do not run shaky tests', yield: true)
 option('arith', type: 'string', value: 'sd', description: 'precision (s,d,c,z)', yield: true)
 option('ordering', type: 'string', value: 'PORD', description: 'PORD, Scotch, Metis', yield: true)
 option('system_blas', type: 'boolean', value: false, description: 'use system libraries', yield: true)

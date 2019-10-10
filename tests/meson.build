@@ -1,11 +1,11 @@
 
 # Ubuntu 16.04 requires explicit BLACS linking (also in CMake)
-blacs = fc.find_library('blacs-openmpi', required: false)
-if blacs.found()
-  test_deps = [scalapack, blacs, mpif]
-else
-  test_deps = [scalapack, mpif]
-endif
+#blacs = fc.find_library('blacs-openmpi', required: false)
+#if blacs.found()
+#  test_deps = [scalapack, blacs, mpif]
+#else
+test_deps = [scalapack, mpif]
+#endif
 
 if arith.contains('d')
   mumpscfg = executable('mumpscfg', 'test_mumps.f90',
