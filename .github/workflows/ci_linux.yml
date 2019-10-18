@@ -15,7 +15,7 @@ jobs:
         python-version: '3.x'
     - run: pip install cmakeutils
     - run: cmake_setup ${cmake_version} --prefix ${HOME}/.local
-    - run: sudo apt install -yq --no-install-recommends gfortran liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libopenmpi-dev openmpi-bin
+    - run: sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev
     - run: ${HOME}/.local/cmake-${cmake_version}-Linux-x86_64/bin/cmake -B build
       env:
         FC: gfortran
@@ -33,7 +33,7 @@ jobs:
       with:
         python-version: '3.x'
     - run: python -m pip install meson
-    - run: sudo apt install -yq --no-install-recommends ninja-build gfortran libopenmpi-dev openmpi-bin
+    - run: sudo apt install -yq --no-install-recommends ninja-build gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev
     - run: meson setup build
       env:
         FC: gfortran
