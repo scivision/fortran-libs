@@ -15,7 +15,8 @@ jobs:
     - run: pip install meson
     - run: meson setup build
       env:
-        FC: gfortran
+        FC: gfortran-9
+        CC: gcc-9
     - run: meson test -C build -v
     - uses: actions/upload-artifact@v1
       if: failure()
@@ -30,7 +31,8 @@ jobs:
     - run: brew install gcc lapack cmake open-mpi scalapack
     - run: cmake -B build
       env:
-        FC: gfortran
+        FC: gfortran-9
+        CC: gcc-9
     - run: cmake --build build --parallel
     - run: ctest -V
       working-directory: build
