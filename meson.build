@@ -6,7 +6,6 @@ project('MUMPS', 'c', 'fortran',
 
 arith = get_option('arith')
 ordering = get_option('ordering')
-
 subdir('cmake')
 
 message('arith: ' + arith)
@@ -14,10 +13,19 @@ message('arith: ' + arith)
 threads = dependency('threads')
 scalapack = declare_dependency(dependencies: [scalapack, lapack, blas, threads])
 
-mumps_inc = include_directories('include')
-
+# PORD is always used, alongside the optional metis or scotch
 subdir('PORD')
+ordering_lib = [pord]
+if ordering == 'scotch'
+  message('Scotch has not been tested, let us know if there are issues.')
+  ordering_lib += dependency('scotch', cmake_module_path: 'cmake/Modules')
+elif ordering == 'metis'
+  message('Metis has not been tested, let us know if there are issues.')
+  ordering_lib += dependency('metis', cmake_module_path: 'cmake/Modules')
+endif
 
+# -- MUMPS
+mumps_inc = include_directories('include')
 subdir('src')
 
 # --- generate pkg-config
@@ -28,7 +36,7 @@ subdir('src')
 
 mumps = declare_dependency(
 include_directories: mumps_inc,
-link_with: [mumps_lib, mumps_common, pord]
+link_with: [mumps_lib, mumps_common, ordering_lib]
 )
 
 if not meson.is_subproject()

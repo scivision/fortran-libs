@@ -33,12 +33,17 @@ comm_src = files(
 comm_other_src = files(
 'ana_orderings.F', 'ana_set_ordering.F', 'ana_AMDMF.F', 'bcast_errors.F', 'estim_flops.F',
 'mumps_type_size.F', 'mumps_type2_blocking.F', 'mumps_version.F', 'mumps_print_defined.F',
-'mumps_pord.c', 'mumps_metis.c', 'mumps_metis64.c', 'mumps_metis_int.c',
-'mumps_scotch.c', 'mumps_scotch64.c', 'mumps_scotch_int.c',
+'mumps_pord.c',
 'mumps_common.c', 'mumps_size.c', 'mumps_io.c', 'mumps_io_basic.c', 'mumps_io_thread.c', 'mumps_io_err.c',
 'mumps_numa.c', 'mumps_thread.c', 'mumps_save_restore_C.c', 'mumps_config_file_C.c', 'mumps_thread_affinity.c',
 'tools_common.F', 'sol_common.F'
 )
+
+if ordering == 'metis'
+  comm_other_src += files('mumps_metis.c', 'mumps_metis64.c', 'mumps_metis_int.c')
+elif ordering == 'scotch'
+  comm_other_src += files('mumps_scotch.c', 'mumps_scotch64.c', 'mumps_scotch_int.c')
+endif
 
 else
   error('Update meson.build for MUMPS ' + mumps_version)
@@ -49,7 +54,7 @@ mumps_common = library('mumps_common',
   dependencies : [mpic, mpif, scalapack],
   include_directories : mumps_inc,
   c_args: cargs,
-  link_with : pord,
+  link_with : ordering_lib,
   install: true
 )
 
