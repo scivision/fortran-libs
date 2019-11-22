@@ -3,3 +3,4 @@ option('CI', type: 'boolean', value: false, description : 'running on CI, do not
 option('arith', type: 'string', value: 'sd', description: 'precision (s,d,c,z)', yield: true)
 option('ordering', type: 'string', description: 'metis or scotch', yield: true)
 option('test_c', type: 'boolean', value: false, description: 'run C-language MUMPS test')
+option('mklroot', type: 'string', description: 'MKL root directory')
