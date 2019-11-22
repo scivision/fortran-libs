@@ -5,7 +5,12 @@ os = target_machine.system()
 if fc.get_id() == 'intel-cl'
   # /fpp is necessary for any Fortran preprocessing statement with Intel ifort on Windows
   # https://software.intel.com/en-us/fortran-compiler-developer-guide-and-reference-fpp
-   add_project_arguments('/fpp', language: 'fortran')
+  add_project_arguments('/fpp', language: 'fortran')
+  # FIXME: this is a workaround for Intel Compiler icl bug: https://www.scivision.dev/intel-compiler-windows-bug-workaround
+  if not cc.compiles(files('../PORD/lib/sort.c'), include_directories: include_directories('../PORD/include'), name: 'ICL MSVC')
+    add_project_arguments('/TP', language: 'c')
+    message('applying workaround for Intel ICL bug with MSVC: https://www.scivision.dev/intel-compiler-windows-bug-workaround')
+  endif
 endif
 
 if meson.is_subproject()
