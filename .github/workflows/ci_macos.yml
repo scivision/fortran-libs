@@ -17,6 +17,7 @@ jobs:
       env:
         FC: gfortran-9
         CC: gcc-9
+    - run: ninja -C build
     - run: meson test -C build -v
     - uses: actions/upload-artifact@v1
       if: failure()
