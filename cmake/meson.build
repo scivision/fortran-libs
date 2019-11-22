@@ -15,7 +15,7 @@ endif
 
 # -- MKL (in general, MKL can be used with intel, intel-cl, gcc or PGI)
 mklroot = get_option('mklroot')
-mkllib_root = os == 'windows' ? mklroot/'lib/intel64_win' : mklroot/'lib/intel64'
+mkllib_root = mklroot/'lib/intel64'
 
 # == MPI
 mpiexec = find_program('mpiexec')
@@ -52,7 +52,7 @@ if mklroot == ''
     blas = disabler()
   endif
 
-  lapack = dependency('lapack', cmake_module_path: 'cmake/Modules', required: false, disabler: true)
+  lapack = dependency('lapack', required: false, disabler: true)
   if not lapack.found()
     lapack = fc.find_library('lapack', required: false, disabler: true)
   endif
@@ -69,9 +69,6 @@ else
   lapack = []
   n1 = fc.get_id() == 'gcc' ? 'mkl_gf_lp64' : 'mkl_intel_lp64'
   names = [n1, 'mkl_intel_thread', 'mkl_core']
-  if os == 'windows'
-    names += 'iomp5md'
-  endif
   foreach n : names
     lapack += fc.find_library(n, dirs: mkllib_root)
   endforeach
@@ -82,7 +79,7 @@ endif
 # --- intel MPI lib for Windows
 intelmpi_lib = []
 if mklroot != '' and os == 'windows'
-  intelmpi_lib = fc.find_library('impi', dirs: mkllib_root)
+  intelmpi_lib = fc.find_library('impi', dirs: mklroot / '../mpi/intel64/lib/release')
 endif
 
 # --- Find BLACS
@@ -95,17 +92,16 @@ if mklroot == ''
   endif
 else
   blacs += fc.find_library('mkl_blacs_intelmpi_lp64', dirs: mkllib_root)
+  blacs += intelmpi_lib
 endif
 
-# --- Find Scalapack
 
-# dependency('scalapack') not yet working in Meson--cmake->meson bug within Meson, yielding long meson-log.txt
-# scalapack = dependency('scalapack', cmake_module_path : 'cmake/Modules')
+# --- Find Scalapack
 scalapack = disabler()
 
 if mklroot != ''
   scalapack_lib = fc.find_library('mkl_scalapack_lp64', dirs: mkllib_root)
-  scalapack = declare_dependency(dependencies: [scalapack_lib, intelmpi_lib], include_directories: mklroot/'include/intel64/lp64')
+  scalapack = declare_dependency(dependencies: [scalapack_lib, blacs, lapack, intelmpi_lib], include_directories: mklroot/'include/intel64/lp64')
 endif
 
 if not scalapack.found()
