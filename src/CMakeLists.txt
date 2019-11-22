@@ -45,7 +45,7 @@ add_library(mumps_common ${COMM_SRC} ${COMM_OTHER_SRC})
 target_link_libraries(mumps_common PRIVATE pord ${SCALAPACK_LIBRARIES} ${LAPACK_LIBRARIES} MPI::MPI_Fortran MPI::MPI_C)
 target_include_directories(mumps_common PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 target_compile_definitions(mumps_common PRIVATE ${CDEFS})
-
+target_compile_options(mumps_common PRIVATE ${CFLAGS})
 
 # -- Mumps
 foreach(a IN ITEMS "s" "d" "c" "z")
@@ -130,6 +130,7 @@ add_library(${a}mumps ${CINT_SRC} ${SRC} ${SRC_OTHER})
 target_compile_definitions(${a}mumps
   PRIVATE MUMPS_ARITH=MUMPS_ARITH_${a}
   PRIVATE ${CDEFS})
+target_compile_options(${a}mumps PRIVATE ${CFLAGS})
 target_include_directories(${a}mumps PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(${a}mumps PRIVATE
   mumps_common

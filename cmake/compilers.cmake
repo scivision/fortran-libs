@@ -1,6 +1,8 @@
 if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
   if(WIN32)
     set(FFLAGS /warn:declarations)
+    # FIXME: this is a workaround for Intel Compiler icl bug: https://www.scivision.dev/intel-compiler-windows-bug-workaround
+    set(CFLAGS /TP)
   else()
     set(FFLAGS -warn declarations)
   endif()

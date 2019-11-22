@@ -47,6 +47,8 @@ if(arith MATCHES "d")
   add_executable(Csimple simple.c)
   target_link_libraries(Csimple PRIVATE dmumps ${MUMPS_PREREQ_LIBS} MPI::MPI_C)
   target_include_directories(Csimple PRIVATE ${MUMPS_INCLUDE_DIRS})
+  target_compile_options(Csimple PRIVATE ${CFLAGS})
+
   add_test(NAME CSimpleReal64
     COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:Csimple>)
   set_tests_properties(CSimpleReal64 PROPERTIES TIMEOUT 15 RUN_SERIAL true)
