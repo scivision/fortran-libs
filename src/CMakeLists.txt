@@ -46,6 +46,10 @@ target_link_libraries(mumps_common PRIVATE pord ${SCALAPACK_LIBRARIES} ${LAPACK_
 target_include_directories(mumps_common PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 target_compile_definitions(mumps_common PRIVATE ${CDEFS})
 target_compile_options(mumps_common PRIVATE ${CFLAGS})
+set_target_properties(mumps_common PROPERTIES
+  Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}
+  ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # -- Mumps
 foreach(a IN ITEMS "s" "d" "c" "z")
@@ -135,6 +139,10 @@ target_include_directories(${a}mumps PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(${a}mumps PRIVATE
   mumps_common
   ${SCALAPACK_LIBRARIES} ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} MPI::MPI_Fortran MPI::MPI_C)
+set_target_properties(${a}mumps PROPERTIES
+  Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}
+  ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 install(TARGETS pord mumps_common ${a}mumps
   ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}

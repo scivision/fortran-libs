@@ -5,6 +5,11 @@
 
 http://mumps.enseeiht.fr/
 
+This repository is specifically designed to:
+
+* safely build MUMPS in parallel 10x+ faster than the Makefiles
+* allow easy reuse of MUMPS as a Meson subproject or CMake ExternalProject
+
 ## Build
 
 Meson or CMake may be used to build MUMPS.
