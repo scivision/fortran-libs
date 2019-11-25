@@ -28,6 +28,14 @@ find_package(LAPACK REQUIRED)
 add_subdirectory(PORD)
 add_subdirectory(src)
 
+# stop here if being used as an ExternalProject
+get_directory_property(hasParent PARENT_DIRECTORY)
+if(hasParent)
+  return()
+endif()
+
+# --- self-tests (optional)
+
 add_subdirectory(tests)
 
 
