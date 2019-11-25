@@ -15,15 +15,16 @@ jobs:
         python-version: '3.x'
     - run: pip install cmakeutils
     - run: cmake_setup ${cmake_version} --prefix ${HOME}/.local
-    - run: sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev
+    - name: Install prereqs
+      run: |
+        sudo apt update -yq
+        sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev
     - run: ${HOME}/.local/cmake-${cmake_version}-Linux-x86_64/bin/cmake -B build
       env:
         FC: gfortran
     - run: ${HOME}/.local/cmake-${cmake_version}-Linux-x86_64/bin/cmake --build build --parallel
     - run: ${HOME}/.local/cmake-${cmake_version}-Linux-x86_64/bin/ctest -V
       working-directory: build
-
-
 
   meson:
     runs-on: ubuntu-latest
