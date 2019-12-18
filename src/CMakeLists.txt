@@ -145,11 +145,18 @@ set_target_properties(${a}mumps PROPERTIES
   ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
   LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-install(TARGETS pord mumps_common ${a}mumps
+install(TARGETS ${a}mumps
   ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}
   LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX})
 
+install(FILES ${CMAKE_SOURCE_DIR}/include/${a}mumps_c.h ${CMAKE_SOURCE_DIR}/include/${a}mumps_root.h ${CMAKE_SOURCE_DIR}/include/${a}mumps_struc.h
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
+
 endforeach()
 
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/include  # no trailing slash!
-  DESTINATION ${CMAKE_INSTALL_PREFIX})
+install(TARGETS pord mumps_common
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+install(FILES ${CMAKE_SOURCE_DIR}/include/mumps_c_types.h ${CMAKE_SOURCE_DIR}/include/mumps_compat.h
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
