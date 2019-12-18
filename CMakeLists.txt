@@ -16,11 +16,12 @@ endif()
 
 if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
   if(WIN32)
-    set(FFLAGS /warn:declarations)
+    # /heap-arrays necessary to avoid stack overflow in programs using Mumps
+    set(FFLAGS /warn:declarations /Qopenmp /heap-arrays)
     # this is a workaround for Intel Compiler icl bug: https://www.scivision.dev/intel-compiler-windows-bug-workaround
     # set(CFLAGS /TP)
   else()
-    set(FFLAGS -warn declarations)
+    set(FFLAGS -warn declarations -qopenmp)
   endif()
 elseif(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
   add_compile_options(-mtune=native)

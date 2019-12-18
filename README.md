@@ -15,7 +15,7 @@ This repository is specifically designed to:
 Meson or CMake may be used to build MUMPS.
 If the "mumpscfg" test doesn't build or pass, MUMPS is probably not built correctly.
 
-**Meson**
+### Meson
 
 ```sh
 meson build
@@ -25,7 +25,7 @@ meson install -C build
 meson test -C build  # optional
 ```
 
-**CMake**
+### CMake
 
 ```sh
 cmake -B build
@@ -58,6 +58,7 @@ For example: `--prefix ~/mylibs` will install Scalapack under `~/mylibs/scalapac
 ---
 
 To fully specify prerequisite library locations add options like:
+
 ```sh
 FC=gfortran-9 <meson or cmake> -DSCALAPACK_ROOT=~/lib_gcc/scalapack -DMUMPS_ROOT=~/lib_gcc/mumps -DMPI_ROOT=~/lib_gcc/openmpi-3.1.3
 ```
