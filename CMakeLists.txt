@@ -14,7 +14,21 @@ if(NOT DEFINED arith)
   set(arith "sd")
 endif()
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compilers.cmake)
+if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
+  if(WIN32)
+    set(FFLAGS /warn:declarations)
+    # this is a workaround for Intel Compiler icl bug: https://www.scivision.dev/intel-compiler-windows-bug-workaround
+    # set(CFLAGS /TP)
+  else()
+    set(FFLAGS -warn declarations)
+  endif()
+elseif(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
+  add_compile_options(-mtune=native)
+  set(FFLAGS -fimplicit-none)
+elseif(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
+  set(FFLAGS -Mdclchk)
+endif()
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include)

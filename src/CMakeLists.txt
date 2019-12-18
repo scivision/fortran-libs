@@ -1,5 +1,6 @@
 set(CDEFS "Add_")
-
+# this works for all modern compilers we tried.
+# would be better if MUMPS used `bind(C)`
 
 # -- Mumps COMMMON
 if(CMAKE_PROJECT_VERSION VERSION_GREATER_EQUAL 5.1 AND CMAKE_PROJECT_VERSION VERSION_LESS 5.2)
