@@ -1,6 +1,4 @@
 
-cargs = '-DAdd_'
-
 mumps_version = meson.project_version()
 
 # -- MUMPS COMMON
@@ -39,9 +37,10 @@ comm_other_src = files(
 'tools_common.F', 'sol_common.F'
 )
 
-if ordering == 'metis'
+if ordering.contains('metis')
   comm_other_src += files('mumps_metis.c', 'mumps_metis64.c', 'mumps_metis_int.c')
-elif ordering == 'scotch'
+endif
+if ordering.contains('scotch')
   comm_other_src += files('mumps_scotch.c', 'mumps_scotch64.c', 'mumps_scotch_int.c')
 endif
 
@@ -51,10 +50,11 @@ endif
 
 mumps_common = library('mumps_common',
   sources: [comm_src, comm_other_src],
-  dependencies : [mpic, mpif, scalapack],
+  dependencies : [mpic, mpif, scalapack, ordering_libs],
   include_directories : mumps_inc,
-  c_args: cargs,
-  link_with : ordering_lib,
+  c_args: [cargs, ordering_flags],
+  fortran_args: ordering_flags,
+  link_with : pord,
   install: true
 )
 
@@ -142,12 +142,13 @@ endif
 
 cint_src = files('mumps_c.c')
 
-defs = [cargs, '-DMUMPS_ARITH=MUMPS_ARITH_'+a]
+defs = [cargs, '-DMUMPS_ARITH=MUMPS_ARITH_'+a, ordering_flags]
 
 mumps_lib += library(a + 'mumps',
   sources: [cint_src, src, src_other],
   dependencies : [mpif, mpic, scalapack],
-  fortran_args : defs, c_args : defs,
+  fortran_args : defs,
+  c_args : defs,
   link_with: mumps_common,
   include_directories : mumps_inc,
   install: true
@@ -157,9 +158,9 @@ mumps_lib += library(a + 'mumps',
 install_headers(
 '../include' / a+'mumps_c.h',
 '../include' / a+'mumps_root.h',
-'../include' / a+'mumps_struc.h',
-'../include' / 'mumps_c_types.h',
-'../include' / 'mumps_compat.h'
+'../include' / a+'mumps_struc.h'
 )
 
 endforeach
+
+install_headers('../include/mumps_c_types.h','../include/mumps_compat.h')

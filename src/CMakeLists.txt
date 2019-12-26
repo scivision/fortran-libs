@@ -1,7 +1,3 @@
-set(CDEFS "Add_")
-# this works for all modern compilers we tried.
-# would be better if MUMPS used `bind(C)`
-
 # -- Mumps COMMMON
 if(CMAKE_PROJECT_VERSION VERSION_GREATER_EQUAL 5.1 AND CMAKE_PROJECT_VERSION VERSION_LESS 5.2)
 
@@ -31,21 +27,35 @@ mumps_comm_ibcast.F mumps_l0_omp_m.F mumps_memory_mod.F mumps_mpitoomp_m.F mumps
 set(COMM_OTHER_SRC
 ana_orderings.F ana_set_ordering.F ana_AMDMF.F bcast_errors.F estim_flops.F
 mumps_type_size.F mumps_type2_blocking.F mumps_version.F mumps_print_defined.F
-mumps_pord.c mumps_metis.c mumps_metis64.c mumps_metis_int.c
-mumps_scotch.c mumps_scotch64.c mumps_scotch_int.c
+mumps_pord.c
 mumps_common.c mumps_size.c mumps_io.c mumps_io_basic.c mumps_io_thread.c mumps_io_err.c
 mumps_numa.c mumps_thread.c mumps_save_restore_C.c mumps_config_file_C.c mumps_thread_affinity.c
 tools_common.F sol_common.F
 )
+
+set(ORDERING_INCDIRS ${CMAKE_CURRENT_SOURCE_DIR}/../PORD/include)
+set(ORDERING_LIBS)
+if(scotch IN_LIST ordering)
+  list(APPEND COMM_OTHER_SRC mumps_scotch.c mumps_scotch64.c mumps_scotch_int.c)
+  list(APPEND ORDERING_INCDIRS ${Scotch_INCLUDE_DIRS})
+  list(APPEND ORDERING_LIBS ${Scotch_LIBRARIES})
+endif()
+if(metis IN_LIST ordering)
+  list(APPEND COMM_OTHER_SRC mumps_metis.c mumps_metis64.c mumps_metis_int.c)
+  list(APPEND ORDERING_INCDIRS ${METIS_INCLUDE_DIRS})
+  list(APPEND ORDERING_LIBS ${METIS_LIBRARIES})
+endif()
+list(APPEND ORDERING_LIBS pord)
+
 
 else()
   message(FATAL_ERROR "update to MUMPS src/ list required--raise GitHub issue")
 endif()
 
 add_library(mumps_common ${COMM_SRC} ${COMM_OTHER_SRC})
-target_link_libraries(mumps_common PRIVATE pord ${SCALAPACK_LIBRARIES} ${LAPACK_LIBRARIES} MPI::MPI_Fortran MPI::MPI_C)
-target_include_directories(mumps_common PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
-target_compile_definitions(mumps_common PRIVATE ${CDEFS})
+target_link_libraries(mumps_common PRIVATE ${ORDERING_LIBS} ${SCALAPACK_LIBRARIES} ${LAPACK_LIBRARIES} MPI::MPI_Fortran MPI::MPI_C)
+target_include_directories(mumps_common PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include ${ORDERING_INCDIRS})
+target_compile_definitions(mumps_common PRIVATE ${CDEFS} ${ORDERING_FLAGS})
 target_compile_options(mumps_common PRIVATE ${CFLAGS})
 set_target_properties(mumps_common PROPERTIES
   Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -91,7 +101,6 @@ ${a}ana_mtrans.F ${a}ooc_panel_piv.F ${a}rank_revealing.F
 ${a}sol_aux.F ${a}sol_bwd_aux.F ${a}sol_bwd.F ${a}sol_c.F
 ${a}sol_fwd_aux.F ${a}sol_fwd.F ${a}sol_matvec.F ${a}sol_root_parallel.F
 ${a}tools.F ${a}type3_root.F
-# these are duplicates from common--better way to do this?
 fac_future_niv2_mod.F  mumps_memory_mod.F ana_orderings_wrappers_m.F mumps_comm_ibcast.F omp_tps_common_m.F fac_ibct_data_m.F fac_asm_build_sort_index_m.F fac_asm_build_sort_index_ELT_m.F mumps_l0_omp_m.F lr_common.F)
 
 elseif(CMAKE_PROJECT_VERSION VERSION_GREATER_EQUAL 5.2 AND CMAKE_PROJECT_VERSION VERSION_LESS 5.3)
@@ -132,9 +141,7 @@ endif()
 set(CINT_SRC mumps_c.c)
 
 add_library(${a}mumps ${CINT_SRC} ${SRC} ${SRC_OTHER})
-target_compile_definitions(${a}mumps
-  PRIVATE MUMPS_ARITH=MUMPS_ARITH_${a}
-  PRIVATE ${CDEFS})
+target_compile_definitions(${a}mumps PRIVATE MUMPS_ARITH=MUMPS_ARITH_${a} ${CDEFS} ${ORDERING_FLAGS})
 target_compile_options(${a}mumps PRIVATE ${CFLAGS})
 target_include_directories(${a}mumps PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(${a}mumps PRIVATE

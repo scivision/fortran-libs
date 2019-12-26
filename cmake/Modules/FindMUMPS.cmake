@@ -90,4 +90,3 @@ if(MUMPS_FOUND)
 endif()
 
 mark_as_advanced(MUMPS_INCLUDE_DIR MUMPS_LIBRARY)
-

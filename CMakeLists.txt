@@ -14,12 +14,13 @@ if(NOT DEFINED arith)
   set(arith "sd")
 endif()
 
+set(CDEFS "Add_")
+# this works for all modern compilers we tried.
+
+
 if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
   if(WIN32)
-    # /heap-arrays necessary to avoid stack overflow in programs using Mumps
     set(FFLAGS /warn:declarations /Qopenmp /heap-arrays)
-    # this is a workaround for Intel Compiler icl bug: https://www.scivision.dev/intel-compiler-windows-bug-workaround
-    # set(CFLAGS /TP)
   else()
     set(FFLAGS -warn declarations -qopenmp)
   endif()
@@ -36,16 +37,24 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
 find_package(MPI REQUIRED COMPONENTS Fortran C)
-
 find_package(SCALAPACK REQUIRED)
 find_package(LAPACK REQUIRED)
+
+set(ORDERING_FLAGS -Dpord)
+if(scotch IN_LIST ordering)
+  find_package(Scotch COMPONENTS ESMUMPS REQUIRED)
+  list(APPEND ORDERING_FLAGS -Dscotch)
+endif()
+if(metis IN_LIST ordering)
+  find_package(METIS REQUIRED)
+  list(APPEND ORDERING_FLAGS -Dmetis)
+endif()
 
 add_subdirectory(PORD)
 add_subdirectory(src)
 
 # stop here if being used as an ExternalProject
-get_directory_property(hasParent PARENT_DIRECTORY)
-if(hasParent)
+if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   return()
 endif()
 

@@ -97,9 +97,9 @@ if(NOT SCALAPACK_INCLUDE_DIR)
   return()
 endif()
 
-list(APPEND SCALAPACK_INCLUDE_DIR
-  ${MKL_INCLUDE_DIRS})
+list(APPEND SCALAPACK_INCLUDE_DIR ${MKL_INCLUDE_DIRS})
 
+set(SCALAPACK_MKL_FOUND true PARENT_SCOPE)
 set(SCALAPACK_LIBRARY ${SCALAPACK_LIB} PARENT_SCOPE)
 set(SCALAPACK_INCLUDE_DIR ${SCALAPACK_INCLUDE_DIR} PARENT_SCOPE)
 
@@ -147,41 +147,29 @@ if(MKL IN_LIST SCALAPACK_FIND_COMPONENTS)
     set(_mkl_bitflag)
   endif()
 
-
   if(WIN32)
     set(_impi impi)
   else()
     unset(_impi)
   endif()
 
-
   pkg_check_modules(MKL mkl-${_mkltype}-${_mkl_bitflag}lp64-iomp)
 
   if(OpenMPI IN_LIST SCALAPACK_FIND_COMPONENTS)
     mkl_scala(mkl_scalapack_${_mkl_bitflag}lp64 mkl_blacs_openmpi_${_mkl_bitflag}lp64)
-    if(SCALAPACK_LIBRARY)
-      set(SCALAPACK_OpenMPI_FOUND true)
-    endif()
+    set(SCALAPACK_OpenMPI_FOUND ${SCALAPACK_MKL_FOUND})
   elseif(MPICH IN_LIST SCALAPACK_FIND_COMPONENTS)
     if(APPLE)
       mkl_scala(mkl_scalapack_${_mkl_bitflag}lp64 mkl_blacs_mpich_${_mkl_bitflag}lp64)
     elseif(WIN32)
-       mkl_scala(mkl_scalapack_${_mkl_bitflag}lp64 mkl_blacs_mpich2_${_mkl_bitflag}lp64.lib mpi.lib fmpich2.lib)
+      mkl_scala(mkl_scalapack_${_mkl_bitflag}lp64 mkl_blacs_mpich2_${_mkl_bitflag}lp64.lib mpi.lib fmpich2.lib)
     else()  # linux, yes it's just like IntelMPI
-       mkl_scala(mkl_scalapack_${_mkl_bitflag}lp64 mkl_blacs_intelmpi_${_mkl_bitflag}lp64)
+      mkl_scala(mkl_scalapack_${_mkl_bitflag}lp64 mkl_blacs_intelmpi_${_mkl_bitflag}lp64)
     endif()
-    if(SCALAPACK_LIBRARY)
-      set(SCALAPACK_MPICH_FOUND true)
-    endif()
+    set(SCALAPACK_MPICH_FOUND ${SCALAPACK_MKL_FOUND})
   else()  # IntelMPI
     mkl_scala(mkl_scalapack_${_mkl_bitflag}lp64 mkl_blacs_intelmpi_${_mkl_bitflag}lp64 ${_impi})
-    if(SCALAPACK_LIBRARY)
-      set(SCALAPACK_IntelMPI_FOUND true)
-    endif()
-  endif()
-
-  if(SCALAPACK_LIBRARY)
-    set(SCALAPACK_MKL_FOUND true)
+    set(SCALAPACK_IntelMPI_FOUND ${SCALAPACK_MKL_FOUND})
   endif()
 
 elseif(OpenMPI IN_LIST SCALAPACK_FIND_COMPONENTS)
@@ -197,8 +185,12 @@ elseif(OpenMPI IN_LIST SCALAPACK_FIND_COMPONENTS)
   endif()
 
 elseif(MPICH IN_LIST SCALAPACK_FIND_COMPONENTS)
+
+  pkg_check_modules(SCALAPACK scalapack-mpich)
+
   find_library(SCALAPACK_LIBRARY
-               NAMES scalapack-mpich scalapack-mpich2)
+               NAMES scalapack-mpich scalapack-mpich2
+               HINTS ${SCALAPACK_LIBRARY_DIRS} ${SCALAPACK_LIBDIR})
 
   if(SCALAPACK_LIBRARY)
     set(SCALAPACK_MPICH_FOUND true)
@@ -209,8 +201,7 @@ endif()
 # --- Finalize
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(
-  SCALAPACK
+find_package_handle_standard_args(SCALAPACK
   REQUIRED_VARS SCALAPACK_LIBRARY
   HANDLE_COMPONENTS)
 

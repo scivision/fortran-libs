@@ -5,8 +5,6 @@
 set(MUMPS_LIBRARIES mumps_common pord)
 set(MUMPS_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/include)
 
-find_package(LAPACK REQUIRED)
-find_package(SCALAPACK REQUIRED)
 if(NOT CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
   find_package(BLACS)
 endif()
