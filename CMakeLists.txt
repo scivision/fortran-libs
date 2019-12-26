@@ -9,14 +9,21 @@ project(MUMPS
 enable_testing()
 
 cmake_policy(SET CMP0076 NEW)
+cmake_policy(SET CMP0077 NEW)
+
+# --- user options
+option(parallel "parallel or sequential (non-MPI, non-Scalapack)" ON)
+
+set(ordering "pord")
 
 if(NOT DEFINED arith)
-  set(arith "sd")
+  set(arith "s" "d")
 endif()
+
+# --- compiler setup
 
 set(CDEFS "Add_")
 # this works for all modern compilers we tried.
-
 
 if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
   if(WIN32)
@@ -36,9 +43,20 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
-find_package(MPI REQUIRED COMPONENTS Fortran C)
-find_package(SCALAPACK REQUIRED)
+# --- dependencies
+find_package(Threads)
 find_package(LAPACK REQUIRED)
+if(parallel)
+  find_package(MPI COMPONENTS Fortran C REQUIRED)
+  find_package(SCALAPACK REQUIRED)
+  set(NUMERIC_INCDIRS ${SCALAPACK_INCLUDE_DIRS})
+  set(NUMERIC_LIBS ${SCALAPACK_LIBRARIES} MPI::MPI_Fortran MPI::MPI_C)
+else()
+  add_subdirectory(libseq)
+  set(NUMERIC_INCDIRS ${CMAKE_CURRENT_SOURCE_DIR}/libseq)
+  set(NUMERIC_LIBS mpiseq)
+endif()
+list(APPEND NUMERIC_LIBS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
 set(ORDERING_FLAGS -Dpord)
 if(scotch IN_LIST ordering)

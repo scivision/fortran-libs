@@ -1,7 +1,7 @@
+# MUMPS
+
 [![Actions Status](https://github.com/scivision/mumps/workflows/ci_linux/badge.svg)](https://github.com/scivision/mumps/actions)
 [![Actions Status](https://github.com/scivision/mumps/workflows/ci_macos/badge.svg)](https://github.com/scivision/mumps/actions)
-
-# MUMPS
 
 http://mumps.enseeiht.fr/
 
@@ -32,11 +32,10 @@ cmake -B build
 
 cmake --build build --parallel
 
-cd build
-ctest --parallal -V  # optional
+cmake --build build --target test  # optional
 ```
 
-### options
+### Precision
 
 The default precision is `d` meaning real float64.
 The build-time parameter `-Darith=d` may be optionally specified:
@@ -48,14 +47,31 @@ The build-time parameter `-Darith=d` may be optionally specified:
 -Darith=z  # complex128
 ```
 
-More than one precision may be specified simultaneously like `-Darith=sd`
+More than one precision may be specified simultaneously like:
 
----
+* CMake: `"-Darith=s;d"`
+* Meson: `"-Darith=['s','d']"`
+
+### ordering
+
+To use Metis and/or Scotch, add configure options like:
+
+```sh
+meson build "-Dordering=['metis','scotch']"
+```
+
+or
+
+```sh
+cmake -B build "-Dordering=metis;scotch"
+```
+
+### Install
 
 use the Meson `--prefix` option to install Scalapack under a directory.
 For example: `--prefix ~/mylibs` will install Scalapack under `~/mylibs/scalapack-2.0.2/`
 
----
+### other
 
 To fully specify prerequisite library locations add options like:
 
@@ -80,7 +96,6 @@ Instead of compiling, one may install precompiled libraries by:
 
 MUMPS is available for Linux, OSX and
 [Windows](http://mumps.enseeiht.fr/index.php?page=links).
-
 
 ### OSX
 

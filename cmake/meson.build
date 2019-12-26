@@ -23,21 +23,25 @@ mklroot = get_option('mklroot')
 mkllib_root = mklroot/'lib/intel64'
 
 # == MPI
-mpiexec = find_program('mpiexec')
-mpif = dependency('mpi', language : 'fortran')
-if mpif.found() and not fc.links('use mpi; end', dependencies : mpif, name: 'Fortran MPI')
-  error('MUMPS Fortran not working, and MUMPS uses MPI throughout')
-endif
+mpic = []
+mpif = []
+if parallel
+  mpiexec = find_program('mpiexec')
+  mpif = dependency('mpi', language : 'fortran')
+  if mpif.found() and not fc.links('use mpi; end', dependencies : mpif, name: 'Fortran MPI')
+    error('MUMPS Fortran not working, and MUMPS uses MPI throughout')
+  endif
 
-# stdio.h is necessary for IntelMPI
-mpic_code = '''
-#include <mpi.h>
-#include <stdio.h>
-int main() { MPI_Init(NULL, NULL); MPI_Finalize(); return 0;}
-'''
-mpic = dependency('mpi', language : 'c')
-if mpic.found() and not cc.links(mpic_code, dependencies: mpic, name: 'C MPI')
-  error('MUMPS C not working, and MUMPS uses MPI throughout')
+  # stdio.h is necessary for IntelMPI
+  mpic_code = '''
+  #include <mpi.h>
+  #include <stdio.h>
+  int main() { MPI_Init(NULL, NULL); MPI_Finalize(); return 0;}
+  '''
+  mpic = dependency('mpi', language : 'c')
+  if mpic.found() and not cc.links(mpic_code, dependencies: mpic, name: 'C MPI')
+    error('MUMPS C not working, and MUMPS uses MPI throughout')
+  endif
 endif
 
 # == Intel OpenMP
@@ -81,55 +85,39 @@ else
   blas = lapack
 endif
 
-# --- intel MPI lib for Windows
 intelmpi_lib = []
-if mklroot != '' and os == 'windows'
-  intelmpi_lib = fc.find_library('impi', dirs: mklroot / '../mpi/intel64/lib/release')
+if parallel
+  # --- intel MPI lib for Windows
+  if mklroot != '' and os == 'windows'
+    intelmpi_lib = fc.find_library('impi', dirs: mklroot / '../mpi/intel64/lib/release')
+  endif
 endif
 
 # --- Find BLACS
 # some systems need Blacs explicitly, but most don't, so don't pass disabler() if not found.
 blacs = []
-if mklroot == ''
-  blacs = fc.find_library('blacs-openmpi', required: false)
-  if not blacs.found()
-    blacs = []
+if parallel
+  if mklroot == ''
+    blacs = fc.find_library('blacs-openmpi', required: false)
+    if not blacs.found()
+      blacs = []
+    endif
+  else
+    blacs += fc.find_library('mkl_blacs_intelmpi_lp64', dirs: mkllib_root)
+    blacs += intelmpi_lib
   endif
-else
-  blacs += fc.find_library('mkl_blacs_intelmpi_lp64', dirs: mkllib_root)
-  blacs += intelmpi_lib
 endif
-
 
 # --- Find Scalapack
-scalapack = disabler()
-
-if mklroot != ''
-  scalapack_lib = fc.find_library('mkl_scalapack_lp64', dirs: mkllib_root)
-  scalapack = declare_dependency(dependencies: [scalapack_lib, blacs, lapack, intelmpi_lib], include_directories: mklroot/'include/intel64/lp64')
-endif
-
-if not scalapack.found()
-  scalapack_root = get_option('SCALAPACK_ROOT')
-  if scalapack_root != ''
-    scalapack = fc.find_library('scalapack', dirs : scalapack_root / 'lib', required: false, disabler: true)
-  else
-    if os == 'linux'
-      scalapack = fc.find_library('scalapack-openmpi', required: false, disabler: true)
-      if not scalapack.found()
-        scalapack = fc.find_library('scalapack', required: false, disabler: true)
-      endif
-    elif os == 'darwin'
-      scalapack_root = '/usr/local/opt/scalapack'
-      scalapack = fc.find_library('scalapack', dirs: scalapack_root / 'lib', required: false, disabler: true)
-    endif
-  endif
-  if scalapack.found() and not fc.links('L = numroc(1,1,1,1,1); end', dependencies: scalapack, name: 'SCALAPACK')
+scalapack = []
+if parallel
+  scalapack = dependency('scalapack', required: false, disabler: true)
+  if not fc.links('L = numroc(1,1,1,1,1); end', dependencies: scalapack, name: 'SCALAPACK')
     scalapack = disabler()
   endif
-endif
 
-if not scalapack.found()
-  scalapack_proj = subproject('scalapack')
-  scalapack = declare_dependency(link_with: scalapack_proj.get_variable('scalapack_lib'))
+  if not scalapack.found()
+    scalapack_proj = subproject('scalapack')
+    scalapack = declare_dependency(link_with: scalapack_proj.get_variable('scalapack_lib'))
+  endif
 endif

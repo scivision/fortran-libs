@@ -2,52 +2,72 @@
 # https://www.scivision.dev/intel-mpi-windows-bug
 
 # testing what we just built
-set(MUMPS_LIBRARIES mumps_common pord)
+set(MUMPS_LIBRARIES mumps_common ${ORDERING_LIBS})
 set(MUMPS_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/include)
 
-if(NOT CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
+if(parallel AND NOT CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
   find_package(BLACS)
 endif()
 # some systems (Ubuntu 16.04) need BLACS explicitly, when it isn't statically compiled into libscalapack
 # other systems (homebrew, Ubuntu 18.04) link BLACS into libscalapack, and don't need BLACS as a separately linked library.
-set(MUMPS_PREREQ_LIBS ${MUMPS_LIBRARIES} ${SCALAPACK_LIBRARIES})
+set(MUMPS_PREREQ_LIBS ${MUMPS_LIBRARIES} ${NUMERIC_LIBS})
 if(BLACS_FOUND)
   list(APPEND MUMPS_PREREQ_LIBS ${BLACS_LIBRARIES})
 endif()
-list(APPEND MUMPS_PREREQ_LIBS ${LAPACK_LIBRARIES})
 
-if(arith MATCHES "d")
-  add_executable(mumpscfg test_mumps.f90)
-  target_link_libraries(mumpscfg PRIVATE dmumps ${MUMPS_PREREQ_LIBS} MPI::MPI_Fortran)
-  target_include_directories(mumpscfg PRIVATE ${MUMPS_INCLUDE_DIRS})
-  add_test(NAME MumpsCfg
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:mumpscfg>)
+if("d" IN_LIST arith)
+  if(parallel)
+    add_executable(mumpscfg test_mumps.f90)
+    add_test(NAME MumpsCfg
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:mumpscfg>)
+  else()
+  add_executable(mumpscfg test_mumps_seq.f90)
+    add_test(NAME MumpsCfg COMMAND mumpscfg)
+  endif()
+
+  target_link_libraries(mumpscfg PRIVATE dmumps ${MUMPS_PREREQ_LIBS} ${NUMERIC_LIBS})
+  target_include_directories(mumpscfg PRIVATE ${MUMPS_INCLUDE_DIRS} ${NUMERIC_INCDIRS})
   set_tests_properties(MumpsCfg PROPERTIES TIMEOUT 10 RUN_SERIAL true)
 endif()
 
-if(arith MATCHES "s")
-  add_executable(s_simple s_simple.f90)
-  target_link_libraries(s_simple PRIVATE smumps ${MUMPS_PREREQ_LIBS} MPI::MPI_Fortran)
-  target_include_directories(s_simple PRIVATE ${MUMPS_INCLUDE_DIRS})
-  add_test(NAME SimpleReal32
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:s_simple>)
+if("s" IN_LIST arith)
+  if(parallel)
+    add_executable(s_simple s_simple.f90)
+    add_test(NAME SimpleReal32
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:s_simple>)
+  else()
+    add_executable(s_simple s_simple_seq.f90)
+    add_test(NAME SimpleReal32 COMMAND s_simple)
+  endif()
+  target_link_libraries(s_simple PRIVATE smumps ${MUMPS_PREREQ_LIBS} ${NUMERIC_LIBS})
+  target_include_directories(s_simple PRIVATE ${MUMPS_INCLUDE_DIRS} ${NUMERIC_INCDIRS})
   set_tests_properties(SimpleReal32 PROPERTIES TIMEOUT 15 RUN_SERIAL true)
 endif()
 
-if(arith MATCHES "d")
-  add_executable(d_simple d_simple.f90)
-  target_link_libraries(d_simple PRIVATE dmumps ${MUMPS_PREREQ_LIBS} MPI::MPI_Fortran)
-  target_include_directories(d_simple PRIVATE ${MUMPS_INCLUDE_DIRS})
-  add_test(NAME SimpleReal64
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:d_simple>)
+if("d" IN_LIST arith)
+  if(parallel)
+    add_executable(d_simple d_simple.f90)
+    add_test(NAME SimpleReal64
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:d_simple>)
+  else()
+  add_executable(d_simple d_simple_seq.f90)
+    add_test(NAME SimpleReal64 COMMAND d_simple)
+  endif()
+  target_link_libraries(d_simple PRIVATE dmumps ${MUMPS_PREREQ_LIBS} ${NUMERIC_LIBS})
+  target_include_directories(d_simple PRIVATE ${MUMPS_INCLUDE_DIRS} ${NUMERIC_INCDIRS})
   set_tests_properties(SimpleReal64 PROPERTIES TIMEOUT 15 RUN_SERIAL true)
 
-  add_executable(Csimple simple.c)
-  target_link_libraries(Csimple PRIVATE dmumps ${MUMPS_PREREQ_LIBS} MPI::MPI_C)
-  target_include_directories(Csimple PRIVATE ${MUMPS_INCLUDE_DIRS})
+  if(parallel)
+    add_executable(Csimple simple.c)
+    add_test(NAME CSimpleReal64
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:Csimple>)
+  else()
+    add_executable(Csimple simple_seq.c)
+    add_test(NAME CSimpleReal64 COMMAND Csimple)
+  endif()
+  target_link_libraries(Csimple PRIVATE dmumps ${MUMPS_PREREQ_LIBS} ${NUMERIC_LIBS})
+  target_include_directories(Csimple PRIVATE ${MUMPS_INCLUDE_DIRS} ${NUMERIC_INCDIRS})
   target_compile_options(Csimple PRIVATE ${CFLAGS})
 
-  add_test(NAME CSimpleReal64
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:Csimple>)
   set_tests_properties(CSimpleReal64 PROPERTIES TIMEOUT 15 RUN_SERIAL true)
 endif()

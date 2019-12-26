@@ -5,9 +5,9 @@ project('MUMPS', 'c', 'fortran',
     'libdir=mumps-5.2.1', 'includedir=mumps-5.2.1/include'])
 
 arith = get_option('arith')
-subdir('cmake')
+parallel = get_option('parallel')
 
-message('arith: ' + arith)
+subdir('cmake')
 
 threads = dependency('threads')
 scalapack = declare_dependency(dependencies: [scalapack, lapack, blas, threads])
@@ -35,6 +35,11 @@ if ordering.contains('metis')
 endif
 
 # -- MUMPS
+mpiseq = []
+if not parallel
+  mumps_inc += include_directories('libseq')
+  subdir('libseq')
+endif
 
 subdir('src')
 

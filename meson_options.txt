@@ -1,6 +1,5 @@
-option('SCALAPACK_ROOT', type : 'string', description : 'root directory of SCALAPACK', yield: true)
 option('CI', type: 'boolean', value: false, description : 'running on CI, do not run shaky tests', yield: true)
-option('arith', type: 'string', value: 'sd', description: 'precision (s,d,c,z)', yield: true)
+option('arith', type: 'array', choices: ['s','d','c','z'], value: ['s', 'd'], description: 'arith precision', yield: true)
 option('ordering', type: 'array', choices: ['pord', 'metis', 'scotch'], value: ['pord'], description: 'ordering library(s)', yield: true)
-option('test_c', type: 'boolean', value: false, description: 'run C-language MUMPS test')
 option('mklroot', type: 'string', description: 'MKL root directory', yield: true)
+option('parallel', type: 'boolean', value: true, description: 'true needs MPI and Scalapack, false does not', yield: true)

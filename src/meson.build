@@ -54,17 +54,14 @@ mumps_common = library('mumps_common',
   include_directories : mumps_inc,
   c_args: [cargs, ordering_flags],
   fortran_args: ordering_flags,
-  link_with : pord,
+  link_with : [pord, mpiseq],
   install: true
 )
 
 # -- MUMPS LIB
 
 mumps_lib = []
-foreach a : ['s', 'd', 'c', 'z']
-if not arith.contains(a)
-  continue
-endif
+foreach a : arith
 
 if mumps_version.version_compare('>=5.1') and mumps_version.version_compare('<5.2')
 
@@ -149,7 +146,7 @@ mumps_lib += library(a + 'mumps',
   dependencies : [mpif, mpic, scalapack],
   fortran_args : defs,
   c_args : defs,
-  link_with: mumps_common,
+  link_with: [mumps_common, mpiseq],
   include_directories : mumps_inc,
   install: true
 )

@@ -53,20 +53,19 @@ else()
 endif()
 
 add_library(mumps_common ${COMM_SRC} ${COMM_OTHER_SRC})
-target_link_libraries(mumps_common PRIVATE ${ORDERING_LIBS} ${SCALAPACK_LIBRARIES} ${LAPACK_LIBRARIES} MPI::MPI_Fortran MPI::MPI_C)
-target_include_directories(mumps_common PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include ${ORDERING_INCDIRS})
+target_link_libraries(mumps_common PRIVATE ${ORDERING_LIBS} ${NUMERIC_LIBS})
+target_include_directories(mumps_common PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include ${NUMERIC_INCDIRS} ${ORDERING_INCDIRS})
 target_compile_definitions(mumps_common PRIVATE ${CDEFS} ${ORDERING_FLAGS})
-target_compile_options(mumps_common PRIVATE ${CFLAGS})
+if(WIN32)
+  target_compile_definitions(mumps_common PRIVATE MUMPS_WIN32)
+endif()
 set_target_properties(mumps_common PROPERTIES
   Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}
   ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
   LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # -- Mumps
-foreach(a IN ITEMS "s" "d" "c" "z")
-  if(NOT arith MATCHES ${a})
-    continue()
-  endif()
+foreach(a ${arith})
   message(STATUS "configure MUMPS arith: ${a}")
 
 if(CMAKE_PROJECT_VERSION VERSION_GREATER_EQUAL 5.1 AND CMAKE_PROJECT_VERSION VERSION_LESS 5.2)
@@ -142,11 +141,11 @@ set(CINT_SRC mumps_c.c)
 
 add_library(${a}mumps ${CINT_SRC} ${SRC} ${SRC_OTHER})
 target_compile_definitions(${a}mumps PRIVATE MUMPS_ARITH=MUMPS_ARITH_${a} ${CDEFS} ${ORDERING_FLAGS})
-target_compile_options(${a}mumps PRIVATE ${CFLAGS})
-target_include_directories(${a}mumps PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(${a}mumps PRIVATE
-  mumps_common
-  ${SCALAPACK_LIBRARIES} ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} MPI::MPI_Fortran MPI::MPI_C)
+if(WIN32)
+  target_compile_definitions(${a}mumps PRIVATE MUMPS_WIN32)
+endif()
+target_include_directories(${a}mumps PRIVATE ${CMAKE_SOURCE_DIR}/include ${NUMERIC_INCDIRS})
+target_link_libraries(${a}mumps PRIVATE mumps_common ${NUMERIC_LIBS})
 set_target_properties(${a}mumps PROPERTIES
   Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}
   ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
