@@ -66,7 +66,6 @@ set_target_properties(mumps_common PROPERTIES
 
 # -- Mumps
 foreach(a ${arith})
-  message(STATUS "configure MUMPS arith: ${a}")
 
 if(CMAKE_PROJECT_VERSION VERSION_GREATER_EQUAL 5.1 AND CMAKE_PROJECT_VERSION VERSION_LESS 5.2)
 

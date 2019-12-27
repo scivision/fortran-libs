@@ -95,7 +95,6 @@ a+'ana_mtrans.F', a+'ooc_panel_piv.F', a+'rank_revealing.F',
 a+'sol_aux.F', a+'sol_bwd_aux.F', a+'sol_bwd.F', a+'sol_c.F',
 a+'sol_fwd_aux.F', a+'sol_fwd.F', a+'sol_matvec.F', a+'sol_root_parallel.F',
 a+'tools.F', a+'type3_root.F',
-# duplicates from common, better way to do this?
 'fac_future_niv2_mod.F', 'mumps_ooc_common.F', 'mumps_memory_mod.F',
 'ana_orderings_wrappers_m.F', 'mumps_comm_ibcast.F', 'omp_tps_common_m.F', 'fac_ibct_data_m.F',
 'fac_asm_build_sort_index_m.F', 'fac_asm_build_sort_index_ELT_m.F', 'mumps_l0_omp_m.F', 'lr_common.F'

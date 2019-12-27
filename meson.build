@@ -10,7 +10,7 @@ parallel = get_option('parallel')
 subdir('cmake')
 
 threads = dependency('threads')
-scalapack = declare_dependency(dependencies: [scalapack, lapack, blas, threads])
+scalapack = declare_dependency(dependencies: [scalapack, lapack, blas, openmp, threads])
 
 
 ordering = get_option('ordering')

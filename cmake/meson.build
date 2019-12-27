@@ -44,11 +44,15 @@ if parallel
   endif
 endif
 
-# == Intel OpenMP
-intelMP_lib = []
-if mklroot != ''
-  n = os == 'windows' ? 'iomp5md' : 'iomp5'
-  intelMP_lib = fc.find_library(n, dirs: mklroot / '../compiler/lib/intel64')
+# --- OpenMP
+openmp = []
+if parallel
+  if mklroot == ''
+    openmp = dependency('openmp')
+  else
+    n = os == 'windows' ? 'iomp5md' : 'iomp5'
+    openmp = fc.find_library(n, dirs: mklroot / '../compiler/lib/intel64')
+  endif
 endif
 
 # == Lapack
@@ -81,7 +85,6 @@ else
   foreach n : names
     lapack += fc.find_library(n, dirs: mkllib_root)
   endforeach
-  lapack += intelMP_lib
   blas = lapack
 endif
 
