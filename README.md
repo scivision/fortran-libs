@@ -35,6 +35,11 @@ cmake --build build --parallel
 cmake --build build --target test  # optional
 ```
 
+### MPI / non-MPI
+
+For systems where MPI, BLACS and SCALAPACK are not available, or where non-parallel execution is suitable,
+the default parallel can be disabled at CMake / Meson configure time by option `-Dparallel=false`.
+
 ### Precision
 
 The default precision is `d` meaning real float64.
