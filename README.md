@@ -39,6 +39,7 @@ cmake --build build --target test  # optional
 
 For systems where MPI, BLACS and SCALAPACK are not available, or where non-parallel execution is suitable,
 the default parallel can be disabled at CMake / Meson configure time by option `-Dparallel=false`.
+Disabling parallel can be a good choice for Windows and GCC since MPI on Windows is usually only available with Intel compilers.
 
 ### Precision
 

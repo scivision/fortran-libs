@@ -14,7 +14,10 @@ scalapack = declare_dependency(dependencies: [scalapack, lapack, blas, threads])
 
 
 ordering = get_option('ordering')
-cargs = '-DAdd_'
+cargs = ['-DAdd_']
+# if os == 'windows'
+#   cargs += '-DMUMPS_WIN32'
+# endif
 ordering_flags = ['-Dpord']
 # PORD is always used, alongside the optional metis or scotch
 subdir('PORD')

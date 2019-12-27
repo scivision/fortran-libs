@@ -29,7 +29,7 @@ if parallel
   mpiexec = find_program('mpiexec')
   mpif = dependency('mpi', language : 'fortran')
   if mpif.found() and not fc.links('use mpi; end', dependencies : mpif, name: 'Fortran MPI')
-    error('MUMPS Fortran not working, and MUMPS uses MPI throughout')
+    error('MUMPS Fortran not working, and MUMPS uses MPI throughout. Try "meson -Dparallel=false"')
   endif
 
   # stdio.h is necessary for IntelMPI
@@ -40,7 +40,7 @@ if parallel
   '''
   mpic = dependency('mpi', language : 'c')
   if mpic.found() and not cc.links(mpic_code, dependencies: mpic, name: 'C MPI')
-    error('MUMPS C not working, and MUMPS uses MPI throughout')
+    error('MUMPS C not working, and MUMPS uses MPI throughout. Try "meson -Dparallel=false"')
   endif
 endif
 
