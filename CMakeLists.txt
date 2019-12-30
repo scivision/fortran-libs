@@ -1,16 +1,15 @@
-cmake_minimum_required(VERSION 3.13)  # for target_sources upward
+cmake_minimum_required(VERSION 3.7)
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Debug or Release")
 endif()
 project(MUMPS
   LANGUAGES C Fortran
-  VERSION 5.2.1
-  HOMEPAGE_URL http://mumps.enseeiht.fr/)
+  VERSION 5.2.1)
 enable_testing()
 
-cmake_policy(SET CMP0076 NEW)
-cmake_policy(SET CMP0077 NEW)
-
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.13)
+  cmake_policy(SET CMP0077 NEW)
+endif()
 # --- user options
 option(parallel "parallel or sequential (non-MPI, non-Scalapack)" ON)
 
@@ -69,7 +68,7 @@ if(metis IN_LIST ordering)
   list(APPEND ORDERING_FLAGS -Dmetis)
 endif()
 
-add_subdirectory(PORD)
+add_subdirectory(PORD/lib)
 add_subdirectory(src)
 
 # stop here if being used as an ExternalProject

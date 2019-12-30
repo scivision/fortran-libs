@@ -100,7 +100,7 @@ endfunction(mkl_scala)
 
 # === main
 
-cmake_policy(VERSION 3.11)
+cmake_policy(VERSION 3.3)
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.12)
   cmake_policy(SET CMP0074 NEW)

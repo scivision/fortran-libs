@@ -1,6 +1,4 @@
 name: ci_linux
-env:
-  cmake_version: '3.16.2'
 
 on: [push, pull_request]
 
@@ -10,19 +8,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
-    - uses: actions/setup-python@v1
-      with:
-        python-version: '3.x'
-    - run: pip install cmakeutils
-    - run: cmake_setup ${cmake_version} --prefix ${HOME}/.local
     - name: Install prereqs
       run: |
         sudo apt update -yq
         sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libmetis-dev libscotch-dev
-    - run: ${HOME}/.local/cmake-${cmake_version}-Linux-x86_64/bin/cmake -B build "-Dordering=metis;scotch"
+        mkdir build
+    - run: cmake .. "-Dordering=metis;scotch"
       env:
         FC: gfortran
-    - run: ${HOME}/.local/cmake-${cmake_version}-Linux-x86_64/bin/cmake --build build --parallel
+      working-directory: build
+    - run: cmake --build build --parallel
     - run: ${HOME}/.local/cmake-${cmake_version}-Linux-x86_64/bin/ctest -V
       working-directory: build
 
