@@ -18,8 +18,7 @@ jobs:
         FC: gfortran
       working-directory: build
     - run: cmake --build build --parallel
-    - run: ${HOME}/.local/cmake-${cmake_version}-Linux-x86_64/bin/ctest -V
-      working-directory: build
+    - run: cmake --build build --target test
 
   meson:
     runs-on: ubuntu-latest

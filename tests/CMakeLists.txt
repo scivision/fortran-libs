@@ -1,5 +1,8 @@
-# This test requires special configuration to work on Windows, as does any program using MPI:
-# https://www.scivision.dev/intel-mpi-windows-bug
+if(MSVC)
+  message(STATUS "Visual Studio programs linking Fortran and C code require special configuration, see:")
+  message(STATUS "https://software.intel.com/en-us/articles/configuring-visual-studio-for-mixed-language-applications")
+  return()
+endif()
 
 # testing what we just built
 set(MUMPS_LIBRARIES mumps_common ${ORDERING_LIBS})
@@ -17,6 +20,7 @@ if("d" IN_LIST arith)
 
   target_link_libraries(mumpscfg PRIVATE dmumps ${MUMPS_LIBRARIES} ${NUMERIC_LIBS})
   target_include_directories(mumpscfg PRIVATE ${MUMPS_INCLUDE_DIRS} ${NUMERIC_INCDIRS})
+
   set_tests_properties(MumpsCfg PROPERTIES TIMEOUT 10 RUN_SERIAL true)
 endif()
 
@@ -31,6 +35,7 @@ if("s" IN_LIST arith)
   endif()
   target_link_libraries(s_simple PRIVATE smumps ${MUMPS_LIBRARIES} ${NUMERIC_LIBS})
   target_include_directories(s_simple PRIVATE ${MUMPS_INCLUDE_DIRS} ${NUMERIC_INCDIRS})
+
   set_tests_properties(SimpleReal32 PROPERTIES TIMEOUT 15 RUN_SERIAL true)
 endif()
 
@@ -45,6 +50,7 @@ if("d" IN_LIST arith)
   endif()
   target_link_libraries(d_simple PRIVATE dmumps ${MUMPS_LIBRARIES} ${NUMERIC_LIBS})
   target_include_directories(d_simple PRIVATE ${MUMPS_INCLUDE_DIRS} ${NUMERIC_INCDIRS})
+
   set_tests_properties(SimpleReal64 PROPERTIES TIMEOUT 15 RUN_SERIAL true)
 
   if(parallel)

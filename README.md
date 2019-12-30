@@ -10,8 +10,19 @@ This is a mirror of [original MUMPS code](http://mumps.enseeiht.fr/), with build
 
 There was one [patch](./openmp.patch) made to the MUMPS source code to use Fortran-standard preprocessing syntax.
 
+## Compatible systems
+
 Many compilers and systems are supported by CMake or Meson build system on Windows, MacOS and Linux.
 Please open a GitHub Issue if you have a problem building Mumps with CMake or Meson.
+Some compiler setups are not ABI compatible, that isn't a build system issue.
+
+The systems regularly used with MUMPS and CMake / Meson include:
+
+* Windows: MSYS2 (GCC 9), Windows Subsystem for Linux (GCC 7), Intel compiler (19.1 / 2020 with MinGW or Ninja)
+* MacOS: GCC 9
+* Linux: (Ubuntu / CentOS) GCC or Intel 19.x compiler
+
+NOTE: Visual Studio programs linking Fortran and C require [special configuration](https://software.intel.com/en-us/articles/configuring-visual-studio-for-mixed-language-applications).
 
 ## Build
 
@@ -37,6 +48,8 @@ cmake --build build --parallel
 
 cmake --build build --target test  # optional
 ```
+
+NOTE: Intel compiler on Windows with CMake: we suggest using `cmake -G Ninja` or `cmake -G "MinGW Makefiles"` as the CMake Visual Studio backend requires additional manual configuration.
 
 ### MPI / non-MPI
 
