@@ -12,6 +12,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.13)
 endif()
 # --- user options
 option(parallel "parallel or sequential (non-MPI, non-Scalapack)" ON)
+option(matlab "build optional Matlab interface" OFF)
 
 set(ordering "pord")
 
@@ -87,6 +88,11 @@ add_subdirectory(src)
 # stop here if being used as an ExternalProject
 if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   return()
+endif()
+
+# --- matlab (optional)
+if(matlab)
+  add_subdirectory(matlab)
 endif()
 
 # --- examples (optional)
