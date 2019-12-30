@@ -22,7 +22,7 @@ foreach(a ${arith})
   if(UNIX)
     add_test(NAME SaveRestore_${a} COMMAND sh -c "$<TARGET_FILE:${a}simpletest_save_restore> < ${CMAKE_CURRENT_SOURCE_DIR}/${_${a}filename}")
     set_tests_properties(SaveRestore_${a} PROPERTIES TIMEOUT 15 RUN_SERIAL true)
-endif()
+  endif()
 endforeach()
 
 if("d" IN_LIST arith)

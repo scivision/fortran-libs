@@ -60,4 +60,5 @@ dependencies: [ordering_libs, scalapack],
 
 if not meson.is_subproject()
   subdir('tests')
+  subdir('examples')
 endif
