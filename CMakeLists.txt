@@ -42,6 +42,17 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
+# --- install defaults
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  if(WIN32)
+    set(HOME $ENV{USERPROFILE})
+  else()
+    set(HOME $ENV{HOME})
+  endif()
+
+  set(CMAKE_INSTALL_PREFIX "${HOME}/.local/mumps-${PROJECT_VERSION}" CACHE PATH "..." FORCE)
+endif()
+
 # --- dependencies
 find_package(Threads)
 find_package(LAPACK REQUIRED)
@@ -68,6 +79,8 @@ if(metis IN_LIST ordering)
   list(APPEND ORDERING_FLAGS -Dmetis)
 endif()
 
+# --- build MUMPS
+
 add_subdirectory(PORD/lib)
 add_subdirectory(src)
 
@@ -79,15 +92,3 @@ endif()
 # --- self-tests (optional)
 
 add_subdirectory(tests)
-
-
-# --- install
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  if(WIN32)
-    set(HOME $ENV{USERPROFILE})
-  else()
-    set(HOME $ENV{HOME})
-  endif()
-
-  set(CMAKE_INSTALL_PREFIX "${HOME}/.local/mumps-${PROJECT_VERSION}" CACHE PATH "..." FORCE)
-endif()

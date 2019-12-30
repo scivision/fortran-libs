@@ -3,12 +3,15 @@
 [![Actions Status](https://github.com/scivision/mumps/workflows/ci_linux/badge.svg)](https://github.com/scivision/mumps/actions)
 [![Actions Status](https://github.com/scivision/mumps/workflows/ci_macos/badge.svg)](https://github.com/scivision/mumps/actions)
 
-http://mumps.enseeiht.fr/
-
-This repository is specifically designed to:
+This is a mirror of [original MUMPS code](http://mumps.enseeiht.fr/), with build system enhancements to:
 
 * safely build MUMPS in parallel 10x+ faster than the Makefiles
 * allow easy reuse of MUMPS as a Meson subproject or CMake ExternalProject
+
+There was one [patch](./openmp.patch) made to the MUMPS source code to use Fortran-standard preprocessing syntax.
+
+Many compilers and systems are supported by CMake or Meson build system on Windows, MacOS and Linux.
+Please open a GitHub Issue if you have a problem building Mumps with CMake or Meson.
 
 ## Build
 
@@ -39,6 +42,7 @@ cmake --build build --target test  # optional
 
 For systems where MPI, BLACS and SCALAPACK are not available, or where non-parallel execution is suitable,
 the default parallel can be disabled at CMake / Meson configure time by option `-Dparallel=false`.
+For example, Windows MSYS2 users would use `-Dparallel=false` since OpenMPI is not easily available.
 Disabling parallel can be a good choice for Windows and GCC since MPI on Windows is usually only available with Intel compilers.
 
 ### Precision

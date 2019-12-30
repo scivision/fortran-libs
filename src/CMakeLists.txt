@@ -159,7 +159,7 @@ install(FILES ${CMAKE_SOURCE_DIR}/include/${a}mumps_c.h ${CMAKE_SOURCE_DIR}/incl
 
 endforeach()
 
-install(TARGETS pord mumps_common
+install(TARGETS mumps_common
   ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}
   LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX})
 
