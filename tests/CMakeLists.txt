@@ -1,9 +1,3 @@
-if(MSVC)
-  message(STATUS "Visual Studio programs linking Fortran and C code require special configuration, see:")
-  message(STATUS "https://software.intel.com/en-us/articles/configuring-visual-studio-for-mixed-language-applications")
-  return()
-endif()
-
 # testing what we just built
 set(MUMPS_LIBRARIES mumps_common ${ORDERING_LIBS})
 set(MUMPS_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/include)

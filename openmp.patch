@@ -1,0 +1,60 @@
+diff --git a/src/cfac_front_aux.F b/src/cfac_front_aux.F
+index d1dfe19..db190c4 100644
+--- a/src/cfac_front_aux.F
++++ b/src/cfac_front_aux.F
+@@ -463,7 +463,9 @@ C
+      &    FIRST_COL, CALL_LTRSM, CALL_UTRSM, CALL_GEMM,
+      &    WITH_COMM_THREAD )
+ !$    USE OMP_LIB
+-!$    USE CMUMPS_BUF
++#if defined(_OPENMP)
++      USE CMUMPS_BUF
++#endif
+       IMPLICIT NONE
+       INTEGER, intent(in)     :: IBEG_BLOCK, IEND_BLOCK
+       INTEGER, intent(in)     :: NPIV, NFRONT, LAST_ROW, LAST_COL
+diff --git a/src/dfac_front_aux.F b/src/dfac_front_aux.F
+index 9b3e94d..4fd2684 100644
+--- a/src/dfac_front_aux.F
++++ b/src/dfac_front_aux.F
+@@ -463,7 +463,9 @@ C
+      &    FIRST_COL, CALL_LTRSM, CALL_UTRSM, CALL_GEMM,
+      &    WITH_COMM_THREAD )
+ !$    USE OMP_LIB
+-!$    USE DMUMPS_BUF
++#if defined(_OPENMP)
++      USE DMUMPS_BUF
++#endif
+       IMPLICIT NONE
+       INTEGER, intent(in)     :: IBEG_BLOCK, IEND_BLOCK
+       INTEGER, intent(in)     :: NPIV, NFRONT, LAST_ROW, LAST_COL
+diff --git a/src/sfac_front_aux.F b/src/sfac_front_aux.F
+index 956788f..0b1633d 100644
+--- a/src/sfac_front_aux.F
++++ b/src/sfac_front_aux.F
+@@ -463,7 +463,9 @@ C
+      &    FIRST_COL, CALL_LTRSM, CALL_UTRSM, CALL_GEMM,
+      &    WITH_COMM_THREAD )
+ !$    USE OMP_LIB
+-!$    USE SMUMPS_BUF
++#if defined(_OPENMP)
++      USE SMUMPS_BUF
++#endif
+       IMPLICIT NONE
+       INTEGER, intent(in)     :: IBEG_BLOCK, IEND_BLOCK
+       INTEGER, intent(in)     :: NPIV, NFRONT, LAST_ROW, LAST_COL
+diff --git a/src/zfac_front_aux.F b/src/zfac_front_aux.F
+index 0b4d908..d5cab9b 100644
+--- a/src/zfac_front_aux.F
++++ b/src/zfac_front_aux.F
+@@ -463,7 +463,9 @@ C
+      &    FIRST_COL, CALL_LTRSM, CALL_UTRSM, CALL_GEMM,
+      &    WITH_COMM_THREAD )
+ !$    USE OMP_LIB
+-!$    USE ZMUMPS_BUF
++#if defined(_OPENMP)
++      USE ZMUMPS_BUF
++#endif
+       IMPLICIT NONE
+       INTEGER, intent(in)     :: IBEG_BLOCK, IEND_BLOCK
+       INTEGER, intent(in)     :: NPIV, NFRONT, LAST_ROW, LAST_COL

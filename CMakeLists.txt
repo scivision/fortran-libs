@@ -89,6 +89,15 @@ if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   return()
 endif()
 
-# --- self-tests (optional)
+# --- examples (optional)
+
+string(REGEX MATCH "^Visual Studio" vs_backend ${CMAKE_GENERATOR})
+if(vs_backend)
+  message(STATUS "Visual Studio programs linking Fortran and C code require special configuration, see:")
+  message(STATUS "https://software.intel.com/en-us/articles/configuring-visual-studio-for-mixed-language-applications")
+  return()
+endif()
 
 add_subdirectory(tests)
+
+add_subdirectory(examples)
