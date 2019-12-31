@@ -10,7 +10,7 @@ if(a IN_LIST _mat_arith)
 
 set(_matlab_mumps ${a}mumpsmex.${Matlab_MEX_EXTENSION})
 
-add_library(${_matlab_mumps} mumpsmex.c)
+add_library(${_matlab_mumps} SHARED mumpsmex.c)
 target_include_directories(${_matlab_mumps} PRIVATE ${MUMPS_INCLUDE_DIRS} ${Matlab_INCLUDE_DIRS})
 target_link_libraries(${_matlab_mumps} PRIVATE ${a}mumps ${MUMPS_LIBRARIES} ${Matlab_ENG_LIBRARY} ${Matlab_MX_LIBRARY})
 target_compile_definitions(${_matlab_mumps} PRIVATE MUMPS_ARITH=MUMPS_ARITH_${a})

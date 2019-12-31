@@ -14,6 +14,10 @@ endif()
 option(parallel "parallel or sequential (non-MPI, non-Scalapack)" ON)
 option(matlab "build optional Matlab interface" OFF)
 
+if(matlab)
+  set(BUILD_SHARED_LIBS true)
+endif()
+
 set(ordering "pord")
 
 if(NOT DEFINED arith)
