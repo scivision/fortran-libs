@@ -92,7 +92,7 @@ endif()
 
 # --- matlab (optional)
 if(matlab)
-  add_subdirectory(matlab)
+  add_subdirectory(MATLAB)
 endif()
 
 # --- examples (optional)
