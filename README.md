@@ -89,6 +89,14 @@ or
 cmake -B build -Dmetis=true -Dscotch=true
 ```
 
+### OpenMP
+
+OpenMP can make MUMPS over 10x slower in certain situations.
+Try with and without OpenMP to see which is faster for your situation.
+Default is OpenMP OFF.
+
+`-Dopenmp=true / false`
+
 ### Install
 
 use the Meson `--prefix` option to install Scalapack under a directory.

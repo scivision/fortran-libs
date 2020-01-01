@@ -3,3 +3,4 @@ option('arith', type: 'array', choices: ['s','d','c','z'], value: ['s', 'd'], de
 option('ordering', type: 'array', choices: ['pord', 'metis', 'scotch'], value: ['pord'], description: 'ordering library(s)', yield: true)
 option('mklroot', type: 'string', description: 'MKL root directory', yield: true)
 option('parallel', type: 'boolean', value: true, description: 'true needs MPI and Scalapack, false does not', yield: true)
+option('openmp', type: 'boolean', value: false, description: 'use OpenMP (can be slower)', yield: true)

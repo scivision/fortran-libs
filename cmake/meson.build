@@ -46,7 +46,7 @@ endif
 
 # --- OpenMP
 openmp = []
-if parallel
+if parallel and get_option('openmp')
   if mklroot == ''
     openmp = dependency('openmp')
   else
@@ -81,7 +81,8 @@ else
   # MKL
   lapack = []
   n1 = fc.get_id() == 'gcc' ? 'mkl_gf_lp64' : 'mkl_intel_lp64'
-  names = [n1, 'mkl_intel_thread', 'mkl_core']
+  m = get_option('openmp') ? 'mkl_intel_thread' : 'mkl_sequential'
+  names = [n1, m, 'mkl_core']
   foreach n : names
     lapack += fc.find_library(n, dirs: mkllib_root)
   endforeach
