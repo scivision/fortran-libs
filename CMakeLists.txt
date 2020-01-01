@@ -18,8 +18,6 @@ if(matlab)
   set(BUILD_SHARED_LIBS true)
 endif()
 
-set(ordering "pord")
-
 if(NOT DEFINED arith)
   set(arith "s" "d")
 endif()
