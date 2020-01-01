@@ -13,7 +13,7 @@ jobs:
         sudo apt update -yq
         sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libmetis-dev libscotch-dev
         mkdir build
-    - run: cmake .. "-Dordering=metis;scotch"
+    - run: cmake .. -Dmetis=true -Dscotch=true
       env:
         FC: gfortran
       working-directory: build
