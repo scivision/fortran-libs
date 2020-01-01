@@ -12,8 +12,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.13)
 endif()
 # --- user options
 option(parallel "parallel or sequential (non-MPI, non-Scalapack)" ON)
-option(metis "use METIS" ON)
-option(scotch "use Scotch" ON)
+option(metis "use METIS" OFF)
+option(scotch "use Scotch" OFF)
 option(openmp "use OpenMP (can be much slower for some cases)" OFF)
 option(matlab "build optional Matlab interface" OFF)
 
