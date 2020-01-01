@@ -86,7 +86,7 @@ meson build "-Dordering=['metis','scotch']"
 or
 
 ```sh
-cmake -B build "-Dordering=metis;scotch"
+cmake -B build -Dmetis=true -Dscotch=true
 ```
 
 ### Install
