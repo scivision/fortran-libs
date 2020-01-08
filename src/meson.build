@@ -37,10 +37,10 @@ comm_other_src = files(
 'tools_common.F', 'sol_common.F'
 )
 
-if ordering.contains('metis')
+if get_option('metis')
   comm_other_src += files('mumps_metis.c', 'mumps_metis64.c', 'mumps_metis_int.c')
 endif
-if ordering.contains('scotch')
+if get_option('scotch')
   comm_other_src += files('mumps_scotch.c', 'mumps_scotch64.c', 'mumps_scotch_int.c')
 endif
 

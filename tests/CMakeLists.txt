@@ -47,6 +47,10 @@ if("d" IN_LIST arith)
 
   set_tests_properties(SimpleReal64 PROPERTIES TIMEOUT 15 RUN_SERIAL true)
 
+  if(NOT ClangTest)
+    return()
+  endif()
+
   if(parallel)
     add_executable(Csimple simple.c)
     add_test(NAME CSimpleReal64

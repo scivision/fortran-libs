@@ -13,7 +13,6 @@ threads = dependency('threads')
 scalapack = declare_dependency(dependencies: [scalapack, lapack, blas, openmp, threads])
 
 
-ordering = get_option('ordering')
 cargs = ['-DAdd_']
 # if os == 'windows'
 #   cargs += '-DMUMPS_WIN32'
@@ -25,13 +24,13 @@ subdir('PORD')
 ordering_libs = []
 mumps_inc = [include_directories('include'), include_directories('PORD/include')]
 
-if ordering.contains('scotch')
+if get_option('scotch')
   #ordering_libs += dependency('scotch', cmake_module_path: 'cmake/Modules')
   ordering_libs += [cc.find_library('scotch'), cc.find_library('esmumps'), cc.find_library('scotcherrexit')]
   mumps_inc += include_directories('/usr/include/scotch/')  # TODO: get dependency('scotch') working
   ordering_flags += '-Dscotch'
 endif
-if ordering.contains('metis')
+if get_option('metis')
   #ordering_libs += dependency('metis', cmake_module_path: 'cmake/Modules')
   ordering_libs += cc.find_library('metis')
   ordering_flags += '-Dmetis'

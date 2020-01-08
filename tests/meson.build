@@ -61,6 +61,10 @@ if arith.contains('d')
   endif
 endif
 
+if not get_option('ClangTest')
+  subdir_done()
+endif
+
 # if using compiler wrapper, might not work when linking between languages.
 
 csrc = parallel ? 'simple.c' : 'simple_seq.c'
@@ -68,7 +72,9 @@ csrc = parallel ? 'simple.c' : 'simple_seq.c'
 if arith.contains('d')
   c_simple = executable('c_simple',
     sources: csrc,
-    dependencies : [mumps, scalapack, blacs, mpic])
+    include_directories: mumps_inc,
+    dependencies : [scalapack, blacs, mpic],
+    link_with: [mumps_lib, mumps_common])
 
   if parallel
     test('Creal64', mpiexec,
@@ -77,6 +83,6 @@ if arith.contains('d')
       suite: 'mumps',
       is_parallel: false,)
   else
-   test('Creal64', c_simple, timeout: 15, suite: 'mumps')
+    test('Creal64', c_simple, timeout: 15, suite: 'c_mumps')
   endif
 endif

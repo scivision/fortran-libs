@@ -16,6 +16,7 @@ option(metis "use METIS" OFF)
 option(scotch "use Scotch" OFF)
 option(openmp "use OpenMP (can be much slower for some cases)" OFF)
 option(matlab "build optional Matlab interface" OFF)
+option(ClangTest "run test for C-language" ON)
 
 if(matlab)
   set(BUILD_SHARED_LIBS true)

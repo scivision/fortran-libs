@@ -29,7 +29,7 @@ if parallel
   mpiexec = find_program('mpiexec')
   mpif = dependency('mpi', language : 'fortran')
   if mpif.found() and not fc.links('use mpi; end', dependencies : mpif, name: 'Fortran MPI')
-    error('MUMPS Fortran not working, and MUMPS uses MPI throughout. Try "meson -Dparallel=false"')
+    error('MUMPS Fortran not working, and MUMPS uses MPI throughout. Try option -Dparallel=false')
   endif
 
   # stdio.h is necessary for IntelMPI

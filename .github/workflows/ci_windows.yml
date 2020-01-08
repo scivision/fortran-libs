@@ -34,7 +34,7 @@ jobs:
 
     - run: pip install -r requirements.txt
 
-    - run: meson setup build -Dparallel=false
+    - run: meson setup build -Dparallel=false -DClangTest=false
       env:
         FC: gfortran
         CC: gcc
