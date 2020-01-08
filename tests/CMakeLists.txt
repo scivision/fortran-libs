@@ -15,7 +15,7 @@ if("d" IN_LIST arith)
   target_link_libraries(mumpscfg PRIVATE dmumps ${MUMPS_LIBRARIES} ${NUMERIC_LIBS})
   target_include_directories(mumpscfg PRIVATE ${MUMPS_INCLUDE_DIRS} ${NUMERIC_INCDIRS})
 
-  set_tests_properties(MumpsCfg PROPERTIES TIMEOUT 10 RUN_SERIAL true)
+  set_tests_properties(MumpsCfg PROPERTIES RUN_SERIAL true)
 endif()
 
 if("s" IN_LIST arith)
@@ -30,7 +30,7 @@ if("s" IN_LIST arith)
   target_link_libraries(s_simple PRIVATE smumps ${MUMPS_LIBRARIES} ${NUMERIC_LIBS})
   target_include_directories(s_simple PRIVATE ${MUMPS_INCLUDE_DIRS} ${NUMERIC_INCDIRS})
 
-  set_tests_properties(SimpleReal32 PROPERTIES TIMEOUT 15 RUN_SERIAL true)
+  set_tests_properties(SimpleReal32 PROPERTIES RUN_SERIAL true)
 endif()
 
 if("d" IN_LIST arith)
@@ -45,7 +45,7 @@ if("d" IN_LIST arith)
   target_link_libraries(d_simple PRIVATE dmumps ${MUMPS_LIBRARIES} ${NUMERIC_LIBS})
   target_include_directories(d_simple PRIVATE ${MUMPS_INCLUDE_DIRS} ${NUMERIC_INCDIRS})
 
-  set_tests_properties(SimpleReal64 PROPERTIES TIMEOUT 15 RUN_SERIAL true)
+  set_tests_properties(SimpleReal64 PROPERTIES RUN_SERIAL true)
 
   if(NOT ClangTest)
     return()
@@ -63,5 +63,5 @@ if("d" IN_LIST arith)
   target_include_directories(Csimple PRIVATE ${MUMPS_INCLUDE_DIRS} ${NUMERIC_INCDIRS})
   target_compile_options(Csimple PRIVATE ${CFLAGS})
 
-  set_tests_properties(CSimpleReal64 PROPERTIES TIMEOUT 15 RUN_SERIAL true)
+  set_tests_properties(CSimpleReal64 PROPERTIES RUN_SERIAL true)
 endif()

@@ -26,6 +26,9 @@ if(NOT DEFINED arith)
   set(arith "s" "d")
 endif()
 
+# problems with MPI can cause tests to hang forever, so set a default timeout [seconds]
+set(CTEST_TEST_TIMEOUT 15)
+
 # --- compiler setup
 
 set(CDEFS "Add_")
