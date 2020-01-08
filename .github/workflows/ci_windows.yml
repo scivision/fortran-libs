@@ -1,0 +1,53 @@
+name: ci_windows
+
+on:
+  push:
+    paths:
+      - "**.c"
+      - "**.F"
+      - "**.f90"
+      - "**.F90"
+      - "**.cmake"
+      - "**.txt"
+      - "**.build"
+      - ".github/workflows/ci_windows.yml"
+  pull_request:
+    paths:
+      - "**.c"
+      - "**.F"
+      - "**.f90"
+      - "**.F90"
+      - "**.cmake"
+      - "**.txt"
+      - "**.build"
+      - ".github/workflows/ci_windows.yml"
+
+jobs:
+
+  mesonSequential:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions/setup-python@v1
+      with:
+        python-version: '3.x'
+
+    - run: pip install -r requirements.txt
+
+    - run: meson setup build -Dparallel=false
+      env:
+        FC: gfortran
+        CC: gcc
+    - run: ninja -C build
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: Windows_Meson_Buildlog
+        path: build/meson-logs/meson-log.txt
+
+    - run: meson test -C build -v
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: Windows_Meson_Testlog
+        path: build/meson-logs/testlog.txt

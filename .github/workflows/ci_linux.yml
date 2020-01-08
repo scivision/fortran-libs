@@ -1,24 +1,58 @@
 name: ci_linux
 
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      - "**.c"
+      - "**.F"
+      - "**.f90"
+      - "**.F90"
+      - "**.cmake"
+      - "**.txt"
+      - "**.build"
+      - ".github/workflows/ci_linux.yml"
+  pull_request:
+    paths:
+      - "**.c"
+      - "**.F"
+      - "**.f90"
+      - "**.F90"
+      - "**.cmake"
+      - "**.txt"
+      - "**.build"
+      - ".github/workflows/ci_linux.yml"
 
 jobs:
 
-  cmake:
+  cmakeScotchMetis:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
+
     - name: Install prereqs
       run: |
         sudo apt update -yq
         sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libmetis-dev libscotch-dev
         mkdir build
+
     - run: cmake .. -Dmetis=true -Dscotch=true
       env:
         FC: gfortran
       working-directory: build
     - run: cmake --build build --parallel
-    - run: cmake --build build --target test
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: LinuxOS_Cmake_Buildlog
+        path: build/CMakeFiles/CMakeError.log
+
+    - run: ctest -V
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: Linux_CMake_Testlog
+        path: build/Testing/Temporary/LastTest.log
+
 
   meson:
     runs-on: ubuntu-latest
@@ -27,18 +61,57 @@ jobs:
     - uses: actions/setup-python@v1
       with:
         python-version: '3.x'
-    - run: python -m pip install meson
+
+    - run: pip install -r requirements.txt
     - name: Install prereqs
       run: |
         sudo apt update -yq
-        sudo apt install -yq --no-install-recommends ninja-build gfortran libopenmpi-dev openmpi-bin liblapack-dev
+        sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev
+
     - run: meson setup build
       env:
         FC: gfortran
     - run: ninja -C build
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: LinuxPar_Meson_Buildlog
+        path: build/meson-logs/meson-log.txt
+
     - run: meson test -C build -v
     - uses: actions/upload-artifact@v1
       if: failure()
       with:
-        name: Linux_Meson_Testlog
+        name: LinuxPar_Meson_Testlog
+        path: build/meson-logs/testlog.txt
+
+  sequentialMeson:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions/setup-python@v1
+      with:
+        python-version: '3.x'
+
+    - run: pip install -r requirements.txt
+    - name: Install prereqs
+      run: |
+        sudo apt update -yq
+        sudo apt install -yq --no-install-recommends gfortran liblapack-dev
+
+    - run: meson setup build -Dparallel=false
+      env:
+        FC: gfortran
+    - run: ninja -C build
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: LinuxSeq_Meson_Buildlog
+        path: build/meson-logs/meson-log.txt
+
+    - run: meson test -C build -v
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: LinuxSeq_Meson_Testlog
         path: build/meson-logs/testlog.txt

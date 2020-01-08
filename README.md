@@ -2,6 +2,7 @@
 
 [![Actions Status](https://github.com/scivision/mumps/workflows/ci_linux/badge.svg)](https://github.com/scivision/mumps/actions)
 [![Actions Status](https://github.com/scivision/mumps/workflows/ci_macos/badge.svg)](https://github.com/scivision/mumps/actions)
+[![Actions Status](https://github.com/scivision/mumps/workflows/ci_windows/badge.svg)](https://github.com/scivision/mumps/actions)
 
 This is a mirror of [original MUMPS code](http://mumps.enseeiht.fr/), with build system enhancements to:
 
@@ -46,7 +47,9 @@ cmake -B build
 
 cmake --build build --parallel
 
-cmake --build build --target test  # optional
+# optional
+cd build
+ctest
 ```
 
 NOTE: Intel compiler on Windows with CMake: we suggest using `cmake -G Ninja` or `cmake -G "MinGW Makefiles"` as the CMake Visual Studio backend requires additional manual configuration.
@@ -99,15 +102,15 @@ Default is OpenMP OFF.
 
 ### Install
 
-use the Meson `--prefix` option to install Scalapack under a directory.
-For example: `--prefix ~/mylibs` will install Scalapack under `~/mylibs/scalapack-2.0.2/`
+use the Meson `--prefix` option to install in a directory.
+For example: `--prefix ~/mylibs` will install under `~/mylibs/mumps-5.2.1/`
 
 ### other
 
 To fully specify prerequisite library locations add options like:
 
 ```sh
-FC=gfortran-9 <meson or cmake> -DSCALAPACK_ROOT=~/lib_gcc/scalapack -DMUMPS_ROOT=~/lib_gcc/mumps -DMPI_ROOT=~/lib_gcc/openmpi-3.1.3
+FC=gfortran-9 <meson or cmake> -DSCALAPACK_ROOT=~/lib_gcc/scalapack -DMPI_ROOT=~/lib_gcc/openmpi-3.1.3
 ```
 
 ---
