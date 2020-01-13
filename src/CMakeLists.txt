@@ -54,7 +54,7 @@ endif()
 
 add_library(mumps_common ${COMM_SRC} ${COMM_OTHER_SRC})
 target_link_libraries(mumps_common PRIVATE ${ORDERING_LIBS} ${NUMERIC_LIBS})
-target_include_directories(mumps_common PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include ${NUMERIC_INCDIRS} ${ORDERING_INCDIRS})
+target_include_directories(mumps_common PRIVATE ${MUMPS_INCLUDE_DIR} ${NUMERIC_INCDIRS} ${ORDERING_INCDIRS})
 target_compile_definitions(mumps_common PRIVATE ${CDEFS} ${ORDERING_FLAGS})
 # if(WIN32)
 #   target_compile_definitions(mumps_common PRIVATE MUMPS_WIN32)
@@ -143,7 +143,7 @@ target_compile_definitions(${a}mumps PRIVATE MUMPS_ARITH=MUMPS_ARITH_${a} ${CDEF
 # if(WIN32)
 #   target_compile_definitions(${a}mumps PRIVATE MUMPS_WIN32)
 # endif()
-target_include_directories(${a}mumps PRIVATE ${CMAKE_SOURCE_DIR}/include ${NUMERIC_INCDIRS})
+target_include_directories(${a}mumps PRIVATE ${MUMPS_INCLUDE_DIR} ${NUMERIC_INCDIRS})
 target_link_libraries(${a}mumps PRIVATE mumps_common ${NUMERIC_LIBS})
 set_target_properties(${a}mumps PROPERTIES
   Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -154,7 +154,7 @@ install(TARGETS ${a}mumps
   ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}
   LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX})
 
-install(FILES ${CMAKE_SOURCE_DIR}/include/${a}mumps_c.h ${CMAKE_SOURCE_DIR}/include/${a}mumps_root.h ${CMAKE_SOURCE_DIR}/include/${a}mumps_struc.h
+install(FILES ${MUMPS_INCLUDE_DIR}/${a}mumps_c.h ${MUMPS_INCLUDE_DIR}/${a}mumps_root.h ${MUMPS_INCLUDE_DIR}/${a}mumps_struc.h
   DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
 
 endforeach()
@@ -163,5 +163,5 @@ install(TARGETS mumps_common
   ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}
   LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX})
 
-install(FILES ${CMAKE_SOURCE_DIR}/include/mumps_c_types.h ${CMAKE_SOURCE_DIR}/include/mumps_compat.h
+install(FILES ${MUMPS_INCLUDE_DIR}/mumps_c_types.h ${MUMPS_INCLUDE_DIR}/mumps_compat.h
   DESTINATION ${CMAKE_INSTALL_PREFIX}/include)

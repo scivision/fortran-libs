@@ -4,7 +4,7 @@ endif()
 
 # testing what we just built
 set(MUMPS_LIBRARIES mumps_common ${ORDERING_LIBS})
-set(MUMPS_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/include)
+set(MUMPS_INCLUDE_DIRS ${MUMPS_INCLUDE_DIR})
 
 set(_sfilename input_simpletest_real)
 set(_dfilename input_simpletest_real)

@@ -34,26 +34,29 @@ set(CTEST_TEST_TIMEOUT 15)
 set(CDEFS "Add_")
 # this works for all modern compilers we tried.
 
-if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
-  if(WIN32)
-    set(FFLAGS /warn:declarations /heap-arrays)
-  else()
-    set(FFLAGS -warn declarations)
+set(MUMPS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# being used via FetchContent
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+  if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
+    if(WIN32)
+      set(FFLAGS /warn:declarations /heap-arrays)
+    else()
+      set(FFLAGS -warn declarations)
+    endif()
+  elseif(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
+    add_compile_options(-mtune=native)
+    set(FFLAGS -fimplicit-none)
+  elseif(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
+    set(FFLAGS -Mdclchk)
   endif()
-elseif(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
-  add_compile_options(-mtune=native)
-  set(FFLAGS -fimplicit-none)
-elseif(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
-  set(FFLAGS -Mdclchk)
-endif()
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
+  set(CMAKE_Fortran_MODULE_DIRECTORY ${MUMPS_INCLUDE_DIR})
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
-set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
-
-# --- install defaults
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  # --- install defaults
+  if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   if(WIN32)
     set(HOME $ENV{USERPROFILE})
   else()
@@ -61,7 +64,11 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   endif()
 
   set(CMAKE_INSTALL_PREFIX "${HOME}/.local/mumps-${PROJECT_VERSION}" CACHE PATH "..." FORCE)
+  endif()
 endif()
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
+
 
 # --- dependencies
 find_package(Threads)
@@ -97,7 +104,7 @@ endif()
 add_subdirectory(PORD/lib)
 add_subdirectory(src)
 
-# stop here if being used as an ExternalProject
+# stop here if being used via FetchContent
 if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   return()
 endif()
