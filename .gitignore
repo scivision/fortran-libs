@@ -3,9 +3,8 @@ Makefile
 subprojects/
 build*/
 
-MUMPS/examples
 cmake_install.cmake
-lib/
+
 # Prerequisites
 *.d
 

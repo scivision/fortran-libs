@@ -1,16 +1,19 @@
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.14)
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release CACHE STRING "Debug or Release")
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Debug or Release")
 endif()
 project(MUMPS
   LANGUAGES C Fortran
-  VERSION 5.2.1)
+  VERSION 5.2.1
+  DESCRIPTION "Sparse direct parallel solver"
+  HOMEPAGE_URL "http://mumps.enseeiht.fr/")
 enable_testing()
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.13)
-  cmake_policy(SET CMP0077 NEW)
-endif()
 # --- user options
+cmake_policy(SET CMP0074 NEW)
+cmake_policy(SET CMP0076 NEW)
+cmake_policy(SET CMP0077 NEW)
+cmake_policy(SET CMP0082 NEW)
 option(parallel "parallel or sequential (non-MPI, non-Scalapack)" ON)
 option(metis "use METIS" OFF)
 option(scotch "use Scotch" OFF)
@@ -26,18 +29,16 @@ if(NOT DEFINED arith)
   set(arith "s" "d")
 endif()
 
-# problems with MPI can cause tests to hang forever, so set a default timeout [seconds]
-set(CTEST_TEST_TIMEOUT 15)
-
 # --- compiler setup
 
 set(CDEFS "Add_")
-# this works for all modern compilers we tried.
-
-set(MUMPS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# "Add_" works for all modern compilers we tried.
 
 # being used via FetchContent
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+# problems with MPI can cause tests to hang forever, so set a default timeout [seconds]
+  set(CTEST_TEST_TIMEOUT 15)
+
   if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
     if(WIN32)
       set(FFLAGS /warn:declarations /heap-arrays)
@@ -51,11 +52,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     set(FFLAGS -Mdclchk)
   endif()
 
-  set(CMAKE_Fortran_MODULE_DIRECTORY ${MUMPS_INCLUDE_DIR})
-  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
-  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
-
-  # --- install defaults
+   # --- install defaults
   if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   if(WIN32)
     set(HOME $ENV{USERPROFILE})
@@ -68,7 +65,6 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
-
 
 # --- dependencies
 find_package(Threads)
@@ -89,19 +85,9 @@ else()
 endif()
 list(APPEND NUMERIC_LIBS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
-set(ORDERING_FLAGS -Dpord)
-if(scotch)
-  find_package(Scotch COMPONENTS ESMUMPS REQUIRED)
-  list(APPEND ORDERING_FLAGS -Dscotch)
-endif()
-if(metis)
-  find_package(METIS REQUIRED)
-  list(APPEND ORDERING_FLAGS -Dmetis)
-endif()
-
 # --- build MUMPS
 
-add_subdirectory(PORD/lib)
+add_subdirectory(PORD)
 add_subdirectory(src)
 
 # stop here if being used via FetchContent
