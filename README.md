@@ -7,7 +7,7 @@
 This is a mirror of [original MUMPS code](http://mumps.enseeiht.fr/), with build system enhancements to:
 
 * safely build MUMPS in parallel 10x+ faster than the Makefiles
-* allow easy reuse of MUMPS as a Meson subproject or CMake ExternalProject
+* allow easy reuse of MUMPS as a Meson subproject or CMake FetchContent
 
 There was one [patch](./openmp.patch) made to the MUMPS source code to use Fortran-standard preprocessing syntax.
 
@@ -53,6 +53,22 @@ ctest
 ```
 
 NOTE: Intel compiler on Windows with CMake: we suggest using `cmake -G Ninja` or `cmake -G "MinGW Makefiles"` as the CMake Visual Studio backend requires additional manual configuration.
+
+To use MUMPS as via CMake FetchContent, in the project add:
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(MUMPS_proj
+  GIT_REPOSITORY https://github.com/scivision/mumps.git
+  GIT_TAG v5.2.1.6
+)
+
+FetchContent_MakeAvailable(MUMPS_proj)
+
+# --- your code
+add_exectuable(foo foo.f90)
+target_link_libraries(foo mumps::mumps)
+```
 
 ### MPI / non-MPI
 
