@@ -46,6 +46,7 @@ target_include_directories(mumps_common PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../i
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
   $<INSTALL_INTERFACE:include>)
 target_compile_definitions(mumps_common PRIVATE ${CDEFS} ${ORDERING_FLAGS})
+target_compile_options(mumps_common PRIVATE ${MUMPS_FFLAGS})
 # if(WIN32)
 #   target_compile_definitions(mumps_common PRIVATE MUMPS_WIN32)
 # endif()
@@ -103,6 +104,7 @@ set(CINT_SRC mumps_c.c)
 
 add_library(${a}mumps ${CINT_SRC} ${SRC} ${SRC_OTHER})
 target_compile_definitions(${a}mumps PRIVATE MUMPS_ARITH=MUMPS_ARITH_${a} ${CDEFS} ${ORDERING_FLAGS})
+target_compile_options(${a}mumps PRIVATE ${MUMPS_FFLAGS})
 # if(WIN32)
 #   target_compile_definitions(${a}mumps PRIVATE MUMPS_WIN32)
 # endif()

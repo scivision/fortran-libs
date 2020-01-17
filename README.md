@@ -60,7 +60,7 @@ To use MUMPS as via CMake FetchContent, in the project add:
 include(FetchContent)
 FetchContent_Declare(MUMPS_proj
   GIT_REPOSITORY https://github.com/scivision/mumps.git
-  GIT_TAG v5.2.1.6
+  GIT_TAG v5.2.1.7
 )
 
 FetchContent_MakeAvailable(MUMPS_proj)

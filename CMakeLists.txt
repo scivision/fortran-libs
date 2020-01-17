@@ -34,33 +34,34 @@ endif()
 set(CDEFS "Add_")
 # "Add_" works for all modern compilers we tried.
 
+# don't use CMAKE_Fortran_FLAGS to provide isolation from FetchContent
+if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
+  if(WIN32)
+    set(MUMPS_FFLAGS /warn:declarations /heap-arrays)
+  else()
+    set(MUMPS_FFLAGS -warn declarations)
+  endif()
+elseif(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
+  add_compile_options(-mtune=native)
+  set(MUMPS_FFLAGS -fimplicit-none)
+elseif(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
+  set(MUMPS_FFLAGS -Mdclchk)
+endif()
+
+
 # being used via FetchContent
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-# problems with MPI can cause tests to hang forever, so set a default timeout [seconds]
+  # problems with MPI can cause tests to hang forever, so set a default timeout [seconds]
   set(CTEST_TEST_TIMEOUT 15)
-
-  if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
-    if(WIN32)
-      set(CMAKE_Fortran_FLAGS /warn:declarations /heap-arrays)
-    else()
-      set(CMAKE_Fortran_FLAGS -warn declarations)
-    endif()
-  elseif(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
-    add_compile_options(-mtune=native)
-    set(CMAKE_Fortran_FLAGS -fimplicit-none)
-  elseif(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
-    set(CMAKE_Fortran_FLAGS -Mdclchk)
-  endif()
-
-   # --- install defaults
+  # --- install defaults
   if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  if(WIN32)
-    set(HOME $ENV{USERPROFILE})
-  else()
-    set(HOME $ENV{HOME})
-  endif()
+    if(WIN32)
+      set(HOME $ENV{USERPROFILE})
+    else()
+      set(HOME $ENV{HOME})
+    endif()
 
-  set(CMAKE_INSTALL_PREFIX "${HOME}/.local/mumps-${PROJECT_VERSION}" CACHE PATH "..." FORCE)
+    set(CMAKE_INSTALL_PREFIX "${HOME}/.local/mumps-${PROJECT_VERSION}" CACHE PATH "..." FORCE)
   endif()
 endif()
 
