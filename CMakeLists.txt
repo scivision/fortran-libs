@@ -34,18 +34,17 @@ endif()
 set(CDEFS "Add_")
 # "Add_" works for all modern compilers we tried.
 
-# don't use CMAKE_Fortran_FLAGS to provide isolation from FetchContent
 if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
   if(WIN32)
-    set(MUMPS_FFLAGS /warn:declarations /heap-arrays)
+    set(CMAKE_Fortran_FLAGS /warn:declarations /heap-arrays)
   else()
-    set(MUMPS_FFLAGS -warn declarations)
+    set(CMAKE_Fortran_FLAGS -warn declarations)
   endif()
 elseif(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
   add_compile_options(-mtune=native)
-  set(MUMPS_FFLAGS -fimplicit-none)
+  set(CMAKE_Fortran_FLAGS -fimplicit-none)
 elseif(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
-  set(MUMPS_FFLAGS -Mdclchk)
+  set(CMAKE_Fortran_FLAGS -Mdclchk)
 endif()
 
 
