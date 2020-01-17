@@ -34,6 +34,10 @@ if(metis)
 endif()
 list(APPEND ORDERING_LIBS mumps::pord)
 
+# manually create directory to avoid race condition for FetchContent
+# else can get INTERFACE_INCLUDE_DIRECTORIES not found error
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
+
 add_library(mumps_common ${COMM_SRC} ${COMM_OTHER_SRC})
 target_link_libraries(mumps_common PRIVATE ${ORDERING_LIBS} ${NUMERIC_LIBS})
 target_include_directories(mumps_common PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include ${NUMERIC_INCDIRS} ${ORDERING_INCDIRS}
