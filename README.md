@@ -66,7 +66,7 @@ FetchContent_Declare(MUMPS_proj
 FetchContent_MakeAvailable(MUMPS_proj)
 
 # --- your code
-add_exectuable(foo foo.f90)
+add_executable(foo foo.f90)
 target_link_libraries(foo mumps::mumps)
 ```
 
