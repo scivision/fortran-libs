@@ -103,7 +103,7 @@ jobs:
     - name: Install prereqs
       run: |
         sudo apt update -yq
-        sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev
+        sudo apt install -yq --no-install-recommends ninja-build gfortran libopenmpi-dev openmpi-bin liblapack-dev
 
     - run: meson setup build
       env:
@@ -134,7 +134,7 @@ jobs:
     - name: Install prereqs
       run: |
         sudo apt update -yq
-        sudo apt install -yq --no-install-recommends gfortran liblapack-dev
+        sudo apt install -yq --no-install-recommends ninja-build gfortran liblapack-dev
 
     - run: meson setup build -Dparallel=false
       env:

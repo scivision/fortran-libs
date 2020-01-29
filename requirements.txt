@@ -1,2 +1,1 @@
-meson
-ninja
+meson==0.53.0

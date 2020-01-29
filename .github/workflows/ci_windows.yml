@@ -32,7 +32,9 @@ jobs:
       with:
         python-version: '3.x'
 
-    - run: pip install -r requirements.txt
+    - run: |
+        pip install -r requirements.txt
+        cinst -y ninja
 
     - run: meson setup build -Dparallel=false -DClangTest=false
       env:
