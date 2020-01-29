@@ -36,15 +36,15 @@ set(CDEFS "Add_")
 
 if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
   if(WIN32)
-    set(CMAKE_Fortran_FLAGS /warn:declarations /heap-arrays)
+    set(CMAKE_Fortran_FLAGS "/warn:declarations /heap-arrays ")
   else()
-    set(CMAKE_Fortran_FLAGS -warn declarations)
+    set(CMAKE_Fortran_FLAGS "-warn declarations ")
   endif()
 elseif(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
   add_compile_options(-mtune=native)
-  set(CMAKE_Fortran_FLAGS -fimplicit-none)
+  set(CMAKE_Fortran_FLAGS "-fimplicit-none ")
 elseif(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
-  set(CMAKE_Fortran_FLAGS -Mdclchk)
+  set(CMAKE_Fortran_FLAGS "-Mdclchk ")
 endif()
 
 
@@ -60,7 +60,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
       set(HOME $ENV{HOME})
     endif()
 
-    set(CMAKE_INSTALL_PREFIX "${HOME}/.local/mumps-${PROJECT_VERSION}" CACHE PATH "..." FORCE)
+    set(CMAKE_INSTALL_PREFIX "${HOME}/.local/mumps-${MUMPS_VERSION}" CACHE PATH "..." FORCE)
   endif()
 endif()
 
