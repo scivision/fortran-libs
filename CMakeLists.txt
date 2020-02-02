@@ -26,7 +26,7 @@ if(matlab)
 endif()
 
 if(NOT DEFINED arith)
-  set(arith "s" "d")
+  set(arith "d")
 endif()
 
 # --- compiler setup
