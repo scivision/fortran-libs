@@ -58,7 +58,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
 
-    - run: brew install gcc lapack open-mpi scalapack
+    - run: brew install gcc open-mpi
 
     - run: cmake -B build
       env:

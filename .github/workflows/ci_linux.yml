@@ -24,7 +24,7 @@ on:
 
 jobs:
 
-  cmakeBuildScalapack:
+  cmakeBuildAllLibs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -36,11 +36,12 @@ jobs:
       run: |
         pip install cmake
         sudo apt update -yq
-        sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev
+        sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin
 
     - run: cmake -B build
       env:
         FC: gfortran
+        CC: gcc
     - run: cmake --build build --parallel
     - uses: actions/upload-artifact@v1
       if: failure()
@@ -69,11 +70,11 @@ jobs:
         pip install cmake
         sudo apt update -yq
         sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libmetis-dev libscotch-dev
-        mkdir build
 
     - run: cmake -B build -Dmetis=true -Dscotch=true
       env:
         FC: gfortran
+        CC: gcc
     - run: cmake --build build --parallel
     - uses: actions/upload-artifact@v1
       if: failure()
@@ -102,11 +103,11 @@ jobs:
         pip install cmake
         sudo apt update -yq
         sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libmetis-dev
-        mkdir build
 
     - run: cmake -B build -Dmetis=true
       env:
         FC: gfortran
+        CC: gcc
     - run: cmake --build build --parallel
     - uses: actions/upload-artifact@v1
       if: failure()
@@ -140,6 +141,7 @@ jobs:
     - run: meson setup build
       env:
         FC: gfortran
+        CC: gcc
     - run: ninja -C build
     - uses: actions/upload-artifact@v1
       if: failure()

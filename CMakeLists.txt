@@ -47,28 +47,21 @@ elseif(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
   set(CMAKE_Fortran_FLAGS "-Mdclchk ")
 endif()
 
-
-# being used via FetchContent
-if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  # problems with MPI can cause tests to hang forever, so set a default timeout [seconds]
-  set(CTEST_TEST_TIMEOUT 15)
-  # --- install defaults
-  if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-    if(WIN32)
-      set(HOME $ENV{USERPROFILE})
-    else()
-      set(HOME $ENV{HOME})
-    endif()
-
-    set(CMAKE_INSTALL_PREFIX "${HOME}/.local/mumps-${MUMPS_VERSION}" CACHE PATH "..." FORCE)
-  endif()
-endif()
+# problems with MPI can cause tests to hang forever, so set a default timeout [seconds]
+set(CTEST_TEST_TIMEOUT 15)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 
 # --- dependencies
 find_package(Threads)
-find_package(LAPACK REQUIRED)
+
+# -- Lapack
+find_package(LAPACK)
+if(NOT LAPACK_FOUND)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/lapack_external.cmake)
+endif()
+
+# -- Scalapack / MPI
 if(parallel)
   find_package(MPI COMPONENTS Fortran C REQUIRED)
   find_package(SCALAPACK)

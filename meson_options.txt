@@ -1,5 +1,5 @@
 option('CI', type: 'boolean', value: false, description : 'running on CI, do not run shaky tests', yield: true)
-option('arith', type: 'array', choices: ['s','d','c','z'], value: ['s', 'd'], description: 'arith precision', yield: true)
+option('arith', type: 'array', choices: ['s','d','c','z'], value: ['d'], description: 'precision: s=real32, d=real64, c=complex(real32), z=complex(real64)', yield: true)
 option('mklroot', type: 'string', description: 'MKL root directory', yield: true)
 option('parallel', type: 'boolean', value: true, description: 'true needs MPI and Scalapack, false does not', yield: true)
 option('openmp', type: 'boolean', value: false, description: 'use OpenMP (can be slower)', yield: true)

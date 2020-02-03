@@ -53,3 +53,33 @@ jobs:
       with:
         name: Windows_Meson_Testlog
         path: build/meson-logs/testlog.txt
+
+  cmakeSequential:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions/setup-python@v1
+      with:
+        python-version: '3.x'
+
+    - name: install prereqs
+      run: cinst -y ninja
+
+    - run: cmake -G Ninja -B build -Dparallel=false
+      env:
+        FC: gfortran
+        CC: gcc
+    - run: cmake --build build
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: Windows_Cmake_Buildlog
+        path: build/CMakeFiles/CMakeError.log
+
+    - run: ctest -V
+      working-directory: build
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: Windows_CMake_Testlog
+        path: build/Testing/Temporary/LastTest.log
