@@ -50,11 +50,11 @@ References
 * MKL link-line advisor: https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor
 #]=======================================================================]
 
+set(SCALAPACK_LIBRARY)  # avoids appending to prior FindScalapack
+
 #===== functions
 
 function(mkl_scala)
-
-set(SCALAPACK_LIBRARY)  # avoids appending to prior FindScalapack
 
 set(_mkl_libs ${ARGV})
 
