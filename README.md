@@ -1,12 +1,12 @@
 # MUMPS
 
-[![Actions Status](https://github.com/scivision/mumps/workflows/ci_linux/badge.svg)](https://github.com/scivision/mumps/actions)
-[![Actions Status](https://github.com/scivision/mumps/workflows/ci_macos/badge.svg)](https://github.com/scivision/mumps/actions)
-[![Actions Status](https://github.com/scivision/mumps/workflows/ci_windows/badge.svg)](https://github.com/scivision/mumps/actions)
+![ci_linux](https://github.com/scivision/mumps/workflows/ci_linux/badge.svg)
+![ci_macos](https://github.com/scivision/mumps/workflows/ci_macos/badge.svg)
+![ci_windows](https://github.com/scivision/mumps/workflows/ci_windows/badge.svg)
 
 This is a mirror of [original MUMPS code](http://mumps.enseeiht.fr/), with build system enhancements to:
 
-* safely build MUMPS in parallel 10x+ faster than the Makefiles
+* build MUMPS in parallel 10x faster than the Makefiles
 * allow easy reuse of MUMPS as a Meson subproject or CMake FetchContent
 
 There was one [patch](./openmp.patch) made to the MUMPS source code to use Fortran-standard preprocessing syntax.
@@ -23,22 +23,12 @@ The systems regularly used with MUMPS and CMake / Meson include:
 * MacOS: GCC 9
 * Linux: (Ubuntu / CentOS) GCC or Intel 19.x compiler
 
-NOTE: Visual Studio programs linking Fortran and C require [special configuration](https://software.intel.com/en-us/articles/configuring-visual-studio-for-mixed-language-applications).
+NOTE: Visual Studio programs linking Fortran and C require
+[special configuration](https://software.intel.com/en-us/articles/configuring-visual-studio-for-mixed-language-applications).
 
 ## Build
 
 Meson or CMake may be used to build MUMPS.
-If the "mumpscfg" test doesn't build or pass, MUMPS is probably not built correctly.
-
-### Meson
-
-```sh
-meson build
-
-meson install -C build
-
-meson test -C build  # optional
-```
 
 ### CMake
 
@@ -60,7 +50,7 @@ To use MUMPS as via CMake FetchContent, in the project add:
 include(FetchContent)
 FetchContent_Declare(MUMPS_proj
   GIT_REPOSITORY https://github.com/scivision/mumps.git
-  GIT_TAG v5.2.1.7
+  GIT_TAG v5.2.1.9
 )
 
 FetchContent_MakeAvailable(MUMPS_proj)
@@ -70,11 +60,31 @@ add_executable(foo foo.f90)
 target_link_libraries(foo mumps::mumps)
 ```
 
+### Meson
+
+```sh
+meson build
+
+meson install -C build
+
+meson test -C build  # optional
+```
+
+## Build options
+
+Numerous build options are available as in the following sections.
+Most users can just use the defaults.
+
+### autobuild prereqs
+
+The `-Dautobuild=true` CMake default will download and build a local copy of Lapack and/or Scalapack if missing or broken.
+Meson will always do this as well.
+
 ### MPI / non-MPI
 
 For systems where MPI, BLACS and SCALAPACK are not available, or where non-parallel execution is suitable,
 the default parallel can be disabled at CMake / Meson configure time by option `-Dparallel=false`.
-For example, Windows MSYS2 users would use `-Dparallel=false` since OpenMPI is not easily available.
+For example, Windows MSYS2 users would use `-Dparallel=false` since OpenMPI is not easily available on Windows.
 Disabling parallel can be a good choice for Windows and GCC since MPI on Windows is usually only available with Intel compilers.
 
 ### Precision
@@ -158,5 +168,4 @@ brew install mumps
 
 ## Testing
 
-In general, using MPI on Windows requires a username/password to access even the local network.
-https://www.scivision.dev/intel-mpi-windows-bug
+In general, using MPI on Windows requires a [username/password to access even the local network](https://www.scivision.dev/intel-mpi-windows-bug).

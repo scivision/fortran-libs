@@ -1,3 +1,7 @@
+if(NOT autobuild)
+  message(STATUS "NOT autobuilding Scalapack per user -Dautobuild=off")
+  return()
+endif()
 if(NOT SCALAPACK_FOUND)
   message(STATUS "AUTOBUILD: SCALAPACK")
 endif()
