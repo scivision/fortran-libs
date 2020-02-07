@@ -54,6 +54,8 @@ References
 
 function(mkl_scala)
 
+set(SCALAPACK_LIBRARY)  # avoids appending to prior FindScalapack
+
 set(_mkl_libs ${ARGV})
 
 foreach(s ${_mkl_libs})
