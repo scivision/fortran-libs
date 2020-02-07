@@ -36,7 +36,9 @@ set(CDEFS "Add_")
 
 if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
   if(WIN32)
-    set(CMAKE_Fortran_FLAGS "/warn:declarations /heap-arrays ")
+    # CMake defaults to "/W1 /nologo /fpp /libs:dll"
+    # /libs:dll is necessary for Windows to avoid link errors
+    set(CMAKE_Fortran_FLAGS "/nologo /libs:dll /warn:declarations ")
   else()
     set(CMAKE_Fortran_FLAGS "-warn declarations ")
   endif()
@@ -56,18 +58,13 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 find_package(Threads)
 
 # -- Lapack
-find_package(LAPACK)
-if(NOT LAPACK_FOUND)
-  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/lapack_external.cmake)
-endif()
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/lapack.cmake)
 
 # -- Scalapack / MPI
 if(parallel)
   find_package(MPI COMPONENTS Fortran C REQUIRED)
-  find_package(SCALAPACK)
-  if(NOT SCALAPACK_FOUND)
-    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/scalapack_external.cmake)
-  endif()
+  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/scalapack.cmake)
+
   set(NUMERIC_INCDIRS ${SCALAPACK_INCLUDE_DIRS})
   set(NUMERIC_LIBS ${SCALAPACK_LIBRARIES} MPI::MPI_Fortran MPI::MPI_C)
   if(openmp)
@@ -86,8 +83,8 @@ list(APPEND NUMERIC_LIBS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${CMAKE_THREAD_LI
 add_subdirectory(PORD)
 add_subdirectory(src)
 
-# stop here if being used via FetchContent
 if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+  # being used via FetchContent
   return()
 endif()
 

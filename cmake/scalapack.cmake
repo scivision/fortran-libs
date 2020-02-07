@@ -1,0 +1,69 @@
+# Finds Scalapack, tests, and if not found or broken, autobuild scalapack
+if(scalapack_external)
+  return()
+endif()
+
+find_package(SCALAPACK)
+
+if(NOT SCALAPACK_FOUND)
+  include(${CMAKE_CURRENT_LIST_DIR}/scalapack_external.cmake)
+  set(scalapack_external true CACHE BOOL "autobuild Scalapack")
+endif()
+
+if(scalapack_external OR lapack_external)
+# can't run prebuild test with external libraries not yet built.
+  return()
+endif()
+# -- verify Scalapack links
+
+set(CMAKE_REQUIRED_INCLUDES ${SCALAPACK_INCLUDE_DIRS} ${LAPACK_INCLUDE_DIRS})
+set(CMAKE_REQUIRED_LIBRARIES ${SCALAPACK_LIBRARIES} ${LAPACK_LIBRARIES} MPI::MPI_Fortran)
+# MPI needed for ifort
+
+if("s" IN_LIST arith)
+  set(_code "use, intrinsic :: iso_fortran_env, only: real32
+implicit none
+integer :: ictxt, myid, nprocs
+real(real32) :: eps
+real(real32), external :: pslamch
+
+call blacs_pinfo(myid, nprocs)
+call blacs_get(-1, 0, ictxt)
+call blacs_gridinit(ictxt, 'C', nprocs, 1)
+eps = pslamch(ictxt, 'E')
+call blacs_gridexit(ictxt)
+call blacs_exit(0)
+
+end program")
+elseif("d" IN_LIST arith)
+  set(_code "use, intrinsic :: iso_fortran_env, only: real64
+implicit none
+integer :: ictxt, myid, nprocs
+real(real64) :: eps
+real(real64), external :: pdlamch
+
+call blacs_pinfo(myid, nprocs)
+call blacs_get(-1, 0, ictxt)
+call blacs_gridinit(ictxt, 'C', nprocs, 1)
+eps = pdlamch(ictxt, 'E')
+call blacs_gridexit(ictxt)
+call blacs_exit(0)
+
+end program")
+else()
+  message(STATUS "SKIP: Scalapack test arith: ${arith}")
+  return()
+endif()
+include(CheckFortranSourceCompiles)
+check_fortran_source_compiles(${_code} SCALAPACK_Compiles_OK SRC_EXT f90)
+if(NOT SCALAPACK_Compiles_OK)
+  message(STATUS "Scalapack ${SCALAPACK_LIBRARIES} not building with LAPACK ${LAPACK_LIBRARIES} and ${CMAKE_Fortran_COMPILER_ID} ${CMAKE_Fortran_COMPILER_VERSION}")
+  include(${CMAKE_CURRENT_LIST_DIR}/scalapack_external.cmake)
+  set(scalapack_external true CACHE BOOL "autobuild Scalapack")
+endif()
+
+include(CheckFortranSourceRuns)
+check_fortran_source_runs(${_code} SCALAPACK_Runs_OK SRC_EXT f90)
+if(NOT SCALAPACK_Runs_OK)
+  message(STATUS "Scalapack ${SCALAPACK_LIBRARIES} not running with LAPACK ${LAPACK_LIBRARIES} and ${CMAKE_Fortran_COMPILER_ID} ${CMAKE_Fortran_COMPILER_VERSION}")
+endif()

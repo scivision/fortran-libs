@@ -1,3 +1,7 @@
+if(NOT LAPACK_FOUND)
+  message(STATUS "AUTOBUILD: LAPACK + BLAS")
+endif()
+
 include(FetchContent)
 
 FetchContent_Declare(lapack_proj
@@ -7,10 +11,6 @@ FetchContent_Declare(lapack_proj
 )
 
 FetchContent_MakeAvailable(lapack_proj)
-
-if(NOT LAPACK_FOUND)
-  message(STATUS "AUTOBUILD: LAPACK + BLAS")
-endif()
 
 set(LAPACK_LIBRARIES lapack)
 set(BLAS_LIBRARIES blas)
