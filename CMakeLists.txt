@@ -39,7 +39,8 @@ if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
   if(WIN32)
     # CMake defaults to "/W1 /nologo /fpp /libs:dll"
     # /libs:dll is necessary for Windows to avoid link errors
-    set(CMAKE_Fortran_FLAGS "/nologo /libs:dll /warn:declarations ")
+    # /heap-arrays is necessary to avoid runtime errors in programs using this library
+    set(CMAKE_Fortran_FLAGS "/nologo /libs:dll /warn:declarations /heap-arrays ")
   else()
     set(CMAKE_Fortran_FLAGS "-warn declarations ")
   endif()
