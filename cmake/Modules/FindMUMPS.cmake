@@ -53,7 +53,7 @@ foreach(comp ${MUMPS_FIND_COMPONENTS})
                NAMES ${comp}mumps)
 
   if(NOT MUMPS_${comp}_lib)
-    message(WARNING "MUMPS ${comp} not found")
+    message(STATUS "MUMPS ${comp} not found")
     return()
   endif()
 
