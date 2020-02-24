@@ -18,6 +18,9 @@ option(openmp "use OpenMP (can be much slower for some cases)" OFF)
 option(matlab "build optional Matlab interface" OFF)
 option(ClangTest "run test for C-language" ON)
 
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Build type selections" FORCE)
+set(CMAKE_NMC_DEFAULT_BUILD_FILE_CONFIG "Release" CACHE STRING "Default Build type" FORCE)
+
 if(matlab)
   set(BUILD_SHARED_LIBS true)
 endif()
@@ -27,24 +30,27 @@ if(NOT DEFINED arith)
 endif()
 
 # --- compiler setup
+include(CheckIPOSupported)
+check_ipo_supported(RESULT lto_supported)
+if(lto_supported)
+  set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
 
 set(CDEFS "Add_")
 # "Add_" works for all modern compilers we tried.
 
 if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
   if(WIN32)
-    # CMake defaults to "/W1 /nologo /fpp /libs:dll"
-    # /libs:dll is necessary for Windows to avoid link errors
     # /heap-arrays is necessary to avoid runtime errors in programs using this library
-    set(CMAKE_Fortran_FLAGS "/nologo /libs:dll /warn:declarations /heap-arrays ")
+    string(APPEND CMAKE_Fortran_FLAGS " /warn:declarations /heap-arrays")
   else()
-    set(CMAKE_Fortran_FLAGS "-warn declarations ")
+    string(APPEND CMAKE_Fortran_FLAGS " -warn declarations")
   endif()
 elseif(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
   add_compile_options(-mtune=native)
-  set(CMAKE_Fortran_FLAGS "-fimplicit-none ")
+  string(APPEND CMAKE_Fortran_FLAGS " -fimplicit-none")
 elseif(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
-  set(CMAKE_Fortran_FLAGS "-Mdclchk ")
+  string(APPEND CMAKE_Fortran_FLAGS " -Mdclchk")
 endif()
 
 # problems with MPI can cause tests to hang forever, so set a default timeout [seconds]
