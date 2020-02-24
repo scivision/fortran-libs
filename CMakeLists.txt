@@ -30,11 +30,14 @@ if(NOT DEFINED arith)
 endif()
 
 # --- compiler setup
-include(CheckIPOSupported)
-check_ipo_supported(RESULT lto_supported)
-if(lto_supported)
-  set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-endif()
+
+# don't use LTO, the MUMPS code is not compatible for GCC at least.
+# will give link failures when used in real programs.
+# include(CheckIPOSupported)
+# check_ipo_supported(RESULT lto_supported)
+# if(lto_supported)
+#   set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+# endif()
 
 set(CDEFS "Add_")
 # "Add_" works for all modern compilers we tried.
