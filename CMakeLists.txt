@@ -18,8 +18,7 @@ option(openmp "use OpenMP (can be much slower for some cases)" OFF)
 option(matlab "build optional Matlab interface" OFF)
 option(ClangTest "run test for C-language" ON)
 
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Build type selections" FORCE)
-set(CMAKE_NMC_DEFAULT_BUILD_FILE_CONFIG "Release" CACHE STRING "Default Build type" FORCE)
+set(CMAKE_CONFIGURATION_TYPES "Release;Debug" CACHE STRING "Build type selections" FORCE)
 
 if(matlab)
   set(BUILD_SHARED_LIBS true)
