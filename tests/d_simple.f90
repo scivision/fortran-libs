@@ -1,10 +1,13 @@
 !
 !  This file is part of MUMPS 5.2.1, released
 !  on Fri Jun 14 14:46:05 UTC 2019
-!
-use mpi, only : mpi_comm_world
+
+! use mpi, only : mpi_comm_world
+
 use, intrinsic :: iso_fortran_env, only: stderr=>error_unit, stdout=>output_unit, int64
 IMPLICIT NONE
+
+include 'mpif.h'  !< to be compatible with MS-MPI
 
 INCLUDE 'dmumps_struc.h'
 TYPE (DMUMPS_STRUC) mumps_par

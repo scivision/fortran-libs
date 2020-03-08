@@ -84,13 +84,21 @@ Meson will always do this as well.
 
 For systems where MPI, BLACS and SCALAPACK are not available, or where non-parallel execution is suitable,
 the default parallel can be disabled at CMake / Meson configure time by option `-Dparallel=false`.
-For example, Windows MSYS2 users would use `-Dparallel=false` since OpenMPI is not easily available on Windows.
-Disabling parallel can be a good choice for Windows and GCC since MPI on Windows is usually only available with Intel compilers.
 
 ### Precision
 
-The default precision is `d` meaning real float64.
-The build-time parameter `-Darith=d` may be optionally specified:
+The default precision is "s;d" meaning real float64 and float32.
+The build-time parameter
+
+```sh
+cmake -Darith="s;d"
+
+# or
+meson "-Darith=[s,d]"
+```
+
+
+may be optionally specified:
 
 ```sh
 -Darith=s  # real32
@@ -162,10 +170,5 @@ MUMPS is available for Linux, OSX and
 [Reference](http://mumps.enseeiht.fr/index.php?page=links)
 
 ```sh
-brew tap dpo/openblas
-brew install mumps
+ brew install brewsci-mumps
 ```
-
-## Testing
-
-In general, using MPI on Windows requires a [username/password to access even the local network](https://www.scivision.dev/intel-mpi-windows-bug).
