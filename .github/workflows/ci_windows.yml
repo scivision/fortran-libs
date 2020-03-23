@@ -12,15 +12,7 @@ on:
       - "**.build"
       - ".github/workflows/ci_windows.yml"
   pull_request:
-    paths:
-      - "**.c"
-      - "**.F"
-      - "**.f90"
-      - "**.F90"
-      - "**.cmake"
-      - "**.txt"
-      - "**.build"
-      - ".github/workflows/ci_windows.yml"
+  release:
 
 jobs:
 
