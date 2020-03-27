@@ -16,39 +16,6 @@ on:
 
 jobs:
 
-  cmakeBuildAllLibs:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v1
-      with:
-        python-version: '3.x'
-
-    - name: Install prereqs
-      run: |
-        pip install cmake
-        sudo apt update -yq
-        sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin
-
-    - run: cmake -B build
-      env:
-        FC: gfortran
-        CC: gcc
-    - run: cmake --build build --parallel
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: LinuxOS_Cmake_Buildlog
-        path: build/CMakeFiles/CMakeError.log
-
-    - run: ctest -V
-      working-directory: build
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: Linux_CMake_Testlog
-        path: build/Testing/Temporary/LastTest.log
-
   cmakeScotchMetis:
     runs-on: ubuntu-latest
     steps:
@@ -59,62 +26,13 @@ jobs:
 
     - name: Install prereqs
       run: |
-        pip install cmake
         sudo apt update -yq
         sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libmetis-dev libscotch-dev
 
-    - run: cmake -B build -Dmetis=true -Dscotch=true
+    - run: ctest -S setup.cmake -VV -Dmetis=true -Dscotch=true
       env:
-        FC: gfortran
-        CC: gcc
-    - run: cmake --build build --parallel
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: LinuxOS_Cmake_Buildlog
-        path: build/CMakeFiles/CMakeError.log
-
-    - run: ctest -V
-      working-directory: build
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: Linux_CMake_Testlog
-        path: build/Testing/Temporary/LastTest.log
-
-  cmakeMetis:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v1
-      with:
-        python-version: '3.x'
-
-    - name: Install prereqs
-      run: |
-        pip install cmake
-        sudo apt update -yq
-        sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libmetis-dev
-
-    - run: cmake -B build -Dmetis=true
-      env:
-        FC: gfortran
-        CC: gcc
-    - run: cmake --build build --parallel
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: LinuxOS_Cmake_Buildlog
-        path: build/CMakeFiles/CMakeError.log
-
-    - run: ctest -V
-      working-directory: build
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: Linux_CMake_Testlog
-        path: build/Testing/Temporary/LastTest.log
-
+        FC: gfortran-7
+        CC: gcc-7
 
   meson:
     runs-on: ubuntu-latest
@@ -124,7 +42,7 @@ jobs:
       with:
         python-version: '3.x'
 
-    - run: pip install -r requirements.txt
+    - run: pip install meson
     - name: Install prereqs
       run: |
         sudo apt update -yq
@@ -148,7 +66,10 @@ jobs:
         name: LinuxPar_Meson_Testlog
         path: build/meson-logs/testlog.txt
 
+
   sequentialMeson:
+    if: false
+
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -156,7 +77,7 @@ jobs:
       with:
         python-version: '3.x'
 
-    - run: pip install -r requirements.txt
+    - run: pip install meson
     - name: Install prereqs
       run: |
         sudo apt update -yq

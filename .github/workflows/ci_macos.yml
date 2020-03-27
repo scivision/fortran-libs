@@ -3,10 +3,6 @@ name: ci_macos
 on:
   push:
     paths:
-      - "**.c"
-      - "**.F"
-      - "**.f90"
-      - "**.F90"
       - "**.cmake"
       - "**.txt"
       - "**.build"
@@ -24,13 +20,14 @@ jobs:
       with:
         python-version: '3.x'
 
-    - run: brew install gcc ninja open-mpi
-    - run: pip install -r requirements.txt
+    - run: brew install ninja lapack scalapack open-mpi
+    - run: pip install meson
 
     - run: meson setup build
       env:
         FC: gfortran-9
         CC: gcc-9
+
     - run: ninja -C build
     - uses: actions/upload-artifact@v1
       if: failure()
@@ -45,43 +42,33 @@ jobs:
         name: MacPar_Meson_Testlog
         path: build/meson-logs/testlog.txt
 
+
   cmake:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
 
-    - run: brew install gcc open-mpi
+    - run: brew install ninja lapack scalapack open-mpi
 
-    - run: cmake -B build
+    - run: ctest -S setup.cmake -VV
       env:
         FC: gfortran-9
         CC: gcc-9
-    - run: cmake --build build --parallel
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: MacPar_Cmake_Buildlog
-        path: build/CMakeFiles/CMakeError.log
-
-    - run: ctest -V
-      working-directory: build
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: MacPar_CMake_Testlog
-        path: build/Testing/Temporary/LastTest.log
 
   cmakeSequential:
+    if: false
+
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
 
-    - run: brew install gcc lapack
+    - run: brew install ninja lapack
 
-    - run: cmake -B build -Dparallel=false
+    - run: cmake -B build -G ninja -Dparallel=false
       env:
         FC: gfortran-9
         CC: gcc-9
+
     - run: cmake --build build --parallel
     - uses: actions/upload-artifact@v1
       if: failure()

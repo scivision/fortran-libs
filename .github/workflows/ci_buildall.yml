@@ -1,0 +1,44 @@
+name: ci_buildall
+
+on:
+  push:
+    paths:
+      - "**.cmake"
+      - "**.txt"
+      - ".github/workflows/ci_buildall.yml"
+  pull_request:
+  release:
+
+jobs:
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v1
+      with:
+        python-version: '3.x'
+
+    - name: Install prereqs
+      run: |
+        sudo apt update -yq
+        sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin
+
+    - run: cmake -B build
+      env:
+        FC: gfortran
+        CC: gcc
+    - run: cmake --build build --parallel
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: LinuxOS_Cmake_Buildlog
+        path: build/CMakeFiles/CMakeError.log
+
+    - run: ctest -V
+      working-directory: build
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: Linux_CMake_Testlog
+        path: build/Testing/Temporary/LastTest.log
