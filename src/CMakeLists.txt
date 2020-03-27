@@ -1,3 +1,7 @@
+set_property(GLOBAL PROPERTY JOB_POOLS one_jobs=1 two_jobs=2)
+cmake_host_system_information(RESULT _memfree QUERY AVAILABLE_PHYSICAL_MEMORY)
+# for low memory systems
+
 # -- Mumps COMMMON
 set(COMM_SRC
 ana_omp_m.F ana_orderings_wrappers_m.F double_linked_list.F
@@ -102,6 +106,9 @@ ${a}sol_root_parallel.F ${a}tools.F ${a}type3_root.F
 set(CINT_SRC mumps_c.c)
 
 add_library(${a}mumps ${CINT_SRC} ${SRC} ${SRC_OTHER})
+if(_memfree LESS 1000)  # < 1GB RAM free
+  set_target_properties(${a}mumps PROPERTIES JOB_POOL_COMPILE one_jobs)
+endif()
 target_compile_definitions(${a}mumps PRIVATE MUMPS_ARITH=MUMPS_ARITH_${a} ${CDEFS} ${ORDERING_FLAGS})
 # if(WIN32)
 #   target_compile_definitions(${a}mumps PRIVATE MUMPS_WIN32)
