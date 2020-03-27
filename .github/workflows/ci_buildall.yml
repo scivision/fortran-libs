@@ -24,21 +24,7 @@ jobs:
         sudo apt update -yq
         sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin
 
-    - run: cmake -B build
+    - run: ctest -S setup.cmake -VV
       env:
         FC: gfortran
         CC: gcc
-    - run: cmake --build build --parallel
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: LinuxOS_Cmake_Buildlog
-        path: build/CMakeFiles/CMakeError.log
-
-    - run: ctest -V
-      working-directory: build
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: Linux_CMake_Testlog
-        path: build/Testing/Temporary/LastTest.log
