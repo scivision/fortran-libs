@@ -8,6 +8,7 @@ project(MUMPS
   DESCRIPTION "Sparse direct parallel solver"
   HOMEPAGE_URL "http://mumps.enseeiht.fr/")
 enable_testing()
+include(CTest)
 
 # --- user options
 option(autobuild "auto-build Lapack and/or Scalapack if missing or broken" ON)
