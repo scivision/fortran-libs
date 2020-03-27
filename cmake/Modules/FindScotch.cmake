@@ -74,7 +74,6 @@ endif()
 foreach(scotch_lib ${Scotch_libs_to_find})
   find_library(Scotch_${scotch_lib}_LIBRARY
     NAMES ${scotch_lib}
-    HINTS ${Scotch_LIBRARY_DIR}
     PATH_SUFFIXES lib lib32 lib64)
 endforeach()
 
