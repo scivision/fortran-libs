@@ -3,6 +3,7 @@
 ![ci_linux](https://github.com/scivision/mumps/workflows/ci_linux/badge.svg)
 ![ci_macos](https://github.com/scivision/mumps/workflows/ci_macos/badge.svg)
 ![ci_windows](https://github.com/scivision/mumps/workflows/ci_windows/badge.svg)
+[![CDash](./archive/cdash.png)](https://my.cdash.org/index.php?project=mumps)
 
 This is a mirror of [original MUMPS code](http://mumps.enseeiht.fr/), with build system enhancements to:
 
