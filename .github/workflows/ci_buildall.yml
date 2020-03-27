@@ -7,7 +7,6 @@ on:
       - "**.txt"
       - ".github/workflows/ci_buildall.yml"
   pull_request:
-  release:
 
 jobs:
 

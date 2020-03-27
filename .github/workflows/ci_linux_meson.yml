@@ -6,7 +6,6 @@ on:
       - "**.build"
       - ".github/workflows/ci_linux_meson.yml"
   pull_request:
-  release:
 
 
 jobs:

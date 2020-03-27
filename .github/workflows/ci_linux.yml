@@ -11,7 +11,7 @@ on:
       - "**.txt"
       - ".github/workflows/ci_linux.yml"
   pull_request:
-  release:
+
 
 jobs:
 
