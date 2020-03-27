@@ -60,9 +60,6 @@ jobs:
 
     - run: cinst -y ninja
 
-# manually build so that the -D option and cache variables stay in effect, else autobuild doesn't happen
-    - run: cmake -B build -Dparallel=false -Darith=d
-    - run: cmake --build build
     - run: ctest -S setup.cmake -VV
       env:
         FC: gfortran

@@ -39,8 +39,7 @@ cmake -B build
 cmake --build build --parallel
 
 # optional
-cd build
-ctest
+ctest -S setup.cmake -VV
 ```
 
 NOTE: Intel compiler on Windows with CMake: we suggest using `cmake -G Ninja` or `cmake -G "MinGW Makefiles"` as the CMake Visual Studio backend requires additional manual configuration.

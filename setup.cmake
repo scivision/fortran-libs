@@ -1,6 +1,18 @@
 # run by:
 # ctest -S setup.cmake
 
+# --- Project-specific -Doptions
+# these will be used if the project isn't already configured.
+
+# we use presence of MPIEXEC as a weak assumption that MPI is OK.
+find_program(_mpiexec NAMES mpiexec)
+if(_mpiexec)
+  set(_opts -Dparallel:BOOL=on)
+else()
+  set(_opts -Dparallel:BOOL=off)
+endif(_mpiexec)
+
+# --- boilerplate follows
 # site is OS name
 if(NOT DEFINED CTEST_SITE)
   set(CTEST_SITE ${CMAKE_SYSTEM_NAME})
@@ -52,7 +64,9 @@ if(NOT DEFINED CTEST_CMAKE_GENERATOR)
 endif()
 
 ctest_start("Experimental" ${CTEST_SOURCE_DIRECTORY} ${CTEST_BINARY_DIRECTORY})
-ctest_configure(BUILD ${CTEST_BINARY_DIRECTORY} SOURCE ${CTEST_SOURCE_DIRECTORY})
+if(NOT EXISTS ${CTEST_BINARY_DIRECTORY}/CMakeCache.txt)
+  ctest_configure(BUILD ${CTEST_BINARY_DIRECTORY} SOURCE ${CTEST_SOURCE_DIRECTORY} OPTIONS "${_opts}")
+endif()
 ctest_build(BUILD ${CTEST_BINARY_DIRECTORY} CONFIGURATION ${CTEST_BUILD_CONFIGURATION})
 ctest_test(BUILD ${CTEST_BINARY_DIRECTORY})
 ctest_submit()
