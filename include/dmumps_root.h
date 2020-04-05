@@ -1,15 +1,19 @@
 !
-!  This file is part of MUMPS 5.2.1, released
-!  on Fri Jun 14 14:46:05 UTC 2019
+!  This file is part of MUMPS 5.3.0, released
+!  on Tue Mar 31 17:14:49 UTC 2020
 !
 !
-!  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+!  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 !  Mumps Technologies, University of Bordeaux.
 !
 !  This version of MUMPS is provided to you free of charge. It is
 !  released under the CeCILL-C license:
 !  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 !
+!     This file includes various internal datastructures
+!     passed through the main MUMPS structure between successive
+!     phases of the solver. The main one is root information for
+!     the multifrontal tree.
       TYPE DMUMPS_ROOT_STRUC
         SEQUENCE
         INTEGER :: MBLOCK, NBLOCK, NPROW, NPCOL
@@ -43,3 +47,9 @@
         INTEGER :: NB_SINGULAR_VALUES,rootpad4
 !
       END TYPE DMUMPS_ROOT_STRUC
+!     multicore
+      TYPE DMUMPS_L0OMPFAC_T
+         SEQUENCE
+         DOUBLE PRECISION, POINTER, DIMENSION(:) :: A
+         INTEGER(8) :: LA
+      END TYPE DMUMPS_L0OMPFAC_T

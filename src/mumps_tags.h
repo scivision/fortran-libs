@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -15,6 +15,24 @@ C  This file contains the definition
 C  of all tags.
 C -----------------------------------------
 C
+C ---------------
+C  Tags for L0OMP 
+C ---------------
+      INTEGER F_IPOOLAFTER, F_PHYS_L0
+      PARAMETER ( F_IPOOLAFTER = 60, F_PHYS_L0 = 61 )
+C -----------------
+C  Tag for grouping
+C -----------------
+      INTEGER GROUPING
+      PARAMETER ( GROUPING = 49 )
+C ----------------------------------------------
+C  Tag for LMAT distribution (analysis by block)
+C      and for gathering graph
+C ----------------------------------------------
+      INTEGER LMATDIST, GATHERG_NZG, GATHERG_NB, 
+     &        GATHERG_FIRST, GATHERG_IPE, GATHERG_ADJ
+      PARAMETER ( LMATDIST = 43, GATHERG_NZG=44, GATHERG_NB=45,
+     &        GATHERG_FIRST=46, GATHERG_IPE=47, GATHERG_ADJ= 48)
 C -----------------------------------------
 C  Tag for arrowheads distribution
 C -----------------------------------------
@@ -92,10 +110,10 @@ C -----------------------------------------
 C -----------------------------------------
 C   Tags for backsolve
 C -----------------------------------------
-      INTEGER FEUILLE,
+      INTEGER TERMBWD,
      &        BACKSLV_UPDATERHS,
      &        BACKSLV_MASTER2SLAVE
-      PARAMETER( FEUILLE = 21,
+      PARAMETER( TERMBWD = 21,
      &           BACKSLV_UPDATERHS = 22,
      &           BACKSLV_MASTER2SLAVE = 23 )
 C ------------------------

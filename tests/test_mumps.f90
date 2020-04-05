@@ -1,8 +1,10 @@
 
 use, intrinsic:: iso_fortran_env, only: output_unit, error_unit
-use mpi, only: mpi_init, mpi_finalize, mpi_comm_world
+use mpi, only: mpi_init, mpi_comm_world
 
-implicit none
+implicit none (external)
+
+external :: mpi_finalize, dmumps
 
 include 'dmumps_struc.h'  ! per MUMPS manual
 type(DMUMPS_STRUC) :: mumps_par

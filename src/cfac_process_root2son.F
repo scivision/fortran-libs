@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -86,9 +86,9 @@ C
       INTEGER  MUMPS_PROCNODE, MUMPS_TYPENODE
       EXTERNAL MUMPS_PROCNODE, MUMPS_TYPENODE
       FPERE = KEEP(38)
-      TYPE_SON = MUMPS_TYPENODE(PROCNODE_STEPS(STEP(INODE)),SLAVEF)
+      TYPE_SON = MUMPS_TYPENODE(PROCNODE_STEPS(STEP(INODE)),KEEP(199))
       IF ( MUMPS_PROCNODE( PROCNODE_STEPS(STEP(INODE)), 
-     &     SLAVEF ).EQ.MYID) THEN
+     &     KEEP(199) ).EQ.MYID) THEN
        IOLDPS   = PTLUST_S(STEP(INODE))
        NFRONT   = IW(IOLDPS+KEEP(IXSZ))
        NPIV     = IW(IOLDPS+1+KEEP(IXSZ))
@@ -220,7 +220,7 @@ C
       ELSE 
         ISON = INODE
         PDEST_MASTER_ISON = 
-     &      MUMPS_PROCNODE(PROCNODE_STEPS(STEP(ISON)), SLAVEF)
+     &      MUMPS_PROCNODE( PROCNODE_STEPS(STEP(ISON)), KEEP(199) )
         IF ( PTRIST(STEP(ISON)) .EQ. 0) THEN
           CALL CMUMPS_TREAT_DESCBAND( ISON, COMM_LOAD,
      &    ASS_IRECV,
@@ -247,23 +247,13 @@ C
      &     ( KEEP(50) .NE. 0 .AND.
      &       IW( PTRIST(STEP(ISON)) + 6  +KEEP(IXSZ)) .NE. 0 ) )
           IF ( KEEP(50).eq.0) THEN
-#if defined(IBC_TEST)
-            MSGSOU = IW( PTRIST(STEP(ISON)) + 7 +  KEEP(IXSZ) )
-            MSGTAG = BLOC_FACTO
-#else
             MSGSOU = PDEST_MASTER_ISON
             MSGTAG = BLOC_FACTO
-#endif
           ELSE
             IF ( IW( PTRIST(STEP(ISON)) + 1  +KEEP(IXSZ)) .NE.
      &           IW( PTRIST(STEP(ISON)) + 3  +KEEP(IXSZ)) ) THEN
-#if defined(IBC_TEST)
-              MSGSOU = IW( PTRIST(STEP(ISON)) + 9 +  KEEP(IXSZ) )
-              MSGTAG = BLOC_FACTO_SYM
-#else
               MSGSOU = PDEST_MASTER_ISON
               MSGTAG = BLOC_FACTO_SYM
-#endif
             ELSE
               MSGSOU = MPI_ANY_SOURCE
               MSGTAG = BLOC_FACTO_SYM_SLAVE

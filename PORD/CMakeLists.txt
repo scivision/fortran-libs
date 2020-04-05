@@ -14,5 +14,5 @@ install(TARGETS pord
 
 add_subdirectory(lib)
 
-# .h files
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION include)
+# .h files not needed
+# install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION include)

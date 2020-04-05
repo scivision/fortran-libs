@@ -11,6 +11,7 @@
 
 /*****************************************************************************
 A macro defining the size of integers 
+(modified for compatibility with MUMPS)
 ******************************************************************************/
 #if defined(INTSIZE64) || defined(PORD_INTSIZE64)
 #include <inttypes.h>

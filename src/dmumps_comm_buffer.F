@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -501,11 +501,7 @@ C
         INTEGER IW( max( 1, LONG ) )
         INTEGER, INTENT(IN) :: LRHSCOMP, NRHS, IPOSINRHSCOMP, NPIV
         DOUBLE PRECISION W( max( 1, LDW * NRHS_B ) )
-#       if defined(RHSCOMP_BYROWS)
-        DOUBLE PRECISION RHSCOMP(NRHS,LRHSCOMP)
-#       else
         DOUBLE PRECISION RHSCOMP(LRHSCOMP,NRHS)
-#       endif
         INTEGER, INTENT(INOUT) :: KEEP(500)
         INCLUDE 'mpif.h'
         INTEGER POSITION, IREQ, IPOS
@@ -557,12 +553,8 @@ C
           CALL MPI_PACK( IW, LONG, MPI_INTEGER,
      &                        BUF_CB%CONTENT( IPOS ), SIZE,
      &                        POSITION, COMM, IERR )
-          IF (NODE2.EQ.0.AND.KEEP(350).NE.0) THEN
+          IF (NODE2.EQ.0) THEN
             DO K=1, NRHS_B
-#if defined(RHSCOMP_BYROWS)
-              WRITE(*,*) "Internal error in DMUMPS_BUF_SEND_VCB"
-              CALL MUMPS_ABORT()
-#else
               IF (NPIV.GT.0) THEN
               CALL MPI_PACK( RHSCOMP(IPOSINRHSCOMP,JBDEB+K-1), NPIV,
      &                          MPI_DOUBLE_PRECISION,
@@ -575,7 +567,6 @@ C
      &                          BUF_CB%CONTENT( IPOS ), SIZE,
      &                          POSITION, COMM, IERR )
               ENDIF
-#endif
             END DO
           ELSE
             DO K=1, NRHS_B
@@ -1240,7 +1231,7 @@ C
       ENDIF
       NBINT = 6 + L + 1 
       IF (CB_IS_LR) THEN
-        NBINT = NBINT + 6*(NB_BLR_COLS-NB_COL_SHIFT) + 2
+        NBINT = NBINT + 4*(NB_BLR_COLS-NB_COL_SHIFT) + 2
       ENDIF
       CALL MPI_PACK_SIZE( NBINT, MPI_INTEGER,
      &                    COMM, TMPSIZE, IERR )
@@ -1359,11 +1350,11 @@ C
      &                 BUF_CB%CONTENT( IPOS ), SIZE_PACK,
      &                 POSITION, COMM, IERR )
         IF (KEEP(50)==0) THEN
-        CALL MPI_PACK( LROW, 1, MPI_INTEGER,
+          CALL MPI_PACK( LROW, 1, MPI_INTEGER,
      &                 BUF_CB%CONTENT( IPOS ), SIZE_PACK,
      &                 POSITION, COMM, IERR )
         ELSE
-        CALL MPI_PACK( MAX_ROW_LENGTH, 1, MPI_INTEGER,
+          CALL MPI_PACK( MAX_ROW_LENGTH, 1, MPI_INTEGER,
      &                 BUF_CB%CONTENT( IPOS ), SIZE_PACK,
      &                 POSITION, COMM, IERR )
         ENDIF
@@ -2257,7 +2248,6 @@ C
               ENDIF
             ENDIF
           ENDIF
-#if ! defined(DBG_SMB3)
           IF (N_PACKET + N_ALREADY_SENT .NE. NSUBSET_ROW - NSUPROW
      &         .AND.
      &         SIZE_PACK .LT. SIZE_RBUF_BYTES / 4
@@ -2266,7 +2256,6 @@ C
              IERR = -1
              GOTO 100
           ENDIF
-#endif
         ELSE 
           N_PACKET = 0
           CALL MPI_PACK_SIZE(8,MPI_INTEGER, COMM, SIZE_PACK, IERR )
@@ -2670,16 +2659,12 @@ C
      &             ( BDC_SBTR,BDC_MEM,BDC_MD, COMM, NPROCS, LOAD,
      &               MEM,SBTR_CUR,
      &               LU_USAGE,
-#if ! defined(OLD_LOAD_MECHANISM)
      &               FUTURE_NIV2,
-#endif
      &               MYID, KEEP, IERR)
         IMPLICIT NONE
         INTEGER COMM, NPROCS, MYID, IERR
         INTEGER, INTENT(INOUT) :: KEEP(500)
-#if ! defined(OLD_LOAD_MECHANISM)
         INTEGER FUTURE_NIV2(NPROCS)
-#endif
         DOUBLE PRECISION LU_USAGE
         DOUBLE PRECISION LOAD
         DOUBLE PRECISION MEM,SBTR_CUR
@@ -2694,14 +2679,12 @@ C
         IERR = 0
         MYID2(1) = MYID
         NDEST = NPROCS - 1
-#if ! defined(OLD_LOAD_MECHANISM)
         NDEST = 0
         DO I = 1, NPROCS
            IF ( I .NE. MYID + 1 .AND. FUTURE_NIV2(I).NE.0) THEN
               NDEST = NDEST + 1
            ENDIF
         ENDDO
-#endif
         IF ( NDEST .eq. 0 ) THEN
            RETURN
         ENDIF
@@ -2760,11 +2743,7 @@ C
         ENDIF
         IDEST = 0
         DO I = 0, NPROCS - 1
-#if ! defined(OLD_LOAD_MECHANISM)
         IF ( I .NE. MYID .AND. FUTURE_NIV2(I+1) .NE. 0) THEN
-#else
-        IF ( I .ne. MYID ) THEN
-#endif
             IDEST = IDEST + 1
             KEEP(267)=KEEP(267)+1
             CALL MPI_ISEND( BUF_LOAD%CONTENT( IPOSMSG ),
@@ -2786,9 +2765,7 @@ C
         END SUBROUTINE DMUMPS_BUF_SEND_UPDATE_LOAD
         SUBROUTINE DMUMPS_BUF_BROADCAST
      &             ( WHAT, COMM, NPROCS, 
-#if ! defined(OLD_LOAD_MECHANISM)
      &               FUTURE_NIV2,
-#endif
      &               LOAD, UPD_LOAD,
      &               MYID, KEEP, IERR)
         IMPLICIT NONE
@@ -2801,9 +2778,7 @@ C
         INTEGER I, NDEST, IDEST, IPOSMSG, NREALS
         INTEGER IZERO
         INTEGER MYID2(1)
-#if ! defined(OLD_LOAD_MECHANISM)
         INTEGER FUTURE_NIV2(NPROCS)
-#endif
         PARAMETER ( IZERO=0 )
         IERR = 0
         IF (WHAT .NE. 2 .AND. WHAT .NE. 3 .AND.
@@ -2814,14 +2789,12 @@ C
         END IF
         MYID2(1) = MYID
         NDEST = NPROCS - 1
-#if ! defined(OLD_LOAD_MECHANISM)
         NDEST = 0
         DO I = 1, NPROCS
           IF ( I .NE. MYID + 1 .AND. FUTURE_NIV2(I).NE.0) THEN
             NDEST = NDEST + 1
           ENDIF
         ENDDO
-#endif
         IF ( NDEST .eq. 0 ) THEN
            RETURN
         ENDIF
@@ -2864,11 +2837,7 @@ C
         ENDIF
         IDEST = 0
         DO I = 0, NPROCS - 1
-#if ! defined(OLD_LOAD_MECHANISM)
           IF ( I .NE. MYID .AND. FUTURE_NIV2(I+1) .NE. 0) THEN
-#else
-          IF ( I .ne. MYID ) THEN
-#endif
             IDEST = IDEST + 1
             KEEP(267)=KEEP(267)+1
             CALL MPI_ISEND( BUF_LOAD%CONTENT( IPOSMSG ),
@@ -3033,9 +3002,7 @@ C
         END SUBROUTINE DMUMPS_BUF_SEND_NOT_MSTR
         SUBROUTINE DMUMPS_BUF_BCAST_ARRAY( BDC_MEM,
      &      COMM, MYID, NPROCS,
-#if ! defined(OLD_LOAD_MECHANISM)
      &      FUTURE_NIV2,
-#endif
      &      NSLAVES,
      &      LIST_SLAVES,INODE,
      &      MEM_INCREMENT, FLOPS_INCREMENT,CB_BAND, WHAT,
@@ -3046,9 +3013,7 @@ C
         INCLUDE 'mumps_tags.h'
         LOGICAL BDC_MEM
         INTEGER COMM, MYID, NPROCS, NSLAVES, IERR
-#if ! defined(OLD_LOAD_MECHANISM)
         INTEGER FUTURE_NIV2(NPROCS)
-#endif
         INTEGER LIST_SLAVES(NSLAVES),INODE
         DOUBLE PRECISION MEM_INCREMENT(NSLAVES)
         DOUBLE PRECISION FLOPS_INCREMENT(NSLAVES)
@@ -3062,16 +3027,12 @@ C
         PARAMETER ( IZERO=0 )
         MYID2(1)=MYID
         IERR = 0
-#if ! defined(OLD_LOAD_MECHANISM)
         NDEST = 0
         DO I = 1, NPROCS
           IF ( I .NE. MYID + 1 .AND. FUTURE_NIV2(I).NE.0) THEN
             NDEST = NDEST + 1
           ENDIF
         ENDDO
-#else
-        NDEST = NPROCS - 1
-#endif
         IF ( NDEST == 0 ) THEN
            RETURN
         ENDIF
@@ -3131,11 +3092,7 @@ C
         ENDIF
         IDEST = 0
         DO I = 0, NPROCS - 1
-#if ! defined(OLD_LOAD_MECHANISM)
         IF ( I .NE. MYID .AND. FUTURE_NIV2(I+1) .NE. 0) THEN
-#else
-        IF ( I .NE. MYID ) THEN
-#endif
             IDEST = IDEST + 1
             KEEP(267)=KEEP(267)+1
             CALL MPI_ISEND( BUF_LOAD%CONTENT( IPOSMSG ),
@@ -3189,13 +3146,10 @@ C
       INCLUDE 'mpif.h'
       IERR = 0
       SIZE_OUT = 0
-      CALL MPI_PACK_SIZE( 6,      
+      CALL MPI_PACK_SIZE( 4,      
      &          MPI_INTEGER, COMM, SIZE_LOC,  IERR )
       SIZE_OUT = SIZE_OUT + SIZE_LOC
       IF ( LRB%ISLR ) THEN
-         IF ( LRB%LRFORM.NE.1) THEN
-            CALL MUMPS_ABORT()
-        ENDIF
         IF (LRB%K .GT. 0) THEN
           CALL MPI_PACK_SIZE( LRB%M * LRB%K,
      &       MPI_DOUBLE_PRECISION, COMM, SIZE_LOC,  IERR )
@@ -3248,9 +3202,6 @@ C
       ENDIF
       CALL MPI_PACK( ISLR_INT, 1, MPI_INTEGER,
      &     BUF(1), LBUF, POSITION, COMM, IERR )
-      CALL MPI_PACK( LRB%LRFORM,
-     &     1, MPI_INTEGER,
-     &     BUF(1), LBUF, POSITION, COMM, IERR )
       CALL MPI_PACK( LRB%K,
      &     1, MPI_INTEGER,
      &     BUF(1), LBUF, POSITION, COMM, IERR )
@@ -3258,9 +3209,6 @@ C
      &     1, MPI_INTEGER,
      &     BUF(1), LBUF, POSITION, COMM, IERR )
       CALL MPI_PACK( LRB%N,
-     &     1, MPI_INTEGER,
-     &     BUF(1), LBUF, POSITION, COMM, IERR )
-      CALL MPI_PACK( LRB%KSVD,
      &     1, MPI_INTEGER,
      &     BUF(1), LBUF, POSITION, COMM, IERR )
       IF (LRB%ISLR) THEN
@@ -3297,15 +3245,12 @@ C
       INTEGER(8) :: KEEP8(150)
       LOGICAL :: ISLR
       INTEGER :: ISLR_INT
-      INTEGER :: LRFORM, K, M, N, KSVD
+      INTEGER :: K, M, N
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
       IERR = 0
       CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &               ISLR_INT, 1, MPI_INTEGER, COMM, IERR )
-      CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
-     &               LRFORM, 1,
-     &               MPI_INTEGER, COMM, IERR )
       CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &               K, 1,
      &               MPI_INTEGER, COMM, IERR )
@@ -3315,21 +3260,14 @@ C
       CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &               N, 1,
      &               MPI_INTEGER, COMM, IERR )
-      CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
-     &               KSVD, 1,
-     &               MPI_INTEGER, COMM, IERR )
       IF (ISLR_INT .eq. 1) THEN
         ISLR = .TRUE.
       ELSE
         ISLR = .FALSE.
       ENDIF
-      CALL ALLOC_LRB( LRB, K, KSVD, M, N, ISLR, 
+      CALL ALLOC_LRB( LRB, K, M, N, ISLR, 
      &           IFLAG, IERROR, KEEP8 )
       IF (IFLAG.LT.0) RETURN
-      IF (LRFORM .NE. LRB%LRFORM) THEN
-        WRITE(*,*) "Internal error 2 in ALLOC_LRB",
-     &        LRFORM, LRB%LRFORM
-      ENDIF
       IF (ISLR) THEN
         IF (K .GT. 0) THEN
           CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
@@ -3390,9 +3328,6 @@ C
         ENDIF
         CALL MPI_PACK( ISLR_INT, 1, MPI_INTEGER,
      &       BUF(1), LBUF, POSITION, COMM, IERR )
-        CALL MPI_PACK( BLR(I)%LRFORM,
-     &       1, MPI_INTEGER,
-     &       BUF(1), LBUF, POSITION, COMM, IERR )
         CALL MPI_PACK( BLR(I)%K,
      &       1, MPI_INTEGER,
      &       BUF(1), LBUF, POSITION, COMM, IERR )
@@ -3400,9 +3335,6 @@ C
      &       1, MPI_INTEGER,
      &       BUF(1), LBUF, POSITION, COMM, IERR )
         CALL MPI_PACK( BLR(I)%N,
-     &       1, MPI_INTEGER,
-     &       BUF(1), LBUF, POSITION, COMM, IERR )
-        CALL MPI_PACK( BLR(I)%KSVD,
      &       1, MPI_INTEGER,
      &       BUF(1), LBUF, POSITION, COMM, IERR )
         IF (BLR(I)%ISLR) THEN

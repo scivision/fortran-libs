@@ -2,6 +2,25 @@
 = ChangeLog =
 -------------
 
+Changes from 5.2.1 to 5.3.0
+* New feature: distributed right-hand sides
+* Improved time for arrowheads construction (single MPI case, mainly)
+* C interface: ability to know if MUMPS_INT is 64-bit from include file
+* Improved BLR performance when CNTL(1)=0.0 and ICNTL(36)=1
+* Fixed INFO(34),INFO(35),INFO(37),INFO(38) on processes with rank > 0
+* More portable MPI_IS_IN_PLACE feature in libseq
+* Fixed determinant computation when Cholesky ScaLapack is used
+* Information on advancement (flops done) on each MPI process
+* Allow rhs_sparse and irhs_sparse to be unassociated if nz_rhs=0
+* Fixed INFO(30) and INFO(31) computation on MPI processes with rank > 0
+* OMP collapsed loops: avoid FIRSTPRIVATE on internal loop bound (for pgi)
+* Fix for compilers not freeing local allocatable arrays (64-bit metis)
+* Fixed RINFO(5-6) and RINFOG(15-16) metrics (#entries=>#bytes)
+* C interface: A_ELT/SCHUR/RHS/REDRHS/RHS_loc/SOL_loc may exceed 2^31 entries
+* Local Schur (ICNTL(19)=2 or 3) may now exceed 2^31 entries
+* Fixed internal dynamic storage of blocks with more than 2^31 entries
+* Fixed a bug in the parallel analysis that limited scalability
+
 Changes from 5.2.0 to 5.2.1
 * Fixed a minor "Internal error in CMUMPS_DM_FREEALLDYNAMICCB"
 * Default value of ICNTL(14) for MPI executions independent 
@@ -17,13 +36,14 @@ Changes from 5.2.0 to 5.2.1
 
 Changes from 5.1.2 to 5.2.0
 * Memory gains due to low-rank factorization are now effective, low-rank solve
-* Internal dynamic storage possible in case S array is too small
+* Internal dynamic storage possible in case static workspace too small
 * Improved distributed memory usage and MPI granularity (some sym. matrices)
 * Improved granularity (and performance) for symmetric matrices; ability to
   use [DSCZ]GEMMT kernel (BLAS extension) if available (see INSTALL)
 * A-1 functionality: improved performance due to solution gathering 
 * Memory peak for analysis reduced (distributed-entry, 64-bit orderings)
 * Time for analysis reduced by avoiding some preprocessing (when possible) 
+* More exploitation of RHS sparsity during forward substitution
 * Ability to save/restore an instance to/from disk
 * INFO and INFOG dimension extended from 40 to 80
 * METIS_OPTIONS introduced for METIS users to define some specific Metis options

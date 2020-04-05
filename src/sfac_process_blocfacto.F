@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -126,7 +126,6 @@ C
       INTEGER :: OMP_NUM
       INTEGER NPARTSASS, NPARTSCB, MAXI_CLUSTER, LWORK,
      &        MAXI_CLUSTER_L, MAXI_CLUSTER_U, MAXI_CLUSTER_COL
-      INTEGER T1, T2, COUNT_RATE
       REAL, DIMENSION(:), ALLOCATABLE :: DYN_BLOCFACTO
       INTEGER, DIMENSION(:), ALLOCATABLE :: DYN_PIVINFO
       LOGICAL :: DYNAMIC_ALLOC
@@ -378,9 +377,6 @@ C
         LPOS2 = POSELT + int(NPIV1,8)
         LPOS  = LPOS2 + int(NPIV,8)
         IF ((.NOT. LR_ACTIVATED).OR.KEEP(475).EQ.0) THEN
-        IF (KEEP(486).NE.0) THEN
-          CALL SYSTEM_CLOCK(T1)
-        ENDIF
         IF (DYNAMIC_ALLOC) THEN
           CALL strsm('L','L','N','N',NPIV, NROW1, ONE, 
      &           DYN_BLOCFACTO, LD_BLOCFACTO, A_PTR(LPOS2), NCOL1)
@@ -388,11 +384,6 @@ C
           CALL strsm('L','L','N','N',NPIV, NROW1, ONE, 
      &           A(POSBLOCFACTO), LD_BLOCFACTO, 
      &           A_PTR(LPOS2), NCOL1)
-        ENDIF
-        IF (KEEP(486).NE.0) THEN
-          CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-          ACC_TRSM_TIME = ACC_TRSM_TIME + 
-     &            DBLE(T2-T1)/DBLE(COUNT_RATE)
         ENDIF
       ENDIF
       ENDIF 
@@ -503,7 +494,6 @@ C
      &             ': ERROR allocation during SMUMPS_PROCESS_BLOCFACTO'
               GOTO 700
            ENDIF
-        CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)          
 !$OMP PARALLEL
 #endif
@@ -534,10 +524,6 @@ C
 !$OMP BARRIER
 !$OMP MASTER
 #endif
-          CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-          ACC_DEMOTING_TIME = ACC_DEMOTING_TIME + 
-     &              DBLE(T2-T1)/DBLE(COUNT_RATE)
-          CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)          
 !$OMP END MASTER
 #endif          
@@ -563,10 +549,6 @@ C
 !$OMP BARRIER
 !$OMP MASTER
 #endif          
-            CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-            ACC_TRSM_TIME = ACC_TRSM_TIME + 
-     &              DBLE(T2-T1)/DBLE(COUNT_RATE)
-            CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)          
 !$OMP END MASTER
 #endif          
@@ -581,10 +563,6 @@ C
 #if defined(BLR_MT)          
 !$OMP MASTER
 #endif          
-              CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-              ACC_PROMOTING_TIME = ACC_PROMOTING_TIME + 
-     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
-              CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)          
 !$OMP END MASTER
 #endif          
@@ -656,15 +634,11 @@ C
      &        .TRUE., 
      &        NPIV1,  
      &        2, 0, 
-     &        KEEP(481), DKEEP(8), KEEP(466), KEEP(477) 
+     &        KEEP(481), DKEEP(11), KEEP(466), KEEP(477) 
      &        )
 #if defined(BLR_MT)          
 !$OMP MASTER
 #endif          
-          CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-          ACC_UPDT_TIME = ACC_UPDT_TIME + 
-     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
-          CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)          
 !$OMP END MASTER
 #endif
@@ -672,8 +646,6 @@ C
 !$OMP END PARALLEL
 #endif          
           IF (IFLAG.LT.0) GOTO 700
-          CALL STATS_STORE_BLR_PANEL_MRY(BLR_L,
-     &               0, NPARTSCB, 'V', 2)
         ELSE
           IF (DYNAMIC_ALLOC) THEN
             UPOS = int(NPIV+1,8)
@@ -706,6 +678,8 @@ C
           IF (KEEP(486).EQ.3) THEN
             CALL DEALLOC_BLR_PANEL( BLR_L, NB_BLR_L, KEEP8)
             DEALLOCATE(BLR_L)
+          ELSE
+            CALL UPD_MRY_LU_LRGAIN(BLR_L, 0, NPARTSCB, 'V')
           ENDIF
       ENDIF 
       ENDIF 
@@ -785,7 +759,6 @@ C
            ENDIF
            CALL SMUMPS_BLR_SAVE_CB_LRB(IW(IOLDPS+XXF),CB_LRB)
          ENDIF
-         CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)          
 !$OMP PARALLEL
 #endif
@@ -798,7 +771,7 @@ C
      &      NPARTSASS_MASTER, 
      &      NROW1, NCOL1-NPIV1-NPIV, INODE,
      &      IW(IOLDPS+XXF), 0, 2, IFLAG, IERROR,
-     &      DKEEP(8), KEEP(466), KEEP(484), KEEP(489),
+     &      DKEEP(12), KEEP(466), KEEP(484), KEEP(489),
      &      CB_LRB(1,1),
      &      WORK, TAU, JPVT, LWORK, RWORK, BLOCK,
      &      MAXI_CLUSTER, KEEP8, OMP_NUM,
@@ -808,10 +781,6 @@ C
 !$OMP BARRIER
 !$OMP MASTER
 #endif
-            CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-            ACC_CB_DEMOTING_TIME = ACC_CB_DEMOTING_TIME + 
-     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
-            CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)
 !$OMP END MASTER
 #endif
@@ -884,7 +853,7 @@ C
       INTEGER(8) :: KEEP8(150)
       LOGICAL :: ISLR
       INTEGER :: ISLR_INT, I
-      INTEGER :: LRFORM, K, M, N, KSVD
+      INTEGER :: K, M, N
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
       IERR = 0
@@ -900,9 +869,6 @@ C
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &                 ISLR_INT, 1, MPI_INTEGER, COMM, IERR )
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
-     &                 LRFORM, 1,
-     &                 MPI_INTEGER, COMM, IERR )
-        CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &                 K, 1,
      &                 MPI_INTEGER, COMM, IERR )
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
@@ -911,22 +877,15 @@ C
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &                 N, 1,
      &                 MPI_INTEGER, COMM, IERR )
-        CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
-     &                 KSVD, 1,
-     &                 MPI_INTEGER, COMM, IERR )
         BEGS_BLR_U(I+2) = BEGS_BLR_U(I+1) + M
         IF (ISLR_INT .eq. 1) THEN
           ISLR = .TRUE.
         ELSE
           ISLR = .FALSE.
         ENDIF
-        CALL ALLOC_LRB( BLR_U(I), K, KSVD, M, N, ISLR, 
+        CALL ALLOC_LRB( BLR_U(I), K, M, N, ISLR, 
      &             IFLAG, IERROR, KEEP8 )
         IF (IFLAG.LT.0) RETURN
-        IF (LRFORM .NE. BLR_U(I)%LRFORM) THEN
-          WRITE(*,*) "Internal error 2 in ALLOC_LRB",
-     &    LRFORM, BLR_U(I)%LRFORM
-        ENDIF
         IF (ISLR) THEN
           IF (K .GT. 0) THEN
             CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,

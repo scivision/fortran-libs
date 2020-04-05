@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -15,7 +15,7 @@ C
       TYPE LRB_TYPE
         DOUBLE PRECISION,POINTER,DIMENSION(:,:) :: Q => null()
         DOUBLE PRECISION,POINTER,DIMENSION(:,:) :: R => null()
-        INTEGER :: LRFORM,K,M,N,KSVD
+        INTEGER :: K,M,N
         LOGICAL :: ISLR
       END TYPE LRB_TYPE
       CONTAINS
@@ -32,14 +32,15 @@ C
         ELSE
            IF(associated(LRB_OUT%Q)) MEM = MEM + size(LRB_OUT%Q)
         ENDIF
-#if defined(BLR_MT)          
-!$OMP CRITICAL(keep8_cri)
-#endif          
+!$OMP   ATOMIC UPDATE
         KEEP8(69) = KEEP8(69) - int(MEM,8)
+!$OMP   END ATOMIC
+!$OMP   ATOMIC UPDATE
         KEEP8(71) = KEEP8(71) - int(MEM,8)
-#if defined(BLR_MT)          
-!$OMP END CRITICAL(keep8_cri)
-#endif          
+!$OMP   END ATOMIC
+!$OMP   ATOMIC UPDATE
+        KEEP8(73) = KEEP8(73) - int(MEM,8)
+!$OMP   END ATOMIC
         IF (LRB_OUT%ISLR) THEN
           IF (associated(LRB_OUT%Q)) THEN
             DEALLOCATE (LRB_OUT%Q)

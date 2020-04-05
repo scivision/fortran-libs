@@ -1,10 +1,13 @@
-!
+program s_simple
 !  This file is part of MUMPS 5.2.1, released
 !  on Fri Jun 14 14:46:05 UTC 2019
 !
-use mpi, only : mpi_comm_world
+use mpi, only : mpi_init, mpi_comm_size, mpi_comm_world
 use, intrinsic :: iso_fortran_env, only: stderr=>error_unit, stdout=>output_unit, int64
-IMPLICIT NONE
+
+implicit none (external)
+
+external :: mpi_finalize, smumps
 
 INCLUDE 'smumps_struc.h'
 TYPE (sMUMPS_STRUC) mumps_par

@@ -1,7 +1,7 @@
 /*
  *
- *  This file is part of MUMPS 5.2.1, released
- *  on Fri Jun 14 14:46:05 UTC 2019
+ *  This file is part of MUMPS 5.3.0, released
+ *  on Tue Mar 31 17:14:49 UTC 2020
  *
  */
 /* Example program using the C interface to the 
@@ -23,7 +23,7 @@
  * their runtime library while a Fortran program translates
  * to MAIN_ or MAIN__ which is then called from "main". This
  * is annoying because MAIN__ has no arguments and we must
- * define argc/argv arbitrarily !!
+ * define argc/argv arbitrarily.
  */
 int MAIN__();
 int MAIN_()

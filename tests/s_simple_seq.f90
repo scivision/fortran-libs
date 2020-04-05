@@ -1,9 +1,12 @@
-!
+program s_simple_seq
 !  This file is part of MUMPS 5.2.1, released
 !  on Fri Jun 14 14:46:05 UTC 2019
 
 use, intrinsic :: iso_fortran_env, only: stderr=>error_unit, stdout=>output_unit, int64
-IMPLICIT NONE
+
+implicit none (external)
+
+external :: smumps
 
 INCLUDE 'smumps_struc.h'
 TYPE (sMUMPS_STRUC) mumps_par

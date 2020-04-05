@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.2.1, released
- *  on Fri Jun 14 14:46:05 UTC 2019
+ *  This file is part of MUMPS 5.3.0, released
+ *  on Tue Mar 31 17:14:49 UTC 2020
  *
  *
- *  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -90,6 +90,7 @@ MUMPS_F77( MUMPS_INT      *job,
            MUMPS_INT      *par,
            MUMPS_INT      *comm_fortran,
            MUMPS_INT      *n,
+           MUMPS_INT      *nblk,
            MUMPS_INT      *icntl,
            MUMPS_REAL     *cntl,
            MUMPS_INT      *keep,
@@ -118,6 +119,10 @@ MUMPS_F77( MUMPS_INT      *job,
            MUMPS_INT      *eltvar_avail,
            MUMPS_COMPLEX  *a_elt,
            MUMPS_INT      *a_elt_avail,
+           MUMPS_INT      *blkptr,
+           MUMPS_INT      *blkptr_avail,
+           MUMPS_INT      *blkvar,
+           MUMPS_INT      *blkvar_avail,
            MUMPS_INT      *perm_in,
            MUMPS_INT      *perm_in_avail,
            MUMPS_COMPLEX  *rhs,
@@ -277,6 +282,7 @@ mumps_c(MUMPS_STRUC_C * mumps_par)
     MUMPS_INT *irn; MUMPS_INT *jcn; MUMPS_COMPLEX *a;
     MUMPS_INT *irn_loc; MUMPS_INT *jcn_loc; MUMPS_COMPLEX *a_loc;
     MUMPS_INT *eltptr, *eltvar; MUMPS_COMPLEX *a_elt;
+    MUMPS_INT *blkptr; MUMPS_INT *blkvar;
     MUMPS_INT *perm_in; MUMPS_INT perm_in_avail;
     MUMPS_INT *listvar_schur; MUMPS_INT listvar_schur_avail;
     MUMPS_COMPLEX *schur; MUMPS_INT schur_avail;
@@ -292,6 +298,7 @@ mumps_c(MUMPS_STRUC_C * mumps_par)
      * C-F77 interface */
     MUMPS_INT irn_loc_avail, jcn_loc_avail, a_loc_avail;
     MUMPS_INT eltptr_avail, eltvar_avail, a_elt_avail;
+    MUMPS_INT blkptr_avail, blkvar_avail;
     MUMPS_INT colsca_avail, rowsca_avail;
     MUMPS_INT irhs_ptr_avail, rhs_sparse_avail, sol_loc_avail, rhs_loc_avail;
     MUMPS_INT irhs_sparse_avail, isol_loc_avail, irhs_loc_avail;
@@ -328,7 +335,7 @@ mumps_c(MUMPS_STRUC_C * mumps_par)
       { /* job = -1: we just reset all pointers to 0 */
         mumps_par->irn=0; mumps_par->jcn=0; mumps_par->a=0; mumps_par->rhs=0; mumps_par->wk_user=0;
         mumps_par->redrhs=0;
-        mumps_par->eltptr=0; mumps_par->eltvar=0; mumps_par->a_elt=0; mumps_par->perm_in=0; mumps_par->sym_perm=0; mumps_par->uns_perm=0; mumps_par->irn_loc=0;mumps_par->jcn_loc=0;mumps_par->a_loc=0; mumps_par->listvar_schur=0;mumps_par->schur=0;mumps_par->mapping=0;mumps_par->pivnul_list=0;mumps_par->colsca=0;mumps_par->colsca_from_mumps=0;mumps_par->rowsca=0;mumps_par->rowsca_from_mumps=0; mumps_par->rhs_sparse=0; mumps_par->irhs_sparse=0; mumps_par->sol_loc=0; mumps_par->rhs_loc=0; mumps_par->irhs_ptr=0; mumps_par->isol_loc=0; mumps_par->irhs_loc=0;
+        mumps_par->eltptr=0; mumps_par->eltvar=0; mumps_par->a_elt=0; mumps_par->blkptr=0; mumps_par->blkvar=0; mumps_par->perm_in=0; mumps_par->sym_perm=0; mumps_par->uns_perm=0; mumps_par->irn_loc=0;mumps_par->jcn_loc=0;mumps_par->a_loc=0; mumps_par->listvar_schur=0;mumps_par->schur=0;mumps_par->mapping=0;mumps_par->pivnul_list=0;mumps_par->colsca=0;mumps_par->colsca_from_mumps=0;mumps_par->rowsca=0;mumps_par->rowsca_from_mumps=0; mumps_par->rhs_sparse=0; mumps_par->irhs_sparse=0; mumps_par->sol_loc=0; mumps_par->rhs_loc=0; mumps_par->irhs_ptr=0; mumps_par->isol_loc=0; mumps_par->irhs_loc=0;
         strcpy(mumps_par->ooc_tmpdir,"NAME_NOT_INITIALIZED");
         strcpy(mumps_par->ooc_prefix,"NAME_NOT_INITIALIZED");
         strcpy(mumps_par->write_problem,"NAME_NOT_INITIALIZED");
@@ -339,7 +346,7 @@ mumps_c(MUMPS_STRUC_C * mumps_par)
         /* Next line initializes scalars to arbitrary values.
          * Some of those will anyway be overwritten during the
          * call to Fortran routine [SDCZ]MUMPS_INIT_PHASE */
-        mumps_par->n=0; mumps_par->nz=0; mumps_par->nnz=0; mumps_par->nz_loc=0; mumps_par->nnz_loc=0; mumps_par->nelt=0;mumps_par->instance_number=0;mumps_par->deficiency=0;mumps_par->lwk_user=0;mumps_par->size_schur=0;mumps_par->lrhs=0; mumps_par->lredrhs=0; mumps_par->nrhs=0; mumps_par->nz_rhs=0; mumps_par->lsol_loc=0; mumps_par->nloc_rhs=0; mumps_par->lrhs_loc=0;
+        mumps_par->n=0; mumps_par->nblk=0; mumps_par->nz=0; mumps_par->nnz=0; mumps_par->nz_loc=0; mumps_par->nnz_loc=0; mumps_par->nelt=0;mumps_par->instance_number=0;mumps_par->deficiency=0;mumps_par->lwk_user=0;mumps_par->size_schur=0;mumps_par->lrhs=0; mumps_par->lredrhs=0; mumps_par->nrhs=0; mumps_par->nz_rhs=0; mumps_par->lsol_loc=0; mumps_par->nloc_rhs=0; mumps_par->lrhs_loc=0;
  mumps_par->schur_mloc=0; mumps_par->schur_nloc=0; mumps_par->schur_lld=0; mumps_par->mblock=0; mumps_par->nblock=0; mumps_par->nprow=0; mumps_par->npcol=0;
       }
      ooc_tmpdirlen=(int)strlen(mumps_par->ooc_tmpdir);
@@ -396,6 +403,8 @@ mumps_c(MUMPS_STRUC_C * mumps_par)
     EXTRACT_POINTERS(eltptr,idummyp);
     EXTRACT_POINTERS(eltvar,idummyp);
     EXTRACT_POINTERS(a_elt,cdummyp);
+    EXTRACT_POINTERS(blkptr,idummyp);
+    EXTRACT_POINTERS(blkvar,idummyp);
     EXTRACT_POINTERS(perm_in,idummyp);
     EXTRACT_POINTERS(listvar_schur,idummyp);
     EXTRACT_POINTERS(schur,cdummyp);
@@ -473,11 +482,11 @@ mumps_c(MUMPS_STRUC_C * mumps_par)
     metis_options = mumps_par->metis_options;
     /* Call F77 interface */
     MUMPS_F77(&(mumps_par->job), &(mumps_par->sym), &(mumps_par->par), &(mumps_par->comm_fortran),
-          &(mumps_par->n), icntl, cntl, keep, dkeep, keep8,
+          &(mumps_par->n), &(mumps_par->nblk), icntl, cntl, keep, dkeep, keep8,
           &(mumps_par->nz), &(mumps_par->nnz), irn, &irn_avail, jcn, &jcn_avail, a, &a_avail,
           &(mumps_par->nz_loc), &(mumps_par->nnz_loc), irn_loc, &irn_loc_avail, jcn_loc, &jcn_loc_avail,
           a_loc, &a_loc_avail,
-          &(mumps_par->nelt), eltptr, &eltptr_avail, eltvar, &eltvar_avail, a_elt, &a_elt_avail,
+          &(mumps_par->nelt), eltptr, &eltptr_avail, eltvar, &eltvar_avail, a_elt, &a_elt_avail, blkptr, &blkptr_avail, blkvar, &blkvar_avail,
           perm_in, &perm_in_avail,
           rhs, &rhs_avail, redrhs, &redrhs_avail, info, rinfo, infog, rinfog,
           &(mumps_par->deficiency), &(mumps_par->lwk_user), &(mumps_par->size_schur), listvar_schur, &listvar_schur_avail, schur,

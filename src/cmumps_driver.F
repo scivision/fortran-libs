@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -598,6 +598,21 @@ C     TIMINGS
       INTEGER(8) :: FILE_SIZE,STRUC_SIZE
       INTEGER:: ICNTL16_LOC
 !$    INTEGER:: PREVIOUS_OMP_THREADS_NUM
+      IF (id%JOB .EQ. -200) THEN
+C       -----------------
+C       QUICK TERMINATION:
+C       -----------------
+C       In case of very serious error that cannot be recovered
+C       (example MPI crash, signal to kill a process, etc.),
+C       a user error handler may want to call MUMPS with
+C       JOB=-200 to just suppress the existing OOC files (if any)
+C       before terminating the application and killing all
+C       processes. No checks are performed in this case,
+C       data is not freed and MPI should not be called
+C       (since MPI might no longer work)
+        CALL CMUMPS_OOC_CLEAN_FILES(id,IERR)
+        RETURN
+      ENDIF
       NOERRORBEFOREPERM = .FALSE.
       UNS_PERM_DONE = .FALSE.
       LANA  = .FALSE.
@@ -653,6 +668,7 @@ C
 C     Check value of JOB and previous value of JOB
 C
       IF ((JOB.LT.-3.OR.JOB.EQ.0.OR.JOB.GT.8)
+     &    .AND. JOB.NE.9
      &  ) THEN
 C       Out of range value
         id%INFO(1) = -3 
@@ -733,17 +749,14 @@ C     Also decode NNZ_loc in the same way
       IF (LANA .OR. LFACTO) THEN
 C       NZ_loc/NNZ_loc may be accessed both analysis
 C       and factorization:
-        IF (id%NNZ_loc > 0_8) THEN
-          id%KEEP8(29) = id%NNZ_loc
-        ELSE
-          id%KEEP8(29) = int(id%NZ_loc, 8)
-        ENDIF
+        CALL MUMPS_GET_NNZ_INTERNAL( id%NNZ_loc, id%NZ_loc,
+     &                               id%KEEP8(29))
       ENDIF
-C
 C
       IF (JOB.EQ.-2.OR.JOB.EQ.1.OR.JOB.EQ.2.OR.JOB.EQ.3.OR.
      &    JOB.EQ.4.OR.JOB.EQ.5.OR.JOB.EQ.6
      &     .OR.JOB.EQ.7.OR.JOB.EQ.8.OR.JOB.EQ.-3
+     *     .OR. JOB.EQ.9 ! LATER .OR.JOB.EQ.10
      &     ) THEN
 C       Value of JOB is correct and differnet from -1
 C       ICNTL should have been initialized and can be used
@@ -986,6 +999,17 @@ C
         IF ( id%INFO(1) .LT. 0 ) GOTO 499
         GOTO 500
       ENDIF
+      IF (JOB.EQ.9) THEN
+C       Check that factorization was performed
+        IF ( OLDJOB .LT. 2 ) THEN
+          id%INFO(1)=-3
+          id%INFO(2)=JOB
+        ELSE
+          CALL CMUMPS_SOL_INIT_IRHS_loc(id)
+        ENDIF
+        IF ( id%INFO(1) .LT. 0 ) GOTO 499
+        GOTO 500
+      ENDIF
 C
 C----------------------------------------------------------------
 C
@@ -1135,8 +1159,6 @@ C-----------------------------------------------------
 C
 C        Few checks + allocations
 C
-C        IS1 :allocated on the master now, will be allocated on
-C             the slaves later
 C        IS : will be allocated on the slaves later
 C        PROCNODE : on the master only,
 C             because slave does not know N yet.
@@ -1185,53 +1207,6 @@ C     icntl(6), (7) and (12) to not done/chosen
           id%INFOG(7) = -9999
           id%INFOG(23) = 0
           id%INFOG(24) = 1
-          IF (associated(id%IS1)) THEN
-            DEALLOCATE(id%IS1)
-            NULLIFY(id%IS1)
-          ENDIF
-C         -------------------------------------------
-C         Allocate array IS1 for analysis of size:
-C          - assembled entry: 10 * N or 11 * N
-C                             depending on max-trans
-C          - element entry: 7 * N + 3 * NELT + 3
-C                           max-trans not allowed
-C         -------------------------------------------
-          IF ( id%ICNTL(5) .NE. 1 ) THEN ! assembled matrix
-            IF ( id%KEEP(50) .NE. 1 
-     &           .AND. (
-     &           (id%ICNTL(6) .NE. 0 .AND. id%ICNTL(7) .NE.1)
-     &           .OR.
-     &           id%ICNTL(12) .NE. 1) ) THEN
-              id%MAXIS1 = 7 * id%N
-            ELSE
-              id%MAXIS1 = 6 * id%N
-            END IF
-          ELSE
-            id%MAXIS1 = 6 * id%N
-          ENDIF
-          ALLOCATE( id%IS1(id%MAXIS1), stat=IERR )
-          IF (IERR.gt.0) THEN
-            id%INFO(1) = -7
-            id%INFO(2) = id%MAXIS1
-            IF ( LPOK ) WRITE(LP,'(A)')
-     &      ' Problem in allocating work array for analysis'
-            GO TO 100
-          END IF
-C
-C         ----------------------
-C         Allocate PROCNODE(1:N)
-C         ----------------------
-          IF ( associated( id%PROCNODE ) )
-     &         DEALLOCATE( id%PROCNODE )
-          ALLOCATE( id%PROCNODE(id%N), stat=IERR )
-          IF (IERR.gt.0) THEN
-            id%INFO(1) = -7
-            id%INFO(2) = id%N
-            IF ( LPOK ) WRITE(LP,'(A)')
-     &        'Problem in allocating work array PROCNODE'
-            GOTO 100
-          END IF
-          id%PROCNODE(1:id%N) = 0
 C         ---------------------------------------
 C         Element entry: allocate ELTPROC(1:NELT)
 C         ---------------------------------------
@@ -1432,7 +1407,7 @@ C              setting a static pointer with a routine with
 C              implicit interface, and then copying this pointer
 C              into id%SCHUR.
                CALL CMUMPS_SET_TMP_PTR(id%SCHUR_CINTERFACE(1),
-     &         id%SIZE_SCHUR*id%SIZE_SCHUR)
+     &         int(id%SIZE_SCHUR,8)*int(id%SIZE_SCHUR,8))
                CALL CMUMPS_GET_TMP_PTR(id%SCHUR)
                NULLIFY(id%SCHUR_CINTERFACE)
              ENDIF
@@ -1683,10 +1658,12 @@ C
             ALLOCATE( id%COLSCA(id%N), stat=IERR)
             IF (IERR .GT.0) THEN
                id%INFO(1)=-13
+               id%INFO(2)=id%N
             ENDIF
             ALLOCATE( id%ROWSCA(id%N), stat=IERR)
             IF (IERR .GT.0) THEN
                id%INFO(1)=-13
+               id%INFO(2)=id%N
             ENDIF
           END IF
 C
@@ -1699,13 +1676,13 @@ C
           END IF
           IF (IERR .GT.0) THEN
              id%INFO(1)=-13
+             id%INFO(2)=1
           ENDIF
           IF (.NOT. associated(id%ROWSCA))
      &    ALLOCATE( id%ROWSCA(1), stat=IERR)
           IF (IERR .GT.0) THEN
-             id%INFO(1)=-13
-          ENDIF
-          IF ( id%INFO(1) .eq. -13 ) THEN
+            id%INFO(1)=-13
+            id%INFO(2)=1
             IF ( LPOK ) WRITE(LP,'(A)')
      &         'Problems in allocations before facto'
             GOTO 200
@@ -1786,8 +1763,8 @@ C    &          id%root%SCHUR_MLOC)
 C             Instead, we set a temporary
 C             pointer and then retrieve it
               CALL CMUMPS_SET_TMP_PTR(id%SCHUR_CINTERFACE(1),
-     &         id%SCHUR_LLD*(id%root%SCHUR_NLOC-1)+
-     &         id%root%SCHUR_MLOC)
+     &         int(id%SCHUR_LLD,8)*int(id%root%SCHUR_NLOC-1,8)+
+     &         int(id%root%SCHUR_MLOC,8))
               CALL CMUMPS_GET_TMP_PTR(id%SCHUR)
               NULLIFY(id%SCHUR_CINTERFACE)
             ENDIF
@@ -1826,8 +1803,7 @@ C              we will use within CMUMPS here.
                   ALLOCATE(id%root%SCHUR_POINTER(1), stat=IERR)
                   IF (IERR .GT.0) THEN
                      id%INFO(1)=-13
-                  ENDIF
-                  IF ( id%INFO(1) .eq. -13 ) THEN
+                     id%INFO(2)=1
                      IF ( LPOK ) THEN
                         WRITE(LP,'(A)')
      &                       'Problems in allocations before facto'
@@ -1999,14 +1975,6 @@ C
       IF (LPOK) WRITE (LP,99994) id%INFO(2)
 *
 500   CONTINUE
-      IF (associated(id%IS1)) THEN
-        DEALLOCATE(id%IS1)
-        NULLIFY(id%IS1)
-      ENDIF
-      IF (associated(id%PROCNODE)) THEN
-        DEALLOCATE(id%PROCNODE)
-        NULLIFY(id%PROCNODE)
-      ENDIF
 #if ! defined(LARGEMATRICES)
 C     ---------------------------------
 C     Permute JCN on output to CMUMPS if
@@ -2282,7 +2250,7 @@ C
      &     'ICNTL(9)   Solve A x=b (1) or A''x = b (else)       =',I10/
      &     'ICNTL(10)  Max steps iterative refinement          =',I10/
      &     'ICNTL(11)  Error analysis (1=all,2=some,else=off)  =',I10/
-     &     'ICNTL(20)  Dense (0) or sparse (1,2,3) RHS         =',I10/
+     &     'ICNTL(20)  Den.(0)/sparse(1,2,3)/dist.(10,11) RHS  =',I10/
      &     'ICNTL(21)  Gathered (0) or distributed(1) solution =',I10)
  998  FORMAT (
      &     '      Size of SCHUR matrix (SIZE_SHUR)             =',I10)
@@ -2392,7 +2360,7 @@ C--------------------------------------------------------------------
      &     'ICNTL(9)   Solve A x=b (1) or A''x = b (else)       =',I10/
      &     'ICNTL(10)  Max steps iterative refinement          =',I10/
      &     'ICNTL(11)  Error analysis ( 0= off, else=on)       =',I10/
-     &     'ICNTL(20)  Dense (0) or sparse (1,2,3) RHS         =',I10/
+     &     'ICNTL(20)  Den.(0)/sparse(1,2,3)/dist.(10,11) RHS  =',I10/
      &     'ICNTL(21)  Gathered (0) or distributed(1) solution =',I10)
       END SUBROUTINE CMUMPS_PRINT_KEEP
       SUBROUTINE CMUMPS_CHECK_DENSE_RHS

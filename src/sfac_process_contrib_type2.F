@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -30,10 +30,8 @@ C
       USE SMUMPS_LR_STATS
       USE SMUMPS_FAC_LR, ONLY: SMUMPS_DECOMPRESS_PANEL
       USE SMUMPS_STRUC_DEF, ONLY : SMUMPS_ROOT_STRUC
-#if ! defined(NODYNAMICCB)
       USE SMUMPS_DYNAMIC_MEMORY_M, ONLY : SMUMPS_DM_SET_DYNPTR,
      &                                    SMUMPS_DM_FREE_BLOCK
-#endif
       IMPLICIT NONE
       TYPE (SMUMPS_ROOT_STRUC) :: root
       INTEGER ICNTL( 60 ), KEEP( 500 )
@@ -94,17 +92,14 @@ C
       INTEGER :: INBPROCFILS_SON 
 #endif
       LOGICAL :: CB_IS_LR
-      INTEGER T1, T2, COUNT_RATE
       INTEGER :: CB_IS_LR_INT, NB_BLR_COLS, allocok,
      &           NBROWS_PACKET_2PACK, PANEL_BEG_OFFSET
       INTEGER(8) :: LA_TEMP
       REAL, ALLOCATABLE :: A_TEMP(:)
       TYPE (LRB_TYPE), POINTER :: LRB
       TYPE (LRB_TYPE), ALLOCATABLE, TARGET :: BLR_CB(:)
-#if ! defined(NODYNAMICCB)
       INTEGER(8) :: IACHK, SIZFR8, DYN_SIZE
       REAL, DIMENSION(:), POINTER :: DYNPTR
-#endif
       POSITION = 0
       CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION, INODE, 1,
      &                 MPI_INTEGER, COMM, IERR )
@@ -124,10 +119,11 @@ C
      &                 CB_IS_LR_INT, 1,
      &                 MPI_INTEGER, COMM, IERR )
       CB_IS_LR = (CB_IS_LR_INT.EQ.1)
-      MASTER     = MUMPS_PROCNODE(PROCNODE_STEPS(STEP(INODE)),SLAVEF)
+      MASTER     = MUMPS_PROCNODE( PROCNODE_STEPS(STEP(INODE)),
+     &                             KEEP(199) )
       SLAVE_NODE = MASTER .NE. MYID
-      TYPESPLIT = MUMPS_TYPESPLIT(PROCNODE_STEPS(STEP(INODE)),
-     &                  SLAVEF)
+      TYPESPLIT = MUMPS_TYPESPLIT( PROCNODE_STEPS(STEP(INODE)),
+     &                             KEEP(199) )
       IS_ofType5or6 = ((TYPESPLIT.EQ.5).OR.(TYPESPLIT.EQ.6))
       IF (SLAVE_NODE .AND. PTRIST(STEP(INODE)) ==0) THEN
         ISHIFT_BUFR     = ( MSGLEN + KEEP(34) ) / KEEP(34)
@@ -255,7 +251,6 @@ C
                 CALL SMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
                 RETURN
               ENDIF
-              CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)             
 !$OMP PARALLEL             
 #endif
@@ -267,9 +262,6 @@ C
 #if defined(BLR_MT)             
 !$OMP END PARALLEL             
 #endif
-              CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-              ACC_DEC_ASMS2S_TIME = ACC_DEC_ASMS2S_TIME +
-     &                  dble(T2-T1)/dble(COUNT_RATE)
               DO I=1,NBROWS_PACKET
                 IF (KEEP(50).EQ.0) THEN
                   ROW_LENGTH = LROW
@@ -350,7 +342,6 @@ C
                 CALL SMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
                 RETURN
               ENDIF
-              CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)             
 !$OMP PARALLEL             
 #endif
@@ -362,9 +353,6 @@ C
 #if defined(BLR_MT)             
 !$OMP END PARALLEL             
 #endif
-              CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-              ACC_DEC_ASMS2M_TIME = ACC_DEC_ASMS2M_TIME +
-     &                  dble(T2-T1)/dble(COUNT_RATE)
               DO I=1,NBROWS_PACKET
                 IF(KEEP(50).NE.0)THEN
                   CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
@@ -473,22 +461,19 @@ C
                ELSE
                   PIMASTER(STEP( ISON )) = -99999999
                ENDIF
-#if ! defined(NODYNAMICCB)
                CALL SMUMPS_DM_SET_DYNPTR( IW(ISTCHK+XXS), A, LA,
      &              PAMASTER(STEP(ISON)), IW(ISTCHK+XXD),
      &              IW(ISTCHK+XXR), DYNPTR, IACHK, SIZFR8)
                CALL MUMPS_GETI8(DYN_SIZE, IW(ISTCHK+XXD))
-#endif
                CALL SMUMPS_FREE_BLOCK_CB_STATIC(
      &              .FALSE., MYID, N, ISTCHK,
      &              IW, LIW, LRLU, LRLUS, IPTRLU, IWPOSCB,
      &              LA, KEEP,KEEP8, .FALSE.
      &              )
-#if ! defined(NODYNAMICCB)
                IF ( DYN_SIZE .GT. 0_8 ) THEN
-                 CALL SMUMPS_DM_FREE_BLOCK(DYNPTR, DYN_SIZE, KEEP8)
+                 CALL SMUMPS_DM_FREE_BLOCK( DYNPTR, DYN_SIZE,
+     &                                      KEEP(405).EQ.1, KEEP8 )
                ENDIF
-#endif
             ENDIF
 #if ! defined(NO_XXNBPR)
             IF (IW(PTLUST(STEP(INODE))+XXNBPR) .EQ. 0) THEN
@@ -497,7 +482,7 @@ C
 #endif
                CALL SMUMPS_INSERT_POOL_N( N, IPOOL, LPOOL,
      &              PROCNODE_STEPS,
-     &              SLAVEF, KEEP(28), KEEP(76), KEEP(80),
+     &              SLAVEF, KEEP(199), KEEP(28), KEEP(76), KEEP(80),
      &              KEEP(47), STEP, INODE+N )
                IF (KEEP(47) .GE. 3) THEN
                   CALL SMUMPS_LOAD_POOL_UPD_NEW_POOL(

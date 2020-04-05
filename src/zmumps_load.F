@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -44,18 +44,7 @@ C
       INTEGER, SAVE, PRIVATE :: SBTR_WHICH_M
       DOUBLE PRECISION, DIMENSION(:),
      &       ALLOCATABLE, TARGET, SAVE, PRIVATE :: WLOAD
-#if defined(OLD_LOAD_MECHANISM)
-#if defined(CHECK_COHERENCE) 
-      INTEGER, SAVE, PRIVATE :: NB_LEVEL2
-      LOGICAL, PRIVATE :: AMI_CHOSEN,IS_DISPLAYED
-#endif
-#endif
-#if ! defined(OLD_LOAD_MECHANISM)
       DOUBLE PRECISION, SAVE, PRIVATE :: DELTA_LOAD, DELTA_MEM
-#else
-      DOUBLE PRECISION, SAVE, PRIVATE :: LAST_LOAD_SENT, 
-     &           DM_LAST_MEM_SENT
-#endif
       LOGICAL, SAVE, PRIVATE :: IS_MUMPS_LOAD_ENABLED
       PUBLIC:: MUMPS_LOAD_ENABLE, MUMPS_LOAD_DISABLE
       INTEGER(8), SAVE, PRIVATE :: CHECK_MEM
@@ -198,12 +187,12 @@ C
        DO WHILE 
      &      (
      &        ( MUMPS_TYPESPLIT 
-     &           (PROCNODE_STEPS(STEP(DAD(STEP(IN)))),SLAVEF)
+     &           (PROCNODE_STEPS(STEP(DAD(STEP(IN)))),KEEP(199))
      &           .EQ.5 
      &        ) 
      &        .OR.
      &        ( MUMPS_TYPESPLIT 
-     &           (PROCNODE_STEPS(STEP(DAD(STEP(IN)))),SLAVEF)
+     &           (PROCNODE_STEPS(STEP(DAD(STEP(IN)))),KEEP(199))
      &           .EQ.6  
      &        ) 
      &      )  
@@ -248,12 +237,12 @@ C
        DO WHILE 
      &      (
      &        ( MUMPS_TYPESPLIT 
-     &           (PROCNODE_STEPS(STEP(DAD(STEP(IN)))),SLAVEF)
+     &           (PROCNODE_STEPS(STEP(DAD(STEP(IN)))),KEEP(199))
      &           .EQ.5 
      &        ) 
      &        .OR.
      &        ( MUMPS_TYPESPLIT 
-     &           (PROCNODE_STEPS(STEP(DAD(STEP(IN)))),SLAVEF)
+     &           (PROCNODE_STEPS(STEP(DAD(STEP(IN)))),KEEP(199))
      &           .EQ.6  
      &        ) 
      &      )  
@@ -469,9 +458,7 @@ C
       SUBROUTINE ZMUMPS_LOAD_INIT( id, MEMORY_MD_ARG, MAXS )
       USE ZMUMPS_BUF
       USE ZMUMPS_STRUC_DEF
-#if ! defined(OLD_LOAD_MECHANISM)
       USE MUMPS_FUTURE_NIV2
-#endif
       IMPLICIT NONE
       TYPE(ZMUMPS_STRUC), TARGET :: id
       INTEGER(8), intent(in) :: MEMORY_MD_ARG
@@ -624,7 +611,6 @@ C
          POS_MEM=1
          POS_ID=1
       ENDIF
-#if ! defined(OLD_LOAD_MECHANISM)
       ALLOCATE(FUTURE_NIV2(NPROCS), stat=allocok)
       IF (allocok > 0 ) THEN
          WRITE(*,*) 'PB allocation in ZMUMPS_LOAD_INIT'
@@ -642,15 +628,7 @@ C
       ENDDO
       DELTA_MEM=ZERO
       DELTA_LOAD=ZERO
-#endif
       CHECK_MEM=0_8
-#if defined(OLD_LOAD_MECHANISM)
-#if defined(CHECK_COHERENCE) 
-      NB_LEVEL2=0
-      AMI_CHOSEN=.FALSE.
-      IS_DISPLAYED=.FALSE.
-#endif
-#endif
       IF(BDC_SBTR.OR.BDC_POOL_MNG)THEN
          NB_SUBTREES=id%NBSA_LOCAL
          IF (allocated(MEM_SUBTREE)) DEALLOCATE(MEM_SUBTREE)
@@ -798,17 +776,10 @@ C
       DO i = 0, NPROCS - 1
          LOAD_FLOPS( i ) = ZERO
       END DO
-#if defined(OLD_LOAD_MECHANISM)
-      LOAD_FLOPS( MYID ) = COST_SUBTREE
-      LAST_LOAD_SENT = ZERO
-#endif
       IF ( BDC_MEM ) THEN
         DO i = 0, NPROCS - 1
           DM_MEM( i )=ZERO
         END DO
-#if defined(OLD_LOAD_MECHANISM)
-        DM_LAST_MEM_SENT=ZERO
-#endif
       ENDIF
       CALL ZMUMPS_INIT_ALPHA_BETA(id%KEEP(69))
       IF(BDC_MD)THEN
@@ -822,9 +793,7 @@ C
          WHAT=8
          CALL ZMUMPS_BUF_BROADCAST( WHAT,
      &        COMM_LD, NPROCS,
-#if ! defined(OLD_LOAD_MECHANISM)
      &        FUTURE_NIV2,
-#endif
      &        dble(MEMORY_MD),dble(0) ,MYID, id%KEEP, IERR  )
          WHAT=9
          MEMORY_SENT = dble(LA-MAX_SURF_MASTER)-MAX_SBTR
@@ -841,9 +810,7 @@ C
          TAB_MAXS(MYID)=int(MEMORY_SENT,8)
          CALL ZMUMPS_BUF_BROADCAST( WHAT,
      &        COMM_LD, NPROCS,
-#if ! defined(OLD_LOAD_MECHANISM)
      &        FUTURE_NIV2,
-#endif
      &        MEMORY_SENT,
      &        dble(0),MYID, id%KEEP, IERR  )
       ENDIF
@@ -852,9 +819,7 @@ C
       SUBROUTINE ZMUMPS_LOAD_UPDATE( CHECK_FLOPS,PROCESS_BANDE,
      &     INC_LOAD, KEEP,KEEP8 )
       USE ZMUMPS_BUF
-#if ! defined(OLD_LOAD_MECHANISM)
       USE MUMPS_FUTURE_NIV2
-#endif
       IMPLICIT NONE
       DOUBLE PRECISION INC_LOAD
       INTEGER KEEP(500)
@@ -885,35 +850,24 @@ C
             RETURN
          ENDIF
       ENDIF
-#if ! defined(OLD_LOAD_MECHANISM)
       IF ( PROCESS_BANDE ) THEN
          RETURN                 
       ENDIF
-#endif
       LOAD_FLOPS( MYID ) = max( LOAD_FLOPS( MYID ) + INC_LOAD, ZERO)
       IF(BDC_M2_FLOPS.AND.REMOVE_NODE_FLAG)THEN
          IF(INC_LOAD.NE.REMOVE_NODE_COST)THEN
             IF(INC_LOAD.GT.REMOVE_NODE_COST)THEN
-#if ! defined(OLD_LOAD_MECHANISM)
                DELTA_LOAD = DELTA_LOAD +
      &              (INC_LOAD-REMOVE_NODE_COST)
                GOTO 888
-#else
-               GOTO 888
-#endif               
             ELSE
-#if ! defined(OLD_LOAD_MECHANISM)
                DELTA_LOAD = DELTA_LOAD -
      &              (REMOVE_NODE_COST-INC_LOAD)
                GOTO 888
-#else
-               GOTO 888
-#endif               
             ENDIF
          ENDIF
          GOTO 333
       ENDIF
-#if ! defined(OLD_LOAD_MECHANISM)
       DELTA_LOAD = DELTA_LOAD + INC_LOAD
  888  CONTINUE
       IF ( DELTA_LOAD > MIN_DIFF .OR. DELTA_LOAD < -MIN_DIFF) THEN
@@ -923,18 +877,6 @@ C
          ELSE
            SEND_MEM = ZERO
          END IF
-#else
- 888  CONTINUE
-      IF ( abs( LOAD_FLOPS ( MYID ) -
-     &     LAST_LOAD_SENT ).GT.MIN_DIFF)THEN
-         IERR = 0
-         SEND_LOAD  = LOAD_FLOPS( MYID )
-         IF ( BDC_MEM ) THEN
-            SEND_MEM = DM_MEM(MYID)
-         ELSE
-            SEND_MEM = ZERO
-         END IF
-#endif
          IF(BDC_SBTR)THEN
            SBTR_TMP=SBTR_CUR(MYID)
          ELSE
@@ -946,9 +888,7 @@ C
      &        SEND_LOAD,
      &        SEND_MEM,SBTR_TMP,
      &        DM_SUMLU,
-#if ! defined(OLD_LOAD_MECHANISM)
      &        FUTURE_NIV2,
-#endif
      &        MYID, KEEP, IERR )
          IF ( IERR == -1 )THEN
              CALL ZMUMPS_LOAD_RECV_MSGS(COMM_LD)
@@ -962,13 +902,8 @@ C
              WRITE(*,*) "Internal Error in ZMUMPS_LOAD_UPDATE",IERR
              CALL MUMPS_ABORT()
          ENDIF
-#if ! defined(OLD_LOAD_MECHANISM)
          DELTA_LOAD = ZERO
          IF (BDC_MEM) DELTA_MEM  = ZERO
-#else      
-         LAST_LOAD_SENT = LOAD_FLOPS( MYID )
-         IF ( BDC_MEM ) DM_LAST_MEM_SENT = DM_MEM( MYID )
-#endif
       ENDIF
  333  CONTINUE
       IF(REMOVE_NODE_FLAG)THEN
@@ -980,9 +915,7 @@ C
      &           PROCESS_BANDE_ARG, MEM_VALUE, NEW_LU, INC_MEM_ARG,
      &           KEEP,KEEP8,LRLUS)
       USE ZMUMPS_BUF
-#if ! defined(OLD_LOAD_MECHANISM)
       USE MUMPS_FUTURE_NIV2
-#endif
       IMPLICIT NONE
       INTEGER(8), INTENT(IN) :: MEM_VALUE, INC_MEM_ARG, NEW_LU,LRLUS
       LOGICAL, INTENT(IN) :: PROCESS_BANDE_ARG, SSARBR
@@ -994,39 +927,14 @@ C
       INTEGER(8) :: INC_MEM
       LOGICAL PROCESS_BANDE
       LOGICAL :: EXIT_FLAG
-#if defined(OLD_LOAD_MECHANISM)
-      DOUBLE PRECISION TMP_MEM
-#endif
       IF (.NOT. IS_MUMPS_LOAD_ENABLED) RETURN
       PROCESS_BANDE=PROCESS_BANDE_ARG
       INC_MEM = INC_MEM_ARG
-#if ! defined(OLD_LOAD_MECHANISM)
       IF ( PROCESS_BANDE .AND. NEW_LU .NE. 0_8) THEN
         WRITE(*,*) " Internal Error in ZMUMPS_LOAD_MEM_UPDATE."
         WRITE(*,*) " NEW_LU must be zero if called from PROCESS_BANDE"
         CALL MUMPS_ABORT()
       ENDIF
-#endif
-#if defined(OLD_LOAD_MECHANISM)
-#if defined(CHECK_COHERENCE) 
-      IF(PROCESS_BANDE)THEN
-         PROCESS_BANDE=.FALSE.
-         NB_LEVEL2=NB_LEVEL2-1
-         IF(NB_LEVEL2.LT.0)THEN
-            WRITE(*,*)MYID,': problem with NB_LEVEL2'
-         ELSEIF(NB_LEVEL2.EQ.0)THEN
-            IF(IS_DISPLAYED)THEN
-               IS_DISPLAYED=.FALSE.
-            ENDIF
-            AMI_CHOSEN=.FALSE.
-         ENDIF
-      ENDIF
-      IF((KEEP(73).EQ.0).AND.(NB_LEVEL2.NE.0)
-     &     .AND.(.NOT.IS_DISPLAYED))THEN
-         IS_DISPLAYED=.TRUE.
-      ENDIF
-#endif
-#endif
       DM_SUMLU = DM_SUMLU + dble(NEW_LU)
       IF(KEEP_LOAD(201).EQ.0)THEN
          CHECK_MEM = CHECK_MEM + INC_MEM
@@ -1039,11 +947,9 @@ C
      &   CHECK_MEM, MEM_VALUE, INC_MEM,NEW_LU
          CALL MUMPS_ABORT()
       ENDIF
-#if ! defined(OLD_LOAD_MECHANISM)
       IF (PROCESS_BANDE) THEN
          RETURN
       ENDIF
-#endif
       IF(BDC_POOL_MNG) THEN
          IF(SBTR_WHICH_M.EQ.0)THEN
             IF (SSARBR) SBTR_CUR_LOCAL = SBTR_CUR_LOCAL+
@@ -1056,14 +962,6 @@ C
       IF ( .NOT. BDC_MEM ) THEN
          RETURN
       ENDIF
-#if defined(OLD_LOAD_MECHANISM)
-      IF(KEEP_LOAD(201).EQ.0)THEN
-         DM_MEM( MYID ) = dble(CHECK_MEM) - DM_SUMLU
-      ELSE
-         DM_MEM( MYID ) = dble(CHECK_MEM)
-      ENDIF
-      TMP_MEM = DM_MEM(MYID)
-#endif
       IF (BDC_SBTR .AND. SSARBR) THEN
          IF((SBTR_WHICH_M.EQ.0).AND.(KEEP(201).NE.0))THEN
             SBTR_CUR(MYID) = SBTR_CUR(MYID)+dble(INC_MEM-NEW_LU)
@@ -1074,7 +972,6 @@ C
       ELSE
         SBTR_TMP=dble(0)
       ENDIF
-#if ! defined(OLD_LOAD_MECHANISM)
       IF ( NEW_LU > 0_8 ) THEN
         INC_MEM = INC_MEM - NEW_LU
       ENDIF
@@ -1101,40 +998,15 @@ C
      &      .GE.0.2d0*dble(LRLUS))))THEN
          IF ( abs(DELTA_MEM) > DM_THRES_MEM ) THEN
             SEND_MEM = DELTA_MEM
-#else
-      IF(BDC_M2_MEM.AND.REMOVE_NODE_FLAG_MEM)THEN
-         IF(INC_MEM.NE.REMOVE_NODE_COST_MEM)THEN
-            IF(INC_MEM.EQ.REMOVE_NODE_COST_MEM)THEN               
-               GOTO 333
-            ELSEIF(INC_MEM.LT.REMOVE_NODE_COST_MEM)THEN
-               GOTO 333
-            ENDIF
-         ENDIF
-      ENDIF
-      IF ((KEEP(48).NE.5).OR.
-     &     ((KEEP(48).EQ.5).AND.
-     &      (abs(TMP_MEM-DM_LAST_MEM_SENT).GE.
-     &     0.2d0*dble(LRLUS))))THEN
-         IF ( abs( TMP_MEM-DM_LAST_MEM_SENT) >
-     &     DM_THRES_MEM )  THEN
-            IERR = 0
-            SEND_MEM = TMP_MEM
-#endif
  111        CONTINUE
             CALL ZMUMPS_BUF_SEND_UPDATE_LOAD( 
      &           BDC_SBTR,
      &           BDC_MEM,BDC_MD, COMM_LD,
      &           NPROCS,
-#if ! defined(OLD_LOAD_MECHANISM)
      &           DELTA_LOAD,
-#else
-     &           LOAD_FLOPS( MYID ), 
-#endif
      &           SEND_MEM,SBTR_TMP,
      &           DM_SUMLU,
-#if ! defined(OLD_LOAD_MECHANISM)
      &           FUTURE_NIV2,
-#endif
      &           MYID, KEEP, IERR )
             IF ( IERR == -1 )THEN
               CALL ZMUMPS_LOAD_RECV_MSGS(COMM_LD)
@@ -1148,13 +1020,8 @@ C
               WRITE(*,*) "Internal Error in ZMUMPS_LOAD_MEM_UPDATE",IERR
               CALL MUMPS_ABORT()
             ENDIF
-#if ! defined(OLD_LOAD_MECHANISM)
             DELTA_LOAD = ZERO
             DELTA_MEM  = ZERO
-#else
-            LAST_LOAD_SENT   = LOAD_FLOPS  ( MYID )
-            DM_LAST_MEM_SENT = TMP_MEM
-#endif
          ENDIF
       ENDIF
  333  CONTINUE
@@ -1233,9 +1100,7 @@ C
       END SUBROUTINE ZMUMPS_LOAD_SET_SLAVES
       SUBROUTINE ZMUMPS_LOAD_END( INFO1, NSLAVES, IERR )
       USE ZMUMPS_BUF
-#if ! defined(OLD_LOAD_MECHANISM)
       USE MUMPS_FUTURE_NIV2
-#endif
       IMPLICIT NONE
       INTEGER, INTENT(IN)  :: INFO1
       INTEGER, INTENT(IN)  :: NSLAVES
@@ -1253,9 +1118,7 @@ C
       DEALLOCATE( LOAD_FLOPS )
       DEALLOCATE( WLOAD )
       DEALLOCATE( IDWLOAD )
-#if ! defined(OLD_LOAD_MECHANISM)
       DEALLOCATE(FUTURE_NIV2)
-#endif
       IF(BDC_MD)THEN
          DEALLOCATE(MD_MEM)
          DEALLOCATE(LU_USAGE)
@@ -1345,9 +1208,7 @@ C
       END SUBROUTINE ZMUMPS_LOAD_RECV_MSGS
       RECURSIVE SUBROUTINE ZMUMPS_LOAD_PROCESS_MESSAGE
      &   ( MSGSOU, BUFR, LBUFR, LBUFR_BYTES )
-#if ! defined(OLD_LOAD_MECHANISM)
       USE MUMPS_FUTURE_NIV2
-#endif
       IMPLICIT NONE
       INTEGER MSGSOU, LBUFR, LBUFR_BYTES
       INTEGER BUFR( LBUFR )
@@ -1365,27 +1226,16 @@ C
      &     WHAT, 1, MPI_INTEGER,
      &     COMM_LD, IERR )
       IF ( WHAT == 0 ) THEN
-#if ! defined(OLD_LOAD_MECHANISM)
-#else
-#endif
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LOAD_RECEIVED, 1,
      &     MPI_DOUBLE_PRECISION,
      &     COMM_LD, IERR )
-#if ! defined(OLD_LOAD_MECHANISM)
       LOAD_FLOPS( MSGSOU ) = LOAD_FLOPS(MSGSOU) + LOAD_RECEIVED
-#else
-      LOAD_FLOPS( MSGSOU ) = LOAD_RECEIVED
-#endif
         IF ( BDC_MEM ) THEN
           CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &       LOAD_RECEIVED, 1, MPI_DOUBLE_PRECISION,
      &       COMM_LD, IERR )
-#if ! defined(OLD_LOAD_MECHANISM)
           DM_MEM(MSGSOU)  = DM_MEM(MSGSOU) + LOAD_RECEIVED
-#else
-          DM_MEM(MSGSOU)  = LOAD_RECEIVED
-#endif
           MAX_PEAK_STK=max(MAX_PEAK_STK,DM_MEM(MSGSOU))
         END IF
         IF(BDC_SBTR)THEN
@@ -1417,53 +1267,19 @@ C
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LOAD_INCR(1), NSLAVES, MPI_DOUBLE_PRECISION,
      &     COMM_LD, IERR)
-#if defined(OLD_LOAD_MECHANISM)
-#if defined(CHECK_COHERENCE) 
-        WRITE(*,*)MYID,':Receiving M2A from',MSGSOU
-        i=1
-        DO WHILE ((i.LE.NSLAVES).AND.(LIST_SLAVES(i).NE.MYID))
-           i=i+1
-        ENDDO
-        IF(i.LT.(NSLAVES+1))THEN
-           NB_LEVEL2=NB_LEVEL2+1
-           WRITE(*,*)MYID,':NB_LEVEL2=',NB_LEVEL2
-           AMI_CHOSEN=.TRUE.
-           IF(KEEP_LOAD(73).EQ.1)THEN
-              IF(.NOT.IS_DISPLAYED)THEN
-              WRITE(*,*)MYID,': Begin of Incoherent state (2) at time=',
-     &                MPI_WTIME()-TIME_REF
-              IS_DISPLAYED=.TRUE.
-              ENDIF
-            ENDIF
-        ENDIF
-        IF(KEEP_LOAD(73).EQ.1) GOTO 344
-#endif
-#endif
         DO i = 1, NSLAVES
-#if defined(OLD_LOAD_MECHANISM)
-          IF ( LIST_SLAVES(i) /= MYID ) THEN
-#endif
             LOAD_FLOPS(LIST_SLAVES(i)) =
      &      LOAD_FLOPS(LIST_SLAVES(i)) + 
      &      LOAD_INCR(i)
-#if defined(OLD_LOAD_MECHANISM)
-          END IF
-#endif
         END DO
         IF ( BDC_MEM ) THEN
           CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LOAD_INCR(1), NSLAVES, MPI_DOUBLE_PRECISION,
      &     COMM_LD, IERR)
           DO i = 1, NSLAVES
-#if defined(OLD_LOAD_MECHANISM)
-            IF ( LIST_SLAVES(i) /= MYID ) THEN
-#endif
               DM_MEM(LIST_SLAVES(i)) = DM_MEM(LIST_SLAVES(i)) + 
      &        LOAD_INCR(i)
               MAX_PEAK_STK=max(MAX_PEAK_STK,DM_MEM(LIST_SLAVES(i)))
-#if defined(OLD_LOAD_MECHANISM)
-            END IF
-#endif
           END DO
         END IF
         IF(WHAT.EQ.19)THEN
@@ -1483,11 +1299,6 @@ C
               POS_MEM=POS_MEM+1
            ENDDO
         ENDIF
-#if defined(OLD_LOAD_MECHANISM)
-#if defined(CHECK_COHERENCE) 
- 344    CONTINUE
-#endif
-#endif
         NULLIFY( LIST_SLAVES )
         NULLIFY( LOAD_INCR )
       ELSE IF (WHAT == 2 ) THEN
@@ -1510,7 +1321,6 @@ C
      &     MPI_DOUBLE_PRECISION,
      &     COMM_LD, IERR )
         SBTR_MEM(MSGSOU)=SBTR_MEM(MSGSOU)+LOAD_RECEIVED
-#if ! defined(OLD_LOAD_MECHANISM)
       ELSE IF (WHAT == 4) THEN
         FUTURE_NIV2(MSGSOU+1)=0
         IF(BDC_MD)THEN
@@ -1520,7 +1330,6 @@ C
           MD_MEM(MSGSOU)=999999999_8
           TAB_MAXS(MSGSOU)=TAB_MAXS(MSGSOU)+int(SURF,8)
         ENDIF
-#endif
         IF(BDC_M2_MEM.OR.BDC_M2_FLOPS)THEN
         ENDIF
       ELSE IF (WHAT == 5) THEN
@@ -1548,7 +1357,7 @@ C
      &              COMM_LD, IERR )   
             IF(
      &          MUMPS_TYPENODE(PROCNODE_LOAD(STEP_LOAD(INODE_RECEIVED)),
-     &                         NPROCS).EQ.1
+     &                         KEEP_LOAD(199)).EQ.1
      &        )THEN
                CB_COST_ID(POS_ID)=INODE_RECEIVED
                CB_COST_ID(POS_ID+1)=1
@@ -1596,11 +1405,7 @@ C
      &           MPI_DOUBLE_PRECISION,
      &           COMM_LD, IERR )
             IF(BDC_MD)THEN
-#if ! defined(OLD_LOAD_MECHANISM)
                DM_MEM(MYID)=DM_MEM(MYID)+LOAD_RECEIVED
-#else
-               DM_MEM(MYID)=LOAD_RECEIVED
-#endif
             ELSEIF(BDC_POOL)THEN
                POOL_MEM(MSGSOU)=LOAD_RECEIVED
             ENDIF
@@ -1619,11 +1424,7 @@ C
      &           LOAD_RECEIVED, 1,
      &           MPI_DOUBLE_PRECISION,
      &           COMM_LD, IERR )
-#if ! defined(OLD_LOAD_MECHANISM)
             LOAD_FLOPS( MSGSOU ) = LOAD_FLOPS(MSGSOU) + LOAD_RECEIVED
-#else
-            LOAD_FLOPS( MSGSOU ) = LOAD_RECEIVED
-#endif
          ENDIF
       ELSEIF ( WHAT == 7 ) THEN
          IF(.NOT.BDC_MD)THEN
@@ -1646,20 +1447,12 @@ C
      &     LOAD_INCR(1), NSLAVES, MPI_DOUBLE_PRECISION,
      &     COMM_LD, IERR)
         DO i = 1, NSLAVES
-#if defined(OLD_LOAD_MECHANISM)
-          IF ( LIST_SLAVES(i) /= MYID ) THEN
-#endif
             MD_MEM(LIST_SLAVES(i)) =
      &      MD_MEM(LIST_SLAVES(i)) + 
      &      int(LOAD_INCR(i),8)
-#if ! defined(OLD_LOAD_MECHANISM)
             IF(FUTURE_NIV2(LIST_SLAVES(i)+1).EQ.0)THEN
                MD_MEM(LIST_SLAVES(i))=999999999_8
             ENDIF
-#endif
-#if defined(OLD_LOAD_MECHANISM)
-          END IF
-#endif
         END DO
       ELSEIF ( WHAT == 8 ) THEN
          IF(.NOT.BDC_MD)THEN
@@ -1672,11 +1465,9 @@ C
      &     MPI_DOUBLE_PRECISION,
      &     COMM_LD, IERR )
         MD_MEM(MSGSOU)=MD_MEM(MSGSOU)+int(LOAD_RECEIVED,8)
-#if ! defined(OLD_LOAD_MECHANISM)
         IF(FUTURE_NIV2(MSGSOU+1).EQ.0)THEN
            MD_MEM(MSGSOU)=999999999_8
         ENDIF
-#endif
       ELSEIF ( WHAT == 9 ) THEN
          IF(.NOT.BDC_MD)THEN
             WRITE(*,*)MYID,': Internal error 6
@@ -1873,9 +1664,7 @@ C
       SUBROUTINE ZMUMPS_LOAD_MASTER_2_ALL(MYID, SLAVEF, COMM,
      &     TAB_POS, NASS, KEEP,KEEP8, LIST_SLAVES, NSLAVES,INODE)
       USE ZMUMPS_BUF
-#if ! defined(OLD_LOAD_MECHANISM)
       USE MUMPS_FUTURE_NIV2
-#endif
       IMPLICIT NONE
       INTEGER, INTENT (IN) :: MYID, SLAVEF, COMM, NASS, NSLAVES
       INTEGER, INTENT (IN) :: TAB_POS(SLAVEF+2)
@@ -1911,8 +1700,6 @@ C
       ELSE
          WHAT=19
       ENDIF
-#if ! defined(OLD_LOAD_MECHANISM) 
-#if ! defined(IBC_TEST)
       FUTURE_NIV2(MYID+1) = FUTURE_NIV2(MYID+1) - 1
       IF ( FUTURE_NIV2(MYID+1) < 0 ) THEN
         WRITE(*,*) "Internal error in ZMUMPS_LOAD_MASTER_2_ALL"
@@ -1937,8 +1724,6 @@ C
         ENDIF
       TAB_MAXS(MYID) = TAB_MAXS(MYID) + int(MAX_SURF_MASTER,8)
       ENDIF
-#endif
-#endif
       IF ( NSLAVES /= TAB_POS(SLAVEF + 2) ) THEN
         write(*,*) "Error 1 in ZMUMPS_LOAD_MASTER_2_ALL",
      &             NSLAVES, TAB_POS(SLAVEF+2)
@@ -1992,9 +1777,7 @@ C
       ENDIF
  111  CONTINUE
       CALL ZMUMPS_BUF_BCAST_ARRAY(BDC_MEM, COMM, MYID, SLAVEF,
-#if ! defined(OLD_LOAD_MECHANISM)
      &     FUTURE_NIV2,
-#endif
      &     NSLAVES, LIST_SLAVES,INODE,
      &     MEM_INCREMENT,
      &     FLOPS_INCREMENT,CB_BAND, WHAT, KEEP, IERR)
@@ -2011,9 +1794,7 @@ C
      &    IERR
           CALL MUMPS_ABORT()
         ENDIF
-#if ! defined(OLD_LOAD_MECHANISM)
       IF (FUTURE_NIV2(MYID+1) .NE. 0) THEN
-#endif
         DO i = 1, NSLAVES
           LOAD_FLOPS(LIST_SLAVES(i)) = LOAD_FLOPS(LIST_SLAVES(i))
      &       +  FLOPS_INCREMENT(i)
@@ -2022,9 +1803,7 @@ C
      &       +  MEM_INCREMENT(i)
           END IF
         ENDDO
-#if ! defined(OLD_LOAD_MECHANISM)
       ENDIF
-#endif
  100  CONTINUE
       DEALLOCATE(MEM_INCREMENT,FLOPS_INCREMENT,CB_BAND)
       RETURN
@@ -2034,9 +1813,7 @@ C
      &     PROCNODE, KEEP,KEEP8, SLAVEF, COMM, MYID, STEP, N,
      &     ND, FILS )
       USE ZMUMPS_BUF
-#if ! defined(OLD_LOAD_MECHANISM)
       USE MUMPS_FUTURE_NIV2
-#endif
       IMPLICIT NONE
       INTEGER LPOOL, SLAVEF, COMM, MYID 
       INTEGER N, KEEP(500)
@@ -2112,7 +1889,7 @@ C
           GOTO 10
         ENDIF
         NFR = ND( STEP(INODE) )
-        LEVEL = MUMPS_TYPENODE( PROCNODE(STEP(INODE)), SLAVEF )
+        LEVEL = MUMPS_TYPENODE( PROCNODE(STEP(INODE)), KEEP(199) )
         IF (LEVEL .EQ. 1) THEN
           COST = dble( NFR ) * dble( NFR )
         ELSE
@@ -2128,9 +1905,7 @@ C
  111    CONTINUE
         CALL ZMUMPS_BUF_BROADCAST( WHAT,
      &         COMM, SLAVEF,
-#if ! defined(OLD_LOAD_MECHANISM)
      &               FUTURE_NIV2,
-#endif
      &         COST, dble(0), MYID, KEEP, IERR  )
         POOL_LAST_COST_SENT = COST
         POOL_MEM(MYID)=COST
@@ -2152,9 +1927,7 @@ C
       SUBROUTINE ZMUMPS_LOAD_SBTR_UPD_NEW_POOL(
      &     OK,INODE,POOL,LPOOL,MYID,SLAVEF,COMM,KEEP,KEEP8)
       USE ZMUMPS_BUF
-#if ! defined(OLD_LOAD_MECHANISM)
       USE MUMPS_FUTURE_NIV2
-#endif
       IMPLICIT NONE
       INTEGER LPOOL,MYID,SLAVEF,COMM,INODE
       INTEGER POOL(LPOOL),KEEP(500)
@@ -2169,11 +1942,12 @@ C
          RETURN
       ENDIF
       IF (.NOT.MUMPS_IN_OR_ROOT_SSARBR(
-     &     PROCNODE_LOAD(STEP_LOAD(INODE)), NPROCS)
+     &     PROCNODE_LOAD(STEP_LOAD(INODE)), KEEP(199))
      &   ) THEN
          RETURN         
       ENDIF
-      IF(MUMPS_ROOTSSARBR(PROCNODE_LOAD(STEP_LOAD(INODE)),NPROCS))THEN
+      IF(MUMPS_ROOTSSARBR(PROCNODE_LOAD(STEP_LOAD(INODE)),
+     &         KEEP(199)))THEN
          IF(NE_LOAD(STEP_LOAD(INODE)).EQ.0)THEN
             RETURN
          ENDIF
@@ -2193,9 +1967,7 @@ C
  111        CONTINUE
             CALL ZMUMPS_BUF_BROADCAST(
      &           WHAT, COMM, SLAVEF,
-#if ! defined(OLD_LOAD_MECHANISM)
      &           FUTURE_NIV2,
-#endif
      &           dble(MEM_SUBTREE(INDICE_SBTR)), dble(0),
      &           MYID, KEEP, IERR  )
             IF ( IERR == -1 )THEN
@@ -2226,9 +1998,7 @@ C
  112           CONTINUE
                CALL ZMUMPS_BUF_BROADCAST(
      &              WHAT, COMM, SLAVEF,
-#if ! defined(OLD_LOAD_MECHANISM)
      &              FUTURE_NIV2,
-#endif
      &              COST, dble(0), MYID, KEEP, IERR  )
                IF ( IERR == -1 )THEN
                   CALL ZMUMPS_LOAD_RECV_MSGS(COMM_LD)
@@ -4921,7 +4691,7 @@ C
             IF(NBINSUBTREE.NE.0)THEN
                INODE = POOL( NBINSUBTREE )
                IF(.NOT.MUMPS_IN_OR_ROOT_SSARBR(PROCNODE(STEP(INODE)),
-     &              SLAVEF))THEN
+     &              KEEP(199)))THEN
                   WRITE(*,*)
      &        'Internal error 1 in ZMUMPS_LOAD_POOL_CHECK_MEM'
                   CALL MUMPS_ABORT()
@@ -4967,7 +4737,8 @@ C
         GOTO 10
       ENDIF
       NFR = ND_LOAD( STEP_LOAD(INODE) ) + KEEP_LOAD(253)
-      LEVEL = MUMPS_TYPENODE( PROCNODE_LOAD(STEP_LOAD(INODE)), NPROCS )
+      LEVEL = MUMPS_TYPENODE( PROCNODE_LOAD(STEP_LOAD(INODE)),
+     &                        KEEP_LOAD(199) )
       IF (LEVEL .EQ. 1) THEN
         COST =  dble(NFR) * dble(NFR)
       ELSE
@@ -4982,9 +4753,7 @@ C
       END FUNCTION ZMUMPS_LOAD_GET_MEM
       RECURSIVE SUBROUTINE ZMUMPS_NEXT_NODE(FLAG,COST,COMM)
       USE ZMUMPS_BUF
-#if ! defined(OLD_LOAD_MECHANISM)
       USE MUMPS_FUTURE_NIV2
-#endif
       IMPLICIT NONE
       INTEGER COMM,WHAT,IERR
       LOGICAL FLAG, EXIT_FLAG
@@ -4995,25 +4764,15 @@ C
       IF(FLAG)THEN
          WHAT=17 
          IF(BDC_M2_FLOPS)THEN
-#if ! defined(OLD_LOAD_MECHANISM)
             TO_BE_SENT=DELTA_LOAD-COST
             DELTA_LOAD=dble(0)
-#else
-            TO_BE_SENT=LAST_LOAD_SENT-COST
-            LAST_LOAD_SENT=LAST_LOAD_SENT-COST
-#endif
          ELSE IF(BDC_M2_MEM)THEN
             IF(BDC_POOL.AND.(.NOT.BDC_MD))THEN
                TO_BE_SENT=max(TMP_M2,POOL_LAST_COST_SENT)
                POOL_LAST_COST_SENT=TO_BE_SENT
             ELSE IF(BDC_MD)THEN
-#if ! defined(OLD_LOAD_MECHANISM)
                DELTA_MEM=DELTA_MEM+TMP_M2
                TO_BE_SENT=DELTA_MEM
-#else
-               TO_BE_SENT=DM_LAST_MEM_SENT+TMP_M2
-               DM_LAST_MEM_SENT=DM_LAST_MEM_SENT+TMP_M2
-#endif
             ELSE
                TO_BE_SENT=dble(0)
             ENDIF
@@ -5025,9 +4784,7 @@ C
  111  CONTINUE
       CALL ZMUMPS_BUF_BROADCAST( WHAT,
      &         COMM, NPROCS,
-#if ! defined(OLD_LOAD_MECHANISM)
      &               FUTURE_NIV2,
-#endif
      &         COST, 
      &         TO_BE_SENT, 
      &         MYID, KEEP_LOAD, IERR  )
@@ -5090,10 +4847,10 @@ C
          RETURN 
       ENDIF
       IF(MUMPS_IN_OR_ROOT_SSARBR(PROCNODE(STEP(FATHER_NODE)),
-     &            SLAVEF)) THEN
+     &            KEEP(199))) THEN
          RETURN
       ENDIF
-      FATHER=MUMPS_PROCNODE(PROCNODE(STEP(FATHER_NODE)),SLAVEF)
+      FATHER=MUMPS_PROCNODE(PROCNODE(STEP(FATHER_NODE)),KEEP(199))
       IF(FATHER.EQ.MYID)THEN
         IF(BDC_M2_MEM)THEN
            CALL ZMUMPS_PROCESS_NIV2_MEM_MSG(FATHER_NODE)
@@ -5102,7 +4859,7 @@ C
         ENDIF
         IF((KEEP(81).EQ.2).OR.(KEEP(81).EQ.3))THEN
            IF(MUMPS_TYPENODE(PROCNODE_LOAD(STEP_LOAD(INODE)),
-     &          NPROCS).EQ.1)THEN
+     &          KEEP(199)).EQ.1)THEN
               CB_COST_ID(POS_ID)=INODE
               CB_COST_ID(POS_ID+1)=1
               CB_COST_ID(POS_ID+2)=POS_MEM
@@ -5270,9 +5027,7 @@ C
       RETURN
       END SUBROUTINE ZMUMPS_PROCESS_NIV2_FLOPS_MSG
       DOUBLE PRECISION FUNCTION ZMUMPS_LOAD_GET_FLOPS_COST(INODE)
-#if ! defined(OLD_LOAD_MECHANISM)
       USE MUMPS_FUTURE_NIV2
-#endif
       INTEGER INODE
       INTEGER NFRONT,NELIM,i,LEVEL
       EXTERNAL MUMPS_TYPENODE
@@ -5287,7 +5042,8 @@ C
         GOTO 10
       ENDIF
       NFRONT = ND_LOAD( STEP_LOAD(INODE) ) + KEEP_LOAD(253)
-      LEVEL = MUMPS_TYPENODE( PROCNODE_LOAD(STEP_LOAD(INODE)), NPROCS )
+      LEVEL = MUMPS_TYPENODE( PROCNODE_LOAD(STEP_LOAD(INODE)),
+     &        KEEP_LOAD(199) )
       COST=dble(0)
       CALL MUMPS_GET_FLOPS_COST(NFRONT,NELIM,NELIM,
      &                          KEEP_LOAD(50),LEVEL,COST)
@@ -5327,9 +5083,7 @@ C
      &     TAB_POS, NASS, KEEP,KEEP8, LIST_SLAVES,
      &     NSLAVES,INODE)
       USE ZMUMPS_BUF
-#if ! defined(OLD_LOAD_MECHANISM)
       USE MUMPS_FUTURE_NIV2
-#endif
       IMPLICIT NONE
       INTEGER, INTENT (IN) :: SLAVEF, NASS, NSLAVES
       INTEGER, INTENT (IN) :: NMB_OF_CAND
@@ -5389,9 +5143,7 @@ C
       WHAT=7
  111  CONTINUE
       CALL ZMUMPS_BUF_BCAST_ARRAY(.FALSE., COMM_LD, MYID, SLAVEF,
-#if ! defined(OLD_LOAD_MECHANISM)
      &     FUTURE_NIV2,
-#endif
      &     NP_TO_UPDATE, P_TO_UPDATE,0,
      &     DELTA_MD, 
      &     DELTA_MD, 
@@ -5410,21 +5162,15 @@ C
      &   IERR
          CALL MUMPS_ABORT()
       ENDIF
-#if ! defined(OLD_LOAD_MECHANISM)
       IF (FUTURE_NIV2(MYID+1) .NE. 0) THEN
-#endif
         DO i = 1, NP_TO_UPDATE
            MD_MEM(P_TO_UPDATE(i))=MD_MEM(P_TO_UPDATE(i))+
      &          int(DELTA_MD( i ),8)
-#if ! defined(OLD_LOAD_MECHANISM)
            IF(FUTURE_NIV2(P_TO_UPDATE(i)+1).EQ.0)THEN
               MD_MEM(P_TO_UPDATE(i))=999999999_8
            ENDIF
-#endif
         ENDDO
-#if ! defined(OLD_LOAD_MECHANISM)
       ENDIF
-#endif
  100  CONTINUE
       DEALLOCATE(DELTA_MD,P_TO_UPDATE,IPROC2POSINDELTAMD)
       RETURN
@@ -5442,9 +5188,7 @@ C
      &     dble(NFR)
       END SUBROUTINE ZMUMPS_LOAD_GET_ESTIM_MEM_COST
       SUBROUTINE ZMUMPS_LOAD_CLEAN_MEMINFO_POOL(INODE)
-#if ! defined(OLD_LOAD_MECHANISM)
       USE MUMPS_FUTURE_NIV2
-#endif
       IMPLICIT NONE
       INTEGER INODE
       INTEGER i,J,SON,NSLAVES_TEMP,POS_TEMP,K
@@ -5472,18 +5216,17 @@ C
             ENDDO
  295        CONTINUE
             IF(J.GE.POS_ID)THEN
-               IF(MUMPS_PROCNODE(
-     &            PROCNODE_LOAD(STEP_LOAD(INODE)),NPROCS).EQ.MYID)THEN
+               IF ( MUMPS_PROCNODE(
+     &                PROCNODE_LOAD(STEP_LOAD(INODE)),
+     &                KEEP_LOAD(199) ) .EQ. MYID ) THEN
                   IF(INODE.EQ.KEEP_LOAD(38))THEN
                      GOTO 666
-#if ! defined(OLD_LOAD_MECHANISM)
                   ELSE
                      IF(FUTURE_NIV2(MYID+1).NE.0)THEN
                         WRITE(*,*)MYID,': i did not find ',SON
                         CALL MUMPS_ABORT()
                      ENDIF
                      GOTO 666
-#endif
                   ENDIF
                ELSE
                   GOTO 666
@@ -5563,9 +5306,7 @@ C
  777  CONTINUE
       END SUBROUTINE ZMUMPS_CHECK_SBTR_COST
       SUBROUTINE ZMUMPS_LOAD_COMP_MAXMEM_POOL(INODE,MAX_MEM,PROC)
-#if ! defined(OLD_LOAD_MECHANISM)
       USE MUMPS_FUTURE_NIV2
-#endif
       IMPLICIT NONE
       INTEGER INODE,PROC
       INTEGER i,POS,NSLAVES,SLAVE,NCAND,J,NELIM,NCB,NFRONT,SON,K
@@ -5577,26 +5318,10 @@ C
      &     RECV_BUF
       LOGICAL, DIMENSION(:), ALLOCATABLE :: CONCERNED
       DOUBLE PRECISION MAX_SENT_MSG
-#if  defined(NOT_ATM_POOL_SPECIAL)
-     DOUBLE PRECISION TMP
-#endif
       IF((FRERE_LOAD(STEP_LOAD(INODE)).EQ.0)
      &           .AND.(INODE.EQ.KEEP_LOAD(38)))THEN
          RETURN
       ENDIF
-#if  defined(NOT_ATM_POOL_SPECIAL)
-      IF((INODE.LT.0).OR.(INODE.GT.N_LOAD))THEN
-         MAX_MEM=huge(MAX_MEM)
-         DO i=0,NPROCS-1
-            TMP=dble(TAB_MAXS(i))-(DM_MEM(i)+LU_USAGE(i))
-            IF(BDC_SBTR)THEN
-               TMP=TMP-(SBTR_MEM(i)-SBTR_CUR(i))
-            ENDIF
-            MAX_MEM=min(MAX_MEM,TMP)
-         ENDDO
-         RETURN
-      ENDIF
-#endif
       ALLOCATE( MEM_ON_PROCS(0:NPROCS-1), stat=allocok)
       IF ( allocok > 0 ) THEN
         WRITE(*,*) 'PB allocation in ZMUMPS_LOAD_COMP_MAXMEM_POOL'
@@ -5626,7 +5351,7 @@ C
       NFRONT=ND_LOAD(STEP_LOAD(INODE)) + KEEP_LOAD(253)
       NCB=NFRONT-NELIM
       IF(MUMPS_TYPENODE(PROCNODE_LOAD(STEP_LOAD(INODE)),
-     &     NPROCS).EQ.2)THEN
+     &     KEEP_LOAD(199)).EQ.2)THEN
          NCAND=CAND_LOAD(NPROCS+1, STEP_TO_NIV2_LOAD(STEP_LOAD(INODE)))
       ENDIF
       DO i=0,NPROCS-1
@@ -5648,7 +5373,7 @@ C
             ENDIF
          ENDIF
          IF(MUMPS_TYPENODE(PROCNODE_LOAD(STEP_LOAD(INODE)),
-     &        NPROCS).EQ.2)THEN
+     &        KEEP_LOAD(199)).EQ.2)THEN
             IF(BDC_MD.AND.(KEEP_LOAD(48).EQ.5))THEN
                DO J=1,NCAND
                   IF(CAND_LOAD(J, STEP_TO_NIV2_LOAD(STEP_LOAD(INODE)))
@@ -5671,13 +5396,11 @@ C
          ENDDO
  295     CONTINUE
          IF(i.GE.POS_ID)THEN
-#if ! defined(OLD_LOAD_MECHANISM)
             IF(FUTURE_NIV2(MYID+1).NE.0)THEN
                WRITE(*,*)MYID,': ',SON,'has not been found
      & in ZMUMPS_LOAD_COMP_MAXMEM_POOL'
                CALL MUMPS_ABORT()
             ENDIF
-#endif
             GOTO 777
          ENDIF
          NSLAVES=CB_COST_ID(i+1)
@@ -5741,8 +5464,8 @@ C
             i=SON
  120        CONTINUE
             IF ( i > 0 ) THEN
-               IF(MUMPS_PROCNODE(PROCNODE_LOAD(STEP_LOAD(i)),NPROCS).EQ.
-     &              MIN_PROC)THEN
+               IF( MUMPS_PROCNODE(PROCNODE_LOAD(STEP_LOAD(i)),
+     &             KEEP_LOAD(199)) .EQ.  MIN_PROC ) THEN
                   SBTR_NB_LEAF=MY_NB_LEAF(J)
                   POS=SBTR_FIRST_POS_IN_POOL(J)
                   IF(POOL(POS+SBTR_NB_LEAF).NE.MY_FIRST_LEAF(J))THEN
@@ -5790,17 +5513,7 @@ C
          ENDDO
       ENDIF
       DO J=NBTOP,1,-1
-#if defined(NOT_ATM_POOL_SPECIAL)
-         IF ( POOL(LPOOL-2-J) < 0 ) THEN
-            NODE=-POOL(LPOOL-2-J)
-         ELSE IF ( POOL(LPOOL-2-J) > N_LOAD ) THEN
-            NODE = POOL(LPOOL-2-J) - N_LOAD
-         ELSE
-            NODE = POOL(LPOOL-2-J)
-         ENDIF
-#else
          NODE=POOL(LPOOL-2-J)
-#endif
          FATHER=DAD_LOAD(STEP_LOAD(NODE))
          i=FATHER
  11      CONTINUE
@@ -5812,8 +5525,8 @@ C
          i=SON
  12      CONTINUE
          IF ( i > 0 ) THEN
-            IF(MUMPS_PROCNODE(PROCNODE_LOAD(STEP_LOAD(i)),NPROCS).EQ.
-     &           MIN_PROC)THEN
+            IF( MUMPS_PROCNODE(PROCNODE_LOAD(STEP_LOAD(i)),
+     &          KEEP_LOAD(199)) .EQ. MIN_PROC ) THEN
                INODE=NODE
                RETURN
             ENDIF
@@ -5834,7 +5547,7 @@ C
       DO i=NB_SUBTREES,1,-1
          DO WHILE(MUMPS_ROOTSSARBR(
      &            PROCNODE_LOAD(STEP_LOAD(POOL(POS+1))),
-     &            NPROCS))
+     &            KEEP(199)))
             POS=POS+1
          ENDDO
          SBTR_FIRST_POS_IN_POOL(i)=POS+1
@@ -5915,9 +5628,7 @@ C
          ENDIF
          J=J+1
       ENDDO
-#if ! defined(FORCE_REGULAR_NIV2_EMGS_SOLVE)
       IF (K50.EQ.0) THEN
-#endif
          ACC=0
          J=PROCS(SLAVEF+1)-NB_SUP+1
          DO i=1,NB_SUP
@@ -5980,7 +5691,6 @@ C
                ENDDO
             ENDIF
          ENDIF
-#if !defined(FORCE_REGULAR_NIV2_EMGS_SOLVE)
       ELSE
          ACC=0
          i=PROCS(SLAVEF+1)-NB_SUP+1
@@ -6063,7 +5773,6 @@ C
             ENDIF
          ENDIF
       ENDIF
-#endif
  777  CONTINUE
       NSLAVES=0
       ACC=1

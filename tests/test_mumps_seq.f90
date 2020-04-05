@@ -1,7 +1,9 @@
 ! we do "use mpi" to be compatible with Windows Intel 2019
 use, intrinsic:: iso_fortran_env, only: output_unit, error_unit
 
-implicit none
+implicit none (external)
+
+external :: dmumps
 
 include 'dmumps_struc.h'  ! per MUMPS manual
 type(DMUMPS_STRUC) :: mumps_par

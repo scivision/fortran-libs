@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -46,10 +46,8 @@ C     ===============
 C     
 C     
 C     Pointers inside integer array, various data
-      INTEGER IKEEP, FILS, FRERE, NFSIZ
-      INTEGER NE, NA
+      INTEGER IKEEP, NE, NA
       INTEGER I, allocok
-      INTEGER MAXIS1_CHECK
 C     Other locals
       INTEGER NB_NIV2, IDEST
       INTEGER :: STATUS(MPI_STATUS_SIZE)
@@ -59,6 +57,7 @@ C     Other locals
       INTEGER IRANK
       INTEGER MP, LP, MPG
       LOGICAL PROK, PROKG, LISTVAR_SCHUR_2BE_FREED, LPOK
+      LOGICAL READY_FOR_ANA_F
       INTEGER SIZE_SCHUR_PASSED
       INTEGER SBUF_SEND_FR, SBUF_REC_FR
       INTEGER SBUF_SEND_LR, SBUF_REC_LR
@@ -68,13 +67,28 @@ C     Other locals
       INTEGER(8) MAX_SIZE_FACTOR_TMP
       INTEGER LEAF, INODE, ISTEP, INN, LPTRAR
       INTEGER NBLEAF, NBROOT, MYROW_CHECK, INIV2
+      DOUBLE PRECISION TIMEG
+      INTEGER(8) ::  MAX_FRONT_SURFACE_LOCAL_L0, 
+     &               MAX_SIZE_FACTOR_L0,
+     &               ENTRIES_IN_FACTORS_UNDER_L0, 
+     &               ENTRIES_IN_FACTORS_MASTERS_UNDER_LO
+      INTEGER             :: MAXFR_UNDER_L0
+      DOUBLE PRECISION    :: COST_SUBTREES_UNDER_L0, OPSA_UNDER_L0
 C     to store the size of the sequencial peak of stack
 C     (or an estimation for not calling REORDER_TREE_N )
-      DOUBLE PRECISION PEAK
+      DOUBLE PRECISION      :: PEAK
+      INTEGER(8)::  SIZECB_UNDER_L0, SIZECB_UNDER_L0_IF_LRCB
+      LOGICAL   :: ABOVE_L0
 C     
 C     INTEGER WORKSPACE 
 C     
-      INTEGER, ALLOCATABLE, DIMENSION(:) :: PAR2_NODES
+      INTEGER, ALLOCATABLE, DIMENSION(:):: IPOOL
+      INTEGER                           :: LIPOOL
+      INTEGER, ALLOCATABLE, TARGET, DIMENSION(:) :: PAR2_NODES
+      INTEGER, DIMENSION(:), POINTER             :: PAR2_NODESPTR
+      INTEGER          :: SIZE_PAR2_NODESPTR
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: PROCNODE
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: MAPCOL
       INTEGER, DIMENSION(:), ALLOCATABLE :: IWtemp
       INTEGER, DIMENSION(:), ALLOCATABLE :: XNODEL, NODEL
       INTEGER, DIMENSION(:), POINTER :: SSARBR
@@ -86,15 +100,23 @@ C     Element matrix entry
       DOUBLE PRECISION, DIMENSION(:), POINTER :: RINFO
       DOUBLE PRECISION, DIMENSION(:), POINTER :: RINFOG
       INTEGER, DIMENSION(:), POINTER :: ICNTL
-      LOGICAL I_AM_SLAVE, PERLU_ON, COND
+      LOGICAL :: I_AM_SLAVE, PERLU_ON, COND
       INTEGER :: OOC_STRAT, BLR_STRAT
       INTEGER :: IDUMMY
+      INTEGER, TARGET    :: IDUMMY_ARRAY(1)
+      INTEGER, POINTER, DIMENSION(:) :: IRN_loc_PTR
+      INTEGER, POINTER, DIMENSION(:) :: JCN_loc_PTR
+      INTEGER, POINTER, DIMENSION(:) :: SIZEOFBLOCKS_PTR
+      INTEGER, POINTER, DIMENSION(:) :: UNS_PERM_PTR
+      INTEGER :: LSIZEOFBLOCKS_PTR
       LOGICAL :: BDUMMY
       INTEGER(8) :: K8_33relaxed, K8_34relaxed, K8_35relaxed,
      &              K8_50relaxed
       LOGICAL :: SUM_OF_PEAKS
       INTEGER MUMPS_TYPENODE, MUMPS_PROCNODE
       EXTERNAL MUMPS_TYPENODE, MUMPS_PROCNODE
+      INTEGER, EXTERNAL :: MUMPS_ENCODE_TPN_IPROC
+      INTEGER :: PROCNODE_VALUE
       INTEGER K,J, IFS
       INTEGER SIZE_TEMP_MEM,SIZE_DEPTH_FIRST,SIZE_COST_TRAV
       LOGICAL IS_BUILD_LOAD_MEM_CALLED
@@ -108,16 +130,20 @@ C     Element matrix entry
       INTEGER, DIMENSION (:), ALLOCATABLE :: SBTR_ID
       DOUBLE PRECISION, DIMENSION (:), ALLOCATABLE :: COST_TRAV_TMP
       INTEGER(8) :: TOTAL_BYTES, ITMP8
-      INTEGER, POINTER, DIMENSION(:) ::  WORK1PTR, WORK2PTR,
+      INTEGER, POINTER, DIMENSION(:) ::  
      &     NFSIZPTR,
      &     FILSPTR,
-     &     FREREPTR,
-     &     PIVPTR,
-     &     IKEEP1, IKEEP2, IKEEP3
+     &     FREREPTR, NE_STEPSPTR,
+     &     IKEEP1, IKEEP2, IKEEP3,
+     &     STEPPTR, LRGROUPSPTR
+      INTEGER, ALLOCATABLE, DIMENSION(:), TARGET :: IKEEPALLOC
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: WORK2ALLOC
       ! Used because of multithreaded SIM_NP_
       INTEGER :: locMYID, locMYID_NODES
       LOGICAL, POINTER :: locI_AM_CAND(:)
-      INTEGER(kind=8) :: N8, NZ8, LIW8
+      INTEGER(kind=8) :: NZ8, LIW8
+C     NBLK : id%N or order of blocked matrix
+      INTEGER :: NBLK
       INTEGER :: LIW_ELT
 C
       INTERFACE
@@ -153,12 +179,22 @@ C
       ICNTL  => id%ICNTL
       NELT    => id%NELT
       LELTVAR => id%LELTVAR
-      KEEP8(24) = 0_8  ! reinitialize last used size of WK_USER
       KEEP(264) = 0    ! reinitialise out-of-range status (0=yes)
       KEEP(265) = 0    ! reinitialise dupplicates (0=yes)
       PRINT_MAXAVG = .NOT.(id%NSLAVES.EQ.1 .AND. KEEP(46).EQ.1)
+      NULLIFY ( NFSIZPTR,
+     &     FILSPTR,
+     &     FREREPTR, NE_STEPSPTR,
+     &     IKEEP1, IKEEP2, IKEEP3, STEPPTR, LRGROUPSPTR, 
+     &     SSARBR, SIZEOFBLOCKS_PTR, IRN_loc_PTR, JCN_loc_PTR,
+     &     PAR2_NODESPTR )
+      IF (associated(id%UNS_PERM)) DEALLOCATE(id%UNS_PERM)
+      nullify(id%UNS_PERM)
       IDUMMY = 1
       BDUMMY = .FALSE.
+C     Set default value that witl be reset in
+C     case of blocked format matrices
+      NBLK = id%N
 C     -------------------------------------
 C     Depending on the type of parallelism,
 C     the master can now (soon) potentially
@@ -222,20 +258,20 @@ C     ----------------------------------------
 C       -- deallocate only when not provided/allocated by the user
          IF (associated(id%S)) THEN
             DEALLOCATE(id%S)
+            id%KEEP8(23)=0_8
          ENDIF
       ENDIF
       NULLIFY(id%S)
-#if ! defined(NORLSOLVE)
-C     also avoid keeping BLR factors allocated if analysis
-C     called after a prievous BLR factorization without
-C     an intermediate JOB=-2 call.
-      CALL DMUMPS_FREE_ID_DATA_MODULES(id%FDM_F_ENCODING,
-     &            id%BLRARRAY_ENCODING, id%KEEP8(1))
-#endif
+      KEEP8(24) = 0_8  ! reinitialize last used size of WK_USER
       IF (associated(id%IS)) THEN
         DEALLOCATE(id%IS)
         NULLIFY(id%IS)
       ENDIF
+C     also avoid keeping BLR factors allocated if analysis
+C     called after a previous BLR factorization without
+C     an intermediate JOB=-2 call.
+      CALL DMUMPS_FREE_ID_DATA_MODULES(id%FDM_F_ENCODING,
+     &            id%BLRARRAY_ENCODING, id%KEEP8(1))
       IF (associated(id%root%RG2L_ROW))THEN
         DEALLOCATE(id%root%RG2L_ROW)
         NULLIFY(id%root%RG2L_ROW)
@@ -243,6 +279,10 @@ C     an intermediate JOB=-2 call.
       IF (associated(id%root%RG2L_COL))THEN
         DEALLOCATE(id%root%RG2L_COL)
         NULLIFY(id%root%RG2L_COL)
+      ENDIF
+      IF (associated( id%PTLUST_S )) THEN
+        DEALLOCATE(id%PTLUST_S)
+        NULLIFY(id%PTLUST_S)
       ENDIF
       IF (associated(id%PTRFAC)) THEN
         DEALLOCATE(id%PTRFAC)
@@ -281,7 +321,7 @@ C     some INFOG parameters
       CALL DMUMPS_ANA_CHECK_KEEP(id)
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &     id%COMM, id%MYID )
-      IF ( INFO(1) .LT. 0 ) RETURN
+      IF ( INFO(1) .LT. 0 ) GOTO 500
 C     -------------------------------------------
 C     Broadcast KEEP(60) since we need to broadcast
 C     related information
@@ -299,9 +339,6 @@ C     ------------------------------------------
 C     Note that DMUMPS_INIT_ROOT_ANA will
 C     then use that information.
       ENDIF
-      CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
-     &     id%COMM, id%MYID )
-      IF ( INFO(1) .LT. 0 ) RETURN
 C     ----------------------------------------------
 C     Broadcast KEEP(54) now to know if the
 C     structure of the graph is intially distributed
@@ -327,6 +364,9 @@ C     ---------------------------
 C     Fwd in facto
 C     Broadcast KEEP(251,252,253) defined on master so far
       CALL MPI_BCAST( KEEP(251), 3, MPI_INTEGER,MASTER,id%COMM,IERR)
+C
+      CALL MPI_BCAST( id%KEEP(490), 5, MPI_INTEGER, MASTER,
+     &     id%COMM, IERR )
 C     ----------------------------------------------
 C     Broadcast N 
 C     ----------------------------------------------
@@ -350,8 +390,18 @@ C     Broadcast NA_ELT <=> KEEP8(30) for elemental entry
          CALL MPI_BCAST( id%KEEP8(30), 1, MPI_INTEGER8, MASTER,
      &        id%COMM, IERR )
       ENDIF
+      IF( id%KEEP(54).EQ.3) THEN
+C     test IRN_loc and JCN_loc allocated on working procs
+       IF (I_AM_SLAVE .AND. id%KEEP8(29).GT.0 .AND.
+     &     ( (.NOT. associated(id%IRN_loc)) .OR. 
+     &       (.NOT. associated(id%JCN_loc)) )
+     &   ) THEN
+         id%INFO(1) = -22
+         id%INFO(2) = 16
+       ENDIF
+      ENDIF
       IF ( associated(id%MEM_DIST) ) THEN
-         deallocate( id%MEM_DIST )
+         DEALLOCATE( id%MEM_DIST )
       ENDIF
       allocate( id%MEM_DIST( 0:id%NSLAVES-1 ), STAT=IERR )
       IF ( IERR .GT. 0 ) THEN
@@ -363,7 +413,7 @@ C     Broadcast NA_ELT <=> KEEP8(30) for elemental entry
       END IF
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &     id%COMM, id%MYID )
-      IF ( INFO(1) .LT. 0 ) RETURN
+      IF ( INFO(1) .LT. 0 ) GOTO 500
       id%MEM_DIST(0:id%NSLAVES-1) = 0
       CALL MUMPS_INIT_ARCH_PARAMETERS(
      &     id%COMM,id%COMM_NODES,KEEP(69),KEEP(46),
@@ -373,50 +423,57 @@ C     Write problem to a file,
 C     if requested by the user
 C     ========================
       CALL DMUMPS_DUMP_PROBLEM(id)
-C
 C     ====================================================
 C     TEST FOR SEQUENTIAL OR PARALLEL ANALYSIS (KEEP(244))
 C     ====================================================
-      IF (KEEP(244) .EQ. 1) THEN
-C     Sequential analysis
-         IF ( KEEP(54) .eq. 3 ) THEN
-C        -----------------------------------------------
-C        Collect on the host -- if matrix is distributed
-C        at analysis -- all integer information.
-C        -----------------------------------------------
+      IF ( (KEEP(244).EQ.1) .AND. (KEEP(54) .eq. 3) ) THEN
+C     -----------------------------------------------
+C     Sequential analysis: 
+C     Collect on the host -- if matrix is distributed
+C     at analysis -- all integer information needed
+C     to perform ordering
+C     -----------------------------------------------
             CALL DMUMPS_GATHER_MATRIX(id)
             CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &            id%COMM, id%MYID )
-            IF ( INFO(1) .LT. 0 ) RETURN
-         END IF
-C        ************************************************
-C        BEGINNING OF MASTER CODE FOR SEQUENTIAL ANALYSIS
-C        ************************************************
-         IF ( id%MYID .eq. MASTER ) THEN
+          IF ( INFO(1) .LT. 0 ) GOTO 500
+      ENDIF
+ 1234 CONTINUE
+      IF (KEEP(244) .EQ. 1) THEN
+C     Sequential analysis : Schur
+        IF ( id%MYID .eq. MASTER ) THEN
 C           Prepare arguments for call to DMUMPS_ANA_F and
 C           DMUMPS_ANA_F_ELT in case id%SCHUR was not allocated
 C           by user. The objective is to avoid passing a null
-C           pointer. Done before 1234 label in order to avoid
-C           two allocations of size 1 and a memory leak in case
-C           there are two passes (see 1234 label below and
-C           "GOTO 1234" statement)
+C           pointer. 
+C FIXME  Block fomat for Schur
             IF ( .NOT. associated( id%LISTVAR_SCHUR ) ) THEN
                SIZE_SCHUR_PASSED = 1
                LISTVAR_SCHUR_2BE_FREED=.TRUE.
                allocate( id%LISTVAR_SCHUR( 1 ), STAT=allocok )
                IF ( allocok .GT. 0 ) THEN
                   WRITE(*,*)
-     &                 'PB allocating an array of size 1 in Schur '
-                  CALL MUMPS_ABORT()
+     &                 'PB allocating an array of size 1 for Schur!! '
+                  INFO(1)=-7
+                  INFO(2)=1
                END IF
             ELSE
                SIZE_SCHUR_PASSED=id%SIZE_SCHUR
                LISTVAR_SCHUR_2BE_FREED = .FALSE.
             END IF
- 1234       CONTINUE
-            IF  ((KEEP(50).NE.1).AND.
-     &            .NOT.((KEEP(23).EQ.7).AND.KEEP(50).EQ.0) 
-     &          ) THEN
+        ENDIF
+        CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &            id%COMM, id%MYID )
+        IF ( INFO(1) < 0 ) GOTO 500
+      ENDIF
+C
+      IF ((id%MYID.EQ.MASTER).AND.(KEEP(244) .EQ. 1) 
+     &     .AND. (id%N.EQ.NBLK) 
+     &   ) THEN
+C     Sequential analysis : maximum transversal on master
+         IF  ((KEEP(50).NE.1).AND.
+     &        .NOT.((KEEP(23).EQ.7).AND.KEEP(50).EQ.0) 
+     &       ) THEN
 C             (KEEP(23).EQ.7).AND.KEEP(50).EQ.0) :
 C             For unsymmetric matrix, if automatic setting is requested
 C             default setting of Maximum Transversal is decided during
@@ -433,7 +490,7 @@ C                We compute a permutation of the original matrix to
 C                have a zero free diagonal
 C                KEEP(23)=7 means that automatic choice
 C                      of max trans value will be done during analysis
-C                Permutation is held in IS1(1, ...,N).  
+C                Permutation is held in UNS_PERM(1, ...,N).  
 C                Maximum transversal is not available for element 
 C                entry format
                IF (.not.associated(id%A)) THEN
@@ -443,52 +500,112 @@ C              -- it to structural based maxtrans.
                      KEEP(23) = 1
                   ENDIF
                ENDIF
-               CALL DMUMPS_ANA_O(id%N, id%KEEP8(28), KEEP(23),
-     &              id%IS1(1), id,
-     &              ICNTL(1), INFO(1))
+C              UNS_PERM that might be set to
+C              to permutation computed during Max transversal
+               ALLOCATE(id%UNS_PERM(id%N),IKEEPALLOC(3*id%N),
+     &                  WORK2ALLOC(id%N), stat=IERR)
+               IF (IERR.GT.0) THEN
+                INFO(1)=-7
+                INFO(2)=5*id%N
+               ELSE
+                CALL DMUMPS_ANA_O(id%N, id%KEEP8(28), KEEP(23),
+     &              id%UNS_PERM, IKEEPALLOC, id%IRN, id%JCN, id%A,
+     &              id%ROWSCA, id%COLSCA,
+     &              WORK2ALLOC, id%KEEP, id%ICNTL, id%INFO, id%INFOG)
+                IF (allocated(WORK2ALLOC)) DEALLOCATE(WORK2ALLOC)
+                IF (KEEP(23).EQ.0) THEN
+C                 Maximum tranversal did not produce a permutation
+                  IF (associated( id%UNS_PERM )) 
+     &                    DEALLOCATE(id%UNS_PERM)
+                  NULLIFY(id%UNS_PERM)
+                ENDIF
+C               Check if IKEEPALLOC needed for ANA_F
+                IF (KEEP(23).EQ.0.AND.(KEEP(95).EQ.1)) THEN
+                  IF (allocated(IKEEPALLOC)) DEALLOCATE(IKEEPALLOC)
+                ENDIF
+               ENDIF
                IF (INFO(1) .LT. 0) THEN
-C     -----------
-C     Fatal error
-C     -----------
-C     Permutation was not computed; reset keep(23)
+C              Fatal error
+C              Permutation was not computed; reset keep(23)
                   KEEP(23) = 0
-                  GOTO 10
-               END IF
+               ELSE
+               ENDIF
               ELSE
                 KEEP(23)    = 0
 C               Switch off
 C               compressed/contrained ordering
                 id%KEEP(95) = 1
               END IF
-            ENDIF
+         ENDIF
 C     END OF MAX-TRANS ON THE MASTER
+      ENDIF
+      CALL MUMPS_PROPINFO( ICNTL(1), INFO(1), id%COMM, id%MYID )
+      IF ( INFO(1) < 0 ) GOTO 500
 C
-C     **********************************************************
+      IF ( KEEP(244) .EQ. 1) THEN
+C        Sequential analysis: allocate data for ordering on MASTER
+         IF (id%MYID.EQ.MASTER) THEN
+C          allocate IKEEPALLOC and TREE related pointers
+C          IKEEPALLOC might have been allocated in DMUMPS_ANA_O
+C          and IKEEPALLOC(1:N) might hold information to 
+C          be given to ANA_F.
+           IF (allocated(IKEEPALLOC)) THEN
+             ALLOCATE( FILSPTR(NBLK), FREREPTR(NBLK),
+     &               NFSIZPTR(NBLK), stat=IERR)
+             IF (IERR.GT.0) THEN
+              INFO(1)=-7
+              INFO(2)=3*NBLK
+             ENDIF
+           ELSE
+             ALLOCATE(IKEEPALLOC(NBLK+2*id%N), 
+     &               FILSPTR(NBLK), FREREPTR(NBLK),
+     &               NFSIZPTR(NBLK), stat=IERR)
+            IF (IERR.GT.0) THEN
+             INFO(1)=-7
+             INFO(2)=4*NBLK+2*id%N
+            ENDIF
+           ENDIF
+         ENDIF
+         CALL MUMPS_PROPINFO( ICNTL(1), INFO(1), id%COMM, id%MYID )
+         IF ( INFO(1) < 0 ) GOTO 500
+      ENDIF
 C
-C     BEGINNING OF ANALYSIS, STILL ON THE MASTER
+      IF (KEEP(244) .EQ. 1) THEN
+C     Sequential analysis
+        IF ( id%MYID .eq. MASTER ) THEN
+C       BEGINNING OF ANALYSIS ON THE MASTER
+C       ------------------------------------------------------
+C       For element entry (KEEP(55).ne.0), we do not know NZ, 
+C       and so the whole allocation of IW cannot be done at this 
+C       point and more workspace is declared/allocated/used
+C       inside DMUMPS_ANA_F_ELT.
+C       ------------------------------------------------------
 C
-C     Set up subdivisions of arrays for analysis
-C
-C     ------------------------------------------------------
-C     Define the size of a working array 
-C     that will be used as workspace DMUMPS_ANA_F.
-C     For element entry (KEEP(55).ne.0), we do not know NZ, 
-C     and so the whole allocation of IW cannot be done at this 
-C     point and more workspace is declared/allocated/used
-C     inside DMUMPS_ANA_F_ELT.
-C     ------------------------------------------------------
-C
-            N8=int(id%N,8)
             IF (KEEP(55) .EQ. 0) THEN
 C              ----------------
 C              Assembled format
 C              ----------------
-               NZ8=int(id%KEEP8(28),8)
-               IF ( KEEP(256) .EQ. 1 ) THEN ! KEEP(256) <-- ICNTL(7)
-                  LIW8 = 2_8 * NZ8 +  N8 + 1_8
+               NZ8=id%KEEP8(28)
+C              Compute LIW8:
+C              For local orderings a contiguous space IW 
+C              of size LIW8 must be provided. 
+C              IW must hold the graph (with double adjacency 
+C              list) and and extra space of size the number of 
+C              nodes in the graph: 
+C                ==>   LIW8 = 2_8 * NZ8 +  int(NBLK,8) + 1_8
+C              In case of analysis by block and 
+C              However, when GCOMP is provided directly then 
+C              IW is not allocated 
+C                ==>   LIW8 = 0
+C              In this case 
+C                size(LCOMP%ADJ)>= 2_8*NZ8+int(NBLK,8)+1_8 
+C                should hold
+               IF (NZ8.EQ.0_8) THEN 
+                 LIW8 = 0_8
                ELSE
-                  LIW8 = 2_8 * NZ8 + N8 + 1_8
+                 LIW8 = 2_8 * NZ8 +  int(NBLK,8) + 1_8
                ENDIF
+C        
             ELSE
 C              ----------------
 C              Elemental format
@@ -515,32 +632,40 @@ C
 C           We must ensure that an array of order
 C           3*N is available for DMUMPS_ANA_LNEW
             IF (KEEP(55) .EQ. 0) THEN
-              IF (LIW8.LT.3_8*N8) LIW8 = 3_8*N8
+              IF (LIW8.LT.3_8*int(NBLK,8)) LIW8 = 3_8*int(NBLK,8)
             ELSE
               IF (LIW_ELT.LT.3*id%N) LIW_ELT = 3*id%N
             ENDIF
-            IF (KEEP(23) .NE. 0) THEN
-               IKEEP = id%N + 1
-            ELSE
-               IKEEP = 1
-            END IF
-            NA      = IKEEP +     id%N
-            NE      = IKEEP + 2 * id%N
-            FILS    = IKEEP + 3 * id%N
-            FRERE   = FILS  +     id%N
-            NFSIZ   = FRERE +     id%N
-            MAXIS1_CHECK = NFSIZ + id%N - 1
-C     
-C     ANALYSIS PHASE
-C     Some workspace of DMUMPS_ANA_F can be reused in subsequent phases.
-C       IS(IKEEP) OF LENGTH 3*N
-C       IS(NFSIZ) OF LENGTH N holds the frontal matrix sizes
-C       IS(FILS) and IS(FRERE) OF LENGTH N holds the assembly tree
-C     
+C
             IF ( KEEP(256) .EQ. 1 ) THEN
-C     Note that id%PERM_IN has been checked before.
+C            It has been checked that id%PERM_IN is associated but
+C            values of pivot order will be checked later and
+C            should be checked here too
+C            PERM_IN( I ) = position of I in the pivot order
+             IKEEP2 => IKEEPALLOC(NBLK+1:NBLK+id%N)
+C            Build inverse permutation and check PERM_IN 
+             DO I = 1, id%N
+                IKEEP2(I) = 0
+             ENDDO
+             DO I = 1, id%N
+                IF ( id%PERM_IN(I) .LT.1 .OR.
+     &               id%PERM_IN(I) .GT. id%N ) THEN
+C                 PERM_IN entry is out-of-range
+                  INFO(1) = -4
+                  INFO(2) = I
+                  GOTO 10
+                ELSE IF ( IKEEP2(id%PERM_IN(I)) .NE. 0 ) THEN
+C                 Duplicate entry in PERM_IN was found
+                  INFO(1) = -4
+                  INFO(2) = I
+                  GOTO 10
+                ELSE
+C                 Store entry in inverse permutation
+                  IKEEP2(id%PERM_IN( I )) = I
+                ENDIF
+             ENDDO
                DO I = 1, id%N
-                  id%IS1( IKEEP + I - 1 ) = id%PERM_IN( I )
+                  IKEEPALLOC( I ) = id%PERM_IN( I )
                END DO
             END IF
             INFOG(1) = 0
@@ -548,45 +673,53 @@ C     Note that id%PERM_IN has been checked before.
 C           Initialize structural symmetry value to not yet computed.
             INFOG(8) = -1
             IF (KEEP(55) .EQ. 0) THEN
-               PIVPTR   => id%IS1(1:id%N)  
-C              When PIVPTR is used IKEEP=N and so 
-C                   PIVPTR does not overlap with IKEEP1 !!
-               IKEEP1 => id%IS1(IKEEP:IKEEP+1*id%N-1)
-               IKEEP2 => id%IS1(IKEEP+1*id%N:IKEEP+2*id%N-1)
-               IKEEP3 => id%IS1(IKEEP+2*id%N:IKEEP+3*id%N-1)
-               NFSIZPTR => id%IS1(NFSIZ : NFSIZ + id%N-1)
-               FILSPTR  => id%IS1(FILS  : FILS  + id%N-1)
-               FREREPTR => id%IS1(FRERE : FRERE + id%N-1)
-               CALL DMUMPS_ANA_F(id%N, id%KEEP8(28), 
+               IKEEP1 => IKEEPALLOC(1:NBLK)
+               IKEEP2 => IKEEPALLOC(NBLK+1:NBLK+id%N)
+               IKEEP3 => IKEEPALLOC(NBLK+id%N+1:NBLK+2*id%N)
+C              id%UNS_PERM corresponds to argument PIV
+C              in DMUMPS_ANA_F, it should be an assumed-shape
+C              array rather than a possibly null pointer:
+               IF (associated(id%UNS_PERM)) THEN
+                 UNS_PERM_PTR => id%UNS_PERM
+               ELSE
+                 UNS_PERM_PTR => IDUMMY_ARRAY
+               ENDIF
+               IF (KEEP(13).EQ.0) THEN
+                CALL DMUMPS_ANA_F(id%N, NZ8,
      &              id%IRN, id%JCN,
      &              LIW8, IKEEP1, IKEEP2, IKEEP3,
      &              KEEP(256), NFSIZPTR,
      &              FILSPTR, FREREPTR,
      &              id%LISTVAR_SCHUR, SIZE_SCHUR_PASSED,
      &              id%ICNTL, id%INFOG, id%KEEP,id%KEEP8,id%NSLAVES, 
-     &              PIVPTR,
+     &              UNS_PERM_PTR,
      &              id%CNTL(4), id%COLSCA,  id%ROWSCA
 #if defined(metis) || defined(parmetis) || defined(metis4) || defined(parmetis3)         
      &              , id%METIS_OPTIONS(1)
 #endif               
      &          )               
-               IF ( (KEEP(23).LE.-1).AND.(KEEP(23).GE.-6) ) THEN
-C                 -- Perform max trans 
-                  KEEP(23) = -KEEP(23)
-                  IF (.NOT. associated(id%A)) KEEP(23) = 1
-                  GOTO 1234
-               ENDIF
-               IF ((KEEP(54).EQ.3).AND.KEEP(494).EQ.0) THEN
-                IF (associated(id%IRN)) THEN
-                  deallocate(id%IRN)
-                  NULLIFY(id%IRN)
-                ENDIF
-                IF (associated(id%JCN)) THEN
-                  deallocate(id%JCN)
-                  NULLIFY(id%JCN)
-                ENDIF
+               ELSE
+                IRN_loc_PTR => IDUMMY_ARRAY
+                JCN_loc_PTR => IDUMMY_ARRAY
+                CALL DMUMPS_ANA_F(NBLK, NZ8,
+     &              IRN_loc_PTR, JCN_loc_PTR,
+     &              LIW8, IKEEP1, IKEEP2, IKEEP3,
+     &              KEEP(256), NFSIZPTR,
+     &              FILSPTR, FREREPTR,
+     &              id%LISTVAR_SCHUR, SIZE_SCHUR_PASSED,
+     &              id%ICNTL, id%INFOG, id%KEEP,id%KEEP8,id%NSLAVES, 
+     &              UNS_PERM_PTR,
+     &              id%CNTL(4), id%COLSCA,  id%ROWSCA
+#if defined(metis) || defined(parmetis) || defined(metis4) || defined(parmetis3)         
+     &              , id%METIS_OPTIONS(1)
+#endif               
+     &          )              
+C
                ENDIF
                INFOG(7)     = KEEP(256)
+C              UNS_PERM_PTR was only used locally
+C              for the call to DMUMPS_ANA_F
+               NULLIFY(UNS_PERM_PTR)
             ELSE
                allocate( XNODEL ( id%N+1 ), stat = IERR )
                IF ( IERR .GT. 0 ) THEN
@@ -614,9 +747,9 @@ C     -- internal error
                ENDIF
                CALL DMUMPS_ANA_F_ELT(id%N, NELT,
      &              id%ELTPTR(1), id%ELTVAR(1), LIW_ELT,
-     &              id%IS1(IKEEP),
-     &              KEEP(256), id%IS1(NFSIZ), id%IS1(FILS),
-     &              id%IS1(FRERE), id%LISTVAR_SCHUR(1),
+     &              IKEEPALLOC(1),
+     &              KEEP(256), NFSIZPTR(1), FILSPTR(1),
+     &              FREREPTR(1), id%LISTVAR_SCHUR(1),
      &              SIZE_SCHUR_PASSED,
      &              ICNTL(1), INFOG(1), KEEP(1),KEEP8(1),
      &              id%NSLAVES,
@@ -635,8 +768,9 @@ C
             IF ( LISTVAR_SCHUR_2BE_FREED ) THEN
 C              We do not want to have LISTVAR_SCHUR
 C              allocated of size 1 if Schur is off. 
-               deallocate( id%LISTVAR_SCHUR )
+               DEALLOCATE( id%LISTVAR_SCHUR )
                NULLIFY   ( id%LISTVAR_SCHUR )
+               LISTVAR_SCHUR_2BE_FREED = .TRUE.
             ENDIF
 C           ------------------------------
 C           Significant error codes should
@@ -646,68 +780,115 @@ C           ------------------------------
             INFO(2)=INFOG(2)
 C           save statistics in KEEP array.
             KEEP(28) = INFOG(6)
-C           Check error during DMUMPS_ANA_F OR DMUMPS_ANA_F_ELT
-            IF ( INFO(1) .LT. 0 ) THEN
-               GO TO 10
-            ENDIF
-         ENDIF
-      ELSE
+            IKEEP = 1
+            NA      = IKEEP +     id%N
+            NE      = IKEEP + 2 * id%N
+C       -- if (id%myid.eq.master)
+        ENDIF
+C       -- if sequential analysis
+      ENDIF
+C
+  10  CONTINUE
+      IF (KEEP(244).EQ.1) THEN
+         CALL MUMPS_PROPINFO( ICNTL(1), INFO(1), id%COMM, id%MYID )
+         IF ( INFO(1) < 0 ) GOTO 500
+      ENDIF
+      IF ((KEEP(244).EQ.1).AND.(KEEP(55).EQ.0)) THEN
+C     Sequential analysis on assembled matrix
+C     check if  max transversal should be called
+        CALL MPI_BCAST(KEEP(23),1,MPI_INTEGER,MASTER,id%COMM,IERR)
+        IF ( (KEEP(23).LE.-1).AND.(KEEP(23).GE.-6) ) THEN
+C          -- Perform max transversal
+           KEEP(23) = -KEEP(23)
+           IF (id%MYID.EQ.MASTER) THEN
+             IF (.NOT. associated(id%A)) KEEP(23) = 1
+             IF (associated(id%UNS_PERM)) DEALLOCATE(id%UNS_PERM)
+             NULLIFY(id%UNS_PERM)
+             IF (allocated(IKEEPALLOC)) DEALLOCATE(IKEEPALLOC)
+             IF (associated(FILSPTR) ) THEN
+               DEALLOCATE(FILSPTR)
+               NULLIFY(FILSPTR)
+             ENDIF
+             IF (associated(FREREPTR) ) THEN
+               DEALLOCATE(FREREPTR)
+               NULLIFY(FREREPTR)
+             ENDIF
+             IF (associated(NFSIZPTR) ) THEN
+               DEALLOCATE(NFSIZPTR)
+               NULLIFY(NFSIZPTR)
+             ENDIF
+           ENDIF
+        GOTO 1234
+        ENDIF
+      ENDIF
+      IF (id%MYID.EQ.MASTER) THEN
+        IF ((KEEP(244).EQ.1).AND. (KEEP(55).EQ.0))  THEN
+C              Sequential ordering on assembled matrix
+               IF ((KEEP(54).EQ.3).AND.KEEP(494).EQ.0) THEN
+                IF (associated(id%IRN)) THEN
+                  DEALLOCATE(id%IRN)
+                  NULLIFY(id%IRN)
+                ENDIF
+                IF (associated(id%JCN)) THEN
+                  DEALLOCATE(id%JCN)
+                  NULLIFY(id%JCN)
+                ENDIF
+               ENDIF
+        ENDIF
+      ENDIF
+      IF (KEEP(244).NE.1) THEN
 C     Parallel analysis
          IKEEP   = 1
          NA      = IKEEP +     id%N
          NE      = IKEEP + 2 * id%N
-         FILS    = IKEEP + 3 * id%N
-         FRERE   = FILS  +     id%N
-         NFSIZ   = FRERE +     id%N
          IF (id%MYID .EQ. MASTER) THEN
-C           this correspond to the old PTRAR part of IS1
-C           WORK2PTR => id%IS1(PTRAR : PTRAR + 4*id%N-1)
-            ALLOCATE(WORK2PTR(4*id%N), stat=IERR)
+            ALLOCATE( IKEEPALLOC(3*id%N), WORK2ALLOC(4*id%N), 
+     &                FILSPTR(id%N), FREREPTR(id%N), NFSIZPTR(id%N),
+     &      stat=IERR)
          ELSE
 C           Because our purpose is to minimize the peak memory consumption,
 C           we can afford to allocate on processes other than host
-            ALLOCATE(WORK1PTR(3*id%N),WORK2PTR(4*id%N), stat=IERR )
+            ALLOCATE(IKEEPALLOC(3*id%N),WORK2ALLOC(4*id%N), stat=IERR )
          ENDIF
          IF (IERR.GT.0) THEN
            INFO(1) = -7
            IF (id%MYID .EQ. MASTER) THEN
-             INFO( 2 ) = 4*id%N 
+             INFO( 2 ) = 10*id%N 
            ELSE
              INFO( 2 ) = 7*id%N 
           ENDIF
          ENDIF
          CALL MUMPS_PROPINFO( ICNTL(1), INFO(1), id%COMM, id%MYID )
-         IF ( INFO(1) < 0 ) RETURN
-         IF(id%MYID .EQ. MASTER) THEN
-            WORK1PTR => id%IS1(IKEEP : IKEEP + 3*id%N-1)
-            NFSIZPTR => id%IS1(NFSIZ : NFSIZ + id%N-1)
-            FILSPTR  => id%IS1(FILS  : FILS  + id%N-1)
-            FREREPTR => id%IS1(FRERE : FRERE + id%N-1)
-         END IF
+         IF ( INFO(1) < 0 ) GOTO 500
          CALL DMUMPS_ANA_F_PAR(id,
-     &        WORK1PTR,
-     &        WORK2PTR,
+     &        IKEEPALLOC,
+     &        WORK2ALLOC,
      &        NFSIZPTR,
      &        FILSPTR,
      &        FREREPTR)
-         DEALLOCATE(WORK2PTR)
-         IF(id%MYID .EQ. 0) THEN
-            NULLIFY(WORK1PTR, NFSIZPTR)
-            NULLIFY(FILSPTR, FREREPTR)
-         ELSE
-            DEALLOCATE(WORK1PTR)
-         END IF
+         DEALLOCATE(WORK2ALLOC) 
+         IF(id%MYID .NE. MASTER) THEN
+           DEALLOCATE(IKEEPALLOC)
+         ENDIF
          KEEP(28) = INFOG(6)
       END IF
- 10   CONTINUE
+C     Allocated PROCNODE on MASTER
+      IF (id%MYID.EQ.MASTER) THEN
+       allocok = 0
+       allocate(PROCNODE(NBLK), STAT=allocok)
+       IF (allocok .ne. 0) THEN
+            INFO(1) = -7
+            INFO(2) = NBLK
+       ENDIF
+      ENDIF
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1), id%COMM, id%MYID )
-      IF ( INFO(1) < 0 ) RETURN
+      IF ( INFO(1) < 0 ) GOTO 500
       IF(id%MYID .EQ. MASTER) THEN
 C        Save ICNTL(14) value into KEEP(12)
          CALL MUMPS_GET_PERLU(KEEP(12),ICNTL(14),
      &        KEEP(50),KEEP(54),ICNTL(6),KEEP(52))
-         CALL DMUMPS_ANA_R(id%N, id%IS1(FILS), id%IS1(FRERE),
-     &        id%IS1(NE), id%IS1(NA))
+         CALL DMUMPS_ANA_R(NBLK, FILSPTR(1), FREREPTR(1),
+     &        IKEEPALLOC(NE), IKEEPALLOC(NA))
 C      **********************************************************
 C      Continue with CALL to MAPPING routine
 C        *********************
@@ -733,16 +914,18 @@ C     No type 2 nodes:
             id%KEEP(56)=0
 C     All mapped on MPI process 0, and of type TPN=0
 C     (treated as if they were all root of subtree)
-            DO I = 1, id%N
-              id%PROCNODE(I) = -id%NSLAVES + 1
+            PROCNODE_VALUE = MUMPS_ENCODE_TPN_IPROC(0, 0, KEEP(199))
+            DO I = 1, NBLK
+              PROCNODE(I) = PROCNODE_VALUE
             END DO
 C     It may also happen that KEEP(38) has already been set,
 C     in the case of a distributed Schur complement (KEEP(60)=2 or 3).
 C     In that case, PROCNODE should be set accordingly and KEEP(38) is
 C     not modified.
             IF (id%KEEP(60) .EQ. 2 .OR. id%KEEP(60).EQ.3) THEN
-               CALL DMUMPS_SET_PROCNODE(id%KEEP(38), id%PROCNODE(1),
-     &              1+2*id%NSLAVES, id%IS1(FILS),id%N)
+               PROCNODE_VALUE = MUMPS_ENCODE_TPN_IPROC(3, 0, KEEP(199))
+               CALL DMUMPS_SET_PROCNODE(id%KEEP(38), PROCNODE(1),
+     &              PROCNODE_VALUE, FILSPTR(1), NBLK)
             ENDIF
 C        *******************
 C        END SEQUENTIAL CODE
@@ -759,15 +942,18 @@ C      peak is set by default to 1 largest front + One largest CB
      &        dble(id%KEEP(2))*dble(id%KEEP(2))     ! cb bloc
 C     IKEEP(1:N,1) can be used as a work space since it is set
 C     to its final state by the SORT_PERM subroutine below.
-            SSARBR => id%IS1(IKEEP:IKEEP+id%N-1)
+            SSARBR => IKEEPALLOC(IKEEP:IKEEP+NBLK-1)
+C     ======================================================
 C     Map nodes and assign candidates for dynamic scheduling
-            CALL DMUMPS_DIST_AVOID_COPIES(id%N,id%NSLAVES,ICNTL(1),
+C     ======================================================
+            CALL DMUMPS_DIST_AVOID_COPIES(
+     &           NBLK,id%NSLAVES,ICNTL(1),
      &           INFOG(1),
-     &           id%IS1(NE),
-     &           id%IS1(NFSIZ),
-     &           id%IS1(FRERE),
-     &           id%IS1(FILS),
-     &           KEEP(1),KEEP8(1),id%PROCNODE(1),
+     &           IKEEPALLOC(NE),
+     &           NFSIZPTR(1),
+     &           FREREPTR(1),
+     &           FILSPTR(1),
+     &           KEEP(1),KEEP8(1),PROCNODE(1),
      &           SSARBR(1),id%NBSA,PEAK,IERR
      &           )
             NULLIFY(SSARBR)
@@ -781,14 +967,14 @@ C     Map nodes and assign candidates for dynamic scheduling
                INFO(2) = IERR
                GOTO 11
             ENDIF
-            CALL DMUMPS_ANA_R(id%N, id%IS1(FILS),
-     &           id%IS1(FRERE), id%IS1(NE),
-     &           id%IS1(NA))
+            CALL DMUMPS_ANA_R(NBLK, FILSPTR(1),
+     &           FREREPTR(1), IKEEPALLOC(NE),
+     &           IKEEPALLOC(NA))
          ENDIF
  11      CONTINUE
       ENDIF
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1), id%COMM, id%MYID )
-      IF ( INFO(1) < 0 ) RETURN
+      IF ( INFO(1) < 0 ) GOTO 500
 C     The following part is done in parallel
       CALL MPI_BCAST( id%NELT, 1, MPI_INTEGER, MASTER,
      &     id%COMM, IERR )
@@ -831,21 +1017,21 @@ C
          CALL MUMPS_REALLOC(id%FRTELT, id%NELT, id%INFO, LP,
      &        FORCE=.TRUE., STRING='id%FRTELT (Analysis)', ERRCODE=-7)
          CALL MUMPS_PROPINFO( ICNTL(1), INFO(1), id%COMM, id%MYID )
-         IF ( INFO(1) < 0 ) RETURN
+         IF ( INFO(1) < 0 ) GOTO 500
          IF(id%MYID .EQ. MASTER) THEN
 C     In the elemental format case, PTRAR&friends are still
 C     computed sequentially and then broadcasted
             CALL DMUMPS_FRTELT(
-     &           id%N, NELT, id%ELTPTR(NELT+1)-1, id%IS1(FRERE),
-     &           id%IS1(FILS),
-     &           id%IS1(IKEEP+id%N), id%IS1(IKEEP+2*id%N), XNODEL, 
+     &           id%N, NELT, id%ELTPTR(NELT+1)-1, FREREPTR(1),
+     &           FILSPTR(1),
+     &           IKEEPALLOC(NA), IKEEPALLOC(NE), XNODEL, 
      &           NODEL, id%FRTPTR(1), id%FRTELT(1), id%ELTPROC(1))
             DO I=1, id%NELT+1
 C              PTRAR declared 64-bit
                id%PTRAR(id%NELT+I+1)=int(id%ELTPTR(I),8)
             ENDDO
-            deallocate(XNODEL)
-            deallocate(NODEL)
+            DEALLOCATE(XNODEL)
+            DEALLOCATE(NODEL)
          END IF
          CALL MPI_BCAST( id%PTRAR(id%NELT+2), id%NELT+1, MPI_INTEGER8,
      &        MASTER, id%COMM, IERR )
@@ -855,18 +1041,19 @@ C              PTRAR declared 64-bit
      &        MASTER, id%COMM, IERR )
       ENDIF
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1), id%COMM, id%MYID )
-      IF ( INFO(1) < 0 ) RETURN
+      IF ( INFO(1) < 0 ) GOTO 500
 C     We switch again to sequential computations on the master node
       IF(id%MYID .EQ. MASTER) THEN
          IF ( INFO( 1 ) .LT. 0 ) GOTO 12
          IF ( KEEP(55) .ne. 0 ) THEN
-C     ---------------------------------------
-C     Build ELTPROC: correspondance between elements and slave numbers. 
-C     This is used later in the initial elemental
-C     matrix distribution at the beginning of the factorisation phase
-C     ---------------------------------------
-            CALL DMUMPS_ELTPROC(id%N, NELT, id%ELTPROC(1),id%NSLAVES,
-     &           id%PROCNODE(1))
+C        ---------------------------------------
+C        Build ELTPROC: correspondance between elements and slave ranks
+C        in COMM_NODES with special values -1 (all procs) and -2 and -3
+C        (no procs). This is used later to distribute the elements on
+C        the processes at the beginning of the factorisation phase
+C        ---------------------------------------
+            CALL DMUMPS_ELTPROC(NBLK, NELT, id%ELTPROC(1),id%NSLAVES,
+     &           PROCNODE(1), id%KEEP(1))
          END IF
          NB_NIV2 = KEEP(56)
          IF ( NB_NIV2.GT.0 ) THEN
@@ -884,9 +1071,9 @@ C
          ENDIF
          IF ((NB_NIV2.GT.0) .AND. (KEEP(24).EQ.0)) THEN
             INIV2 = 0
-            DO 777 INODE = 1, id%N
-               IF ( ( id%IS1(FRERE+INODE-1) .NE. id%N+1 ) .AND.
-     &              ( MUMPS_TYPENODE(id%PROCNODE(INODE),id%NSLAVES)
+            DO 777 INODE = 1, NBLK
+               IF ( ( FREREPTR(INODE) .NE. NBLK ) .AND.
+     &              ( MUMPS_TYPENODE(PROCNODE(INODE),id%KEEP(199))
      &              .eq. 2) ) THEN
                   INIV2 = INIV2 + 1
                   PAR2_NODES(INIV2) = INODE
@@ -901,7 +1088,7 @@ C
          IF ( (KEEP(24) .NE. 0) .AND. (NB_NIV2.GT.0) ) THEN
 C           allocate array to store cadidates stategy
 C           for each level two nodes
-            IF ( associated(id%CANDIDATES)) deallocate(id%CANDIDATES)
+            IF ( associated(id%CANDIDATES)) DEALLOCATE(id%CANDIDATES)
             allocate( id%CANDIDATES(id%NSLAVES+1,NB_NIV2),
      &           stat=allocok)
             if (allocok .gt.0) then
@@ -948,7 +1135,7 @@ C     ---------------
 *     
       END IF
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1), id%COMM, id%MYID )
-      IF ( INFO(1) < 0 ) RETURN
+      IF ( INFO(1) < 0 ) GOTO 500
 C     
 C     We now allocate and compute arrays in NSTEPS
 C     on the master, as this makes more sense.
@@ -995,8 +1182,6 @@ C     -----------------
      &     id%COMM, IERR )
       CALL MPI_BCAST( id%KEEP(487), 2, MPI_INTEGER, MASTER,
      &     id%COMM, IERR )
-      CALL MPI_BCAST( id%KEEP(490), 5, MPI_INTEGER, MASTER,
-     &     id%COMM, IERR )
 C     Number of leaves not belonging to L0 KEEP(262)
 C              and KEEP(263) : inner or outer sends for blocked facto
       CALL MPI_BCAST( id%KEEP(262), 2, MPI_INTEGER, MASTER,
@@ -1004,8 +1189,18 @@ C              and KEEP(263) : inner or outer sends for blocked facto
 C     ----------------------------------------
 C     Allocate new workspace on all processors
 C     ----------------------------------------
-      CALL MUMPS_REALLOC(id%STEP, id%N, id%INFO, LP, FORCE=.TRUE.,
+      IF (id%MYID.EQ.MASTER) THEN
+C        id%STEP is of size NBLK because it 
+C                is computed on compressed graph and then extended
+C                and broadcasted on all procs
+        CALL MUMPS_REALLOC(id%STEP, NBLK, id%INFO, LP, FORCE=.TRUE.,
      &     STRING='id%STEP (Analysis)', ERRCODE=-7)
+      ELSE
+C        id%STEP is of size id%N because it 
+C                is received in extended form
+        CALL MUMPS_REALLOC(id%STEP, id%N, id%INFO, LP, FORCE=.TRUE.,
+     &     STRING='id%STEP (Analysis)', ERRCODE=-7)
+      ENDIF
       IF(INFO(1).LT.0) GOTO 94
       CALL MUMPS_REALLOC(id%PROCNODE_STEPS, id%KEEP(28), id%INFO, LP,
      &     FORCE=.TRUE.,
@@ -1027,67 +1222,52 @@ C     ----------------------------------------
      &     FORCE=.TRUE., 
      &     STRING='id%DAD_STEPS (Analysis)', ERRCODE=-7)
       IF(INFO(1).LT.0) GOTO 94
-      CALL MUMPS_REALLOC(id%FILS, id%N, id%INFO, LP, FORCE=.TRUE.,
-     &     STRING='id%FILS (Analysis)', ERRCODE=-7)
-      IF(INFO(1).LT.0) GOTO 94
+C     id%FILS is allocated before expand tree
       IF (KEEP(55) .EQ. 0) THEN
         LPTRAR = id%N+id%N
         CALL MUMPS_I8REALLOC(id%PTRAR, LPTRAR, id%INFO, LP,
      &       FORCE=.TRUE., STRING='id%PTRAR (Analysis)', ERRCODE=-7)
         IF(INFO(1).LT.0) GOTO 94
       ENDIF
-      CALL MUMPS_REALLOC(id%LRGROUPS, id%N, id%INFO, LP, 
+      IF (id%MYID.EQ.MASTER) THEN
+       CALL MUMPS_REALLOC(id%LRGROUPS, NBLK, id%INFO, LP, 
      &     FORCE=.TRUE.
      &     ,STRING='id%LRGROUPS (Analysis)', ERRCODE=-7)
+      ELSE
+       CALL MUMPS_REALLOC(id%LRGROUPS, id%N, id%INFO, LP, 
+     &     FORCE=.TRUE.
+     &     ,STRING='id%LRGROUPS (Analysis)', ERRCODE=-7)
+      ENDIF
       IF(INFO(1).LT.0) GOTO 94
 C     Copy data for factorization and/or solve.
-      IF ( associated( id%UNS_PERM ) ) THEN
-         deallocate(id%UNS_PERM)
-      ENDIF
 C     ================================
 C     COMPUTE ON THE MASTER, BROADCAST
 C     TO OTHER PROCESSES
 C     ================================
-      IF ( id%MYID == MASTER .AND. id%KEEP(23) .NE. 0 ) THEN
-C     This one is only on the master
-         allocate(id%UNS_PERM(id%N),stat=allocok)
-         IF ( allocok .ne. 0) THEN
-            INFO(1) = -7
-            INFO(2) = id%N
-            IF ( LPOK ) THEN
-               WRITE(LP, 150) 'id%UNS_PERM'
-            END IF
-            GOTO 94
-         ENDIF
-C     
-         DO I=1,id%N
-            id%UNS_PERM(I) = id%IS1(I)
-         END DO
+      IF ( id%MYID .NE. MASTER .OR. id%KEEP(23) .EQ. 0 ) THEN
+       IF ( associated( id%UNS_PERM ) ) THEN
+         DEALLOCATE(id%UNS_PERM)
+       ENDIF
       ENDIF
  94   CONTINUE
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &     id%COMM, id%MYID )
       IF ( id%MYID .EQ. MASTER ) THEN
-         DO I=1,id%N
-            id%FILS(I) = id%IS1(FILS+I-1)
-         ENDDO
-      END IF
-      IF (id%MYID .EQ. MASTER ) THEN
 C     NA -> compressed NA containing only list
 C     of leaves of the elimination tree and list of roots 
 C     (the two useful informations for factorization/solve).
-         IF (id%N.eq.1) THEN
+         IF (NBLK.eq.1) THEN
             NBROOT = 1
             NBLEAF = 1
-         ELSE IF (id%IS1(NA+id%N-1) .LT.0) THEN
-            NBLEAF = id%N
-            NBROOT = id%N
-         ELSE IF (id%IS1(NA+id%N-2) .LT.0) THEN
-            NBLEAF = id%N-1
-            NBROOT = id%IS1(NA+id%N-1)
+         ELSE IF (IKEEPALLOC(NA+NBLK-1) .LT.0) THEN
+            NBLEAF= NBLK
+            NBROOT= NBLK
+         ELSE IF (IKEEPALLOC(NA+NBLK-2) .LT.0) THEN
+            NBLEAF = NBLK-1
+            NBROOT = IKEEPALLOC(NA+NBLK-1)
          ELSE
-            NBLEAF = id%IS1(NA+id%N-2)
-            NBROOT = id%IS1(NA+id%N-1)
+            NBLEAF = IKEEPALLOC(NA+NBLK-2)
+            NBROOT = IKEEPALLOC(NA+NBLK-1)
          ENDIF
          id%LNA = 2+NBLEAF+NBROOT
       ENDIF
@@ -1095,70 +1275,67 @@ C     (the two useful informations for factorization/solve).
      &     MASTER, id%COMM, IERR )
       CALL MUMPS_REALLOC(id%NA, id%LNA, id%INFO, LP, FORCE=.TRUE., 
      &     STRING='id%NA (Analysis)', ERRCODE=-7)
-      IF(INFO(1).LT.0) GOTO 96
+      CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &     id%COMM, id%MYID )
+      IF ( INFO(1).LT.0 ) GOTO 500
       IF (id%MYID .EQ.MASTER ) THEN
-C     The structure of NA is the following:
-C       NA(1) is the number of leaves.
-C       NA(2) is the number of roots.
-C       NA(3:2+NA(1)) are the leaves.
-C       NA(3+NA(1):2+NA(1)+NA(2)) are the roots.
+C{    The structure of NA is the following:
+C        NA(1) is the number of leaves.
+C        NA(2) is the number of roots.
+C        NA(3:2+NA(1)) are the leaves.
+C        NA(3+NA(1):2+NA(1)+NA(2)) are the roots.
          id%NA(1) = NBLEAF
          id%NA(2) = NBROOT
 C     
 C        Initialize NA with the leaves and roots
          LEAF = 3
-         IF ( id%N == 1 ) THEN
+         IF ( NBLK == 1 ) THEN
             id%NA(LEAF) = 1
             LEAF = LEAF + 1
-         ELSE IF (id%IS1(NA+id%N-1) < 0) THEN
-            id%NA(LEAF) = - id%IS1(NA+id%N-1)-1
+         ELSE IF (IKEEPALLOC(NA+NBLK-1) < 0) THEN
+            id%NA(LEAF) = - IKEEPALLOC(NA+NBLK-1)-1
             LEAF = LEAF + 1
             DO I = 1, NBLEAF - 1
-               id%NA(LEAF) = id%IS1(NA+I-1)
+               id%NA(LEAF) = IKEEPALLOC(NA+I-1)
                LEAF = LEAF + 1
             ENDDO
-         ELSE IF (id%IS1(NA+id%N-2) < 0 ) THEN
-            INODE = - id%IS1(NA+id%N-2) - 1
+         ELSE IF (IKEEPALLOC(NA+NBLK-2) < 0 ) THEN
+            INODE = - IKEEPALLOC(NA+NBLK-2) - 1
             id%NA(LEAF) = INODE
             LEAF =LEAF + 1
             IF ( NBLEAF > 1 ) THEN
                DO I = 1, NBLEAF - 1
-                  id%NA(LEAF) = id%IS1(NA+I-1)
+                  id%NA(LEAF) = IKEEPALLOC(NA+I-1)
                   LEAF = LEAF + 1
                ENDDO
             ENDIF
          ELSE
             DO I = 1, NBLEAF
-               id%NA(LEAF) = id%IS1(NA+I-1)
+               id%NA(LEAF) = IKEEPALLOC(NA+I-1)
                LEAF = LEAF + 1
             ENDDO
          END IF
-      END IF
- 96   CONTINUE
-      CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
-     &     id%COMM, id%MYID )
-      IF ( INFO(1).LT.0 ) RETURN
-      IF ( id%MYID .EQ. MASTER ) THEN
-C     Build array STEP(1:id%N) to hold step numbers in
-C     range 1..id%KEEP(28), allowing compression of
-C     other arrays from id%N to id%KEEP(28)
-C     (the number of nodes/steps in the assembly tree)
+C
+C        Build array STEP(1:id%N) to hold step numbers in
+C        range 1..id%KEEP(28), allowing compression of
+C        other arrays from id%N to id%KEEP(28)
+C        (the number of nodes/steps in the assembly tree)
          ISTEP = 0
-         DO I = 1, id%N
-            IF ( id%IS1(FRERE+I-1) .ne. id%N + 1 ) THEN
-C     New node in the tree.
-c     (Set step( inode_n ) = inode_nsteps for principal
-C     variables and -inode_nsteps for internal variables
-C     of the node)
+         DO I = 1, NBLK
+            IF ( FREREPTR(I) .ne. NBLK + 1 ) THEN
+C        New node in the tree.
+c        (Set step( inode_n ) = inode_nsteps for principal
+C        variables and -inode_nsteps for internal variables
+C        of the node)
                ISTEP = ISTEP + 1
                id%STEP(I)=ISTEP
-               INN = id%IS1(FILS+I-1)
+               INN = FILSPTR(I)
                DO WHILE ( INN .GT. 0 )
                   id%STEP(INN) = - ISTEP
-                  INN = id%IS1(FILS + INN -1)
+                  INN = FILSPTR(INN)
                END DO
-               IF (id%IS1(FRERE+I-1) .eq. 0) THEN
-C     Keep root nodes list in NA
+               IF (FREREPTR(I) .eq. 0) THEN
+C              Keep root nodes list in NA
                   id%NA(LEAF) = I
                   LEAF = LEAF + 1
                ENDIF
@@ -1169,39 +1346,41 @@ C     Keep root nodes list in NA
             CALL MUMPS_ABORT()
          ENDIF
          IF ( ISTEP .NE. id%KEEP(28) ) THEN
-            write(*,*) 'Internal error 3 in DMUMPS_ANA_DRIVER'
+            write(*,*) 'Internal error 3 in DMUMPS_ANA_DRIVER', 
+     &        ISTEP, id%KEEP(28)
             CALL MUMPS_ABORT()
          ENDIF
-C     ============
-C     SET PROCNODE, FRERE, NE
-C     ============
-         DO I = 1, id%N
-            IF (id%IS1(FRERE+I-1) .NE. id%N+1) THEN
-               id%PROCNODE_STEPS(id%STEP(I)) = id%PROCNODE( I )
-               id%FRERE_STEPS(id%STEP(I))    = id%IS1(FRERE+I-1)
-               id%NE_STEPS(id%STEP(I))    = id%IS1(NE+I-1)
-               id%ND_STEPS(id%STEP(I))    = id%IS1(NFSIZ+I-1)
+C        ============
+C        SET PROCNODE, FRERE, NE
+C        ============
+C        copies to NSTEP array should be ok
+         DO I = 1, NBLK
+            IF (FREREPTR(I) .NE. NBLK+1) THEN
+               id%PROCNODE_STEPS(id%STEP(I)) = PROCNODE( I )
+               id%FRERE_STEPS(id%STEP(I))    = FREREPTR(I)
+               id%NE_STEPS(id%STEP(I))    = IKEEPALLOC(NE+I-1)
+               id%ND_STEPS(id%STEP(I))    = NFSIZPTR(I)
             ENDIF
          ENDDO
-C     ===============================
-C     Algoritme to compute array DAD_STEPS:
-C     ----
-C       For each node set dad for all of its sons
-C       plus, for root nodes set dad to zero.
+C        ===============================
+C        Algorithm to compute array DAD_STEPS:
+C        ----
+C        For each node set dad for all of its sons
+C        plus, for root nodes set dad to zero.
 C     
-C     ===============================
-         DO I = 1, id%N
+C        ===============================
+         DO I = 1, NBLK
 C     -- skip non principal nodes
             IF ( id%STEP(I) .LE. 0) CYCLE
 C     -- (I) is a principal node
-            IF (id%IS1(FRERE+I-1) .eq. 0) THEN
+            IF (FREREPTR(I) .eq. 0) THEN
 C     -- I is a root node and has no father
                id%DAD_STEPS(id%STEP(I)) = 0
             ENDIF
 C     -- Find first son node (IFS)
-            IFS = id%IS1(FILS+I-1)
+            IFS = FILSPTR(I)
             DO WHILE ( IFS .GT. 0 )
-               IFS= id%IS1(FILS + IFS -1)
+               IFS= FILSPTR(IFS)
             END DO
 C     -- IFS > 0 if I is not a leave node
 C     -- Go through list of brothers of IFS if any
@@ -1209,26 +1388,130 @@ C     -- Go through list of brothers of IFS if any
             DO WHILE (IFS.GT.0) 
 C     -- I is not a leave node and has a son node IFS
                id%DAD_STEPS(id%STEP(IFS)) = I
-               IFS   = id%IS1(FRERE+IFS-1)
+               IFS   = FREREPTR(IFS)
             ENDDO
          END DO
 C
 C     
-C        Following arrays (PROCNODE and IS1) not used anymore 
+C        Following arrays (PROCNODE and IKEEPALLOC) not used anymore 
 C        during analysis
-         DEALLOCATE(id%PROCNODE)
-         NULLIFY(id%PROCNODE)
-         DEALLOCATE(id%IS1)
-         NULLIFY(id%IS1)
+         IF (allocated(PROCNODE)) DEALLOCATE(PROCNODE)
+         IF (allocated(IKEEPALLOC)) DEALLOCATE(IKEEPALLOC)
+         IF (associated(FREREPTR)) DEALLOCATE(FREREPTR)
+         NULLIFY(FREREPTR)
+         IF (associated(NFSIZPTR)) DEALLOCATE(NFSIZPTR)
+         NULLIFY(NFSIZPTR)
+      ENDIF 
+      IF (KEEP(494).NE.0) THEN
+C{
+         IF (id%MYID.EQ.MASTER) THEN
+            IF (PROKG) THEN
+                  CALL MUMPS_SECDEB(TIMEG)
+            END IF
+         ENDIF
+C     =======================================================
+C     Compute a grouping of variables for LR approximations.
+C     Grouping may be performed on a distributed matrix
+C     =======================================================
+C     
+C     I/ Prepare data before call to grouping
+        IF ((KEEP(54).EQ.3) .AND. (KEEP(244).EQ.2)
+     &     ) THEN
+C        Grouping preparation on slaves:
+C        If the input matrix is distributed and the parallel analysis is
+C        chosen, the graph has to be centralized in order to compute the
+C        clustering. 
+C
+            CALL DMUMPS_GATHER_MATRIX(id)
+        ENDIF
+C     ============
+C     II/ GROUPING
+C     ============
+        IF (id%MYID.EQ.MASTER) THEN
+C        grouping based on centralized matrix
+         IF (KEEP(469).EQ.0) THEN
+              CALL DMUMPS_LR_GROUPING(id%N, id%KEEP8(28), id%KEEP(28),
+     &           id%IRN,
+     &           id%JCN, FILSPTR, id%FRERE_STEPS,
+     &           id%DAD_STEPS, id%NE_STEPS, id%STEP, id%NA,
+     &           id%LNA, id%LRGROUPS,
+     &           id%KEEP(50),
+     &           id%ICNTL(1), id%KEEP(487), id%KEEP(488), 
+     &           id%KEEP(490), id%KEEP(38), id%KEEP(20), id%KEEP(60),
+     &           id%INFO(1), id%INFO(2),
+     &           id%KEEP(264), id%KEEP(265), id%KEEP(482), id%KEEP(472),
+     &           id%KEEP(127), id%KEEP(10), 
+     &           id%KEEP(54),
+     &           LPOK, LP)
+         ELSE
+              CALL DMUMPS_LR_GROUPING_NEW(id%N, id%KEEP8(28), 
+     &           id%KEEP(28), id%IRN,
+     &           id%JCN, FILSPTR, id%FRERE_STEPS,
+     &           id%DAD_STEPS, id%STEP, id%NA,
+     &           id%LNA, id%LRGROUPS, id%KEEP(50),
+     &           id%ICNTL(1), id%KEEP(487), id%KEEP(488),
+     &           id%KEEP(490), id%KEEP(38), id%KEEP(20), id%KEEP(60), 
+     &           id%INFO(1), id%INFO(2),
+     &           id%KEEP(264), id%KEEP(265), id%KEEP(482), id%KEEP(472),
+     &           id%KEEP(127), id%KEEP(469), id%KEEP(10), 
+     &           id%KEEP(54),
+     &           LPOK, LP)
+         ENDIF
+        ENDIF
+C     ============
+C     III/ CLEANUP 
+C     ============
+        IF ( (KEEP(54).EQ.3) .AND. (KEEP(244).EQ.2) ) THEN
+C           Cleanup the irn and jcn arrays filled up by the
+C           cmumps_gather_matrix above. It might have been done
+C           during grouping
+                IF (associated(id%IRN)) THEN
+                  DEALLOCATE(id%IRN)
+                  NULLIFY(id%IRN)
+                ENDIF
+                IF (associated(id%JCN)) THEN
+                  DEALLOCATE(id%JCN)
+                  NULLIFY(id%JCN)
+                ENDIF
+        END IF
+C}    Grouping: KEEP(494) .NE. 0
+C#if defined(dev_version)
+                IF (PROKG) THEN
+                 CALL MUMPS_SECFIN(TIMEG)
+                 WRITE(MPG,145) TIMEG
+                END IF
+C#endif
+      ENDIF
+      IF (id%MYID.NE. MASTER) THEN
+        CALL MUMPS_REALLOC(id%FILS, id%N, id%INFO, LP, FORCE=.TRUE.,
+     &     STRING='id%FILS (Analysis)', ERRCODE=-7)
+        IF(INFO(1).LT.0) GOTO 97
+      ENDIF
+C
+      IF ((id%N.EQ.NBLK).AND.associated(FILSPTR)) THEN
+C          id%FILS has not been initialized
+           if (associated(id%FILS)) DEALLOCATE(id%FILS)
+           id%FILS=>FILSPTR
+           NULLIFY(FILSPTR)
+      ENDIF
+ 97   CONTINUE
+       CALL MUMPS_REALLOC(id%SYM_PERM, id%N, id%INFO, LP, 
+     &     FORCE=.TRUE.,
+     &     STRING='id%SYM_PERM (Analysis)', ERRCODE=-7)
+      CALL MUMPS_PROPINFO( ICNTL(1), INFO(1), id%COMM, id%MYID )
+          IF ( INFO(1) < 0 ) GOTO 500
+      IF (id%MYID.EQ.MASTER) THEN
+C     =================================================================
 C     Reorder the tree using a variant of Liu's algorithm. Note that
 C     REORDER_TREE MUST always be called since it sorts NA (the list of
 C     leaves) in a valid order in the sense of a depth-first traversal.
+C     =================================================================
                CALL DMUMPS_REORDER_TREE(id%N, id%FRERE_STEPS(1),
      &              id%STEP(1),id%FILS(1), id%NA(1), id%LNA,
      &              id%NE_STEPS(1), id%ND_STEPS(1), id%DAD_STEPS(1), 
      &              id%KEEP(28), .TRUE., id%KEEP(28), id%KEEP(70),
      &              id%KEEP(50), id%INFO(1), id%ICNTL(1),id%KEEP(215),
-     &              id%KEEP(234), id%KEEP(55),
+     &              id%KEEP(234), id%KEEP(55), id%KEEP(199),
      &              id%PROCNODE_STEPS(1),id%NSLAVES,PEAK,id%KEEP(90)
      &              )
             IF(id%KEEP(261).EQ.1)THEN
@@ -1272,7 +1555,7 @@ C                 Only one processor, NA(2) is the number of leaves
                IF ( LPOK ) THEN
                   WRITE(LP, 150) 'TEMP_MEM'
                END IF
-               GOTO 80
+               GOTO 80 !! FIXME propagate error
             END IF
             allocate(TEMP_LEAF(SIZE_TEMP_MEM,id%NSLAVES),
      &           stat=allocok) 
@@ -1282,7 +1565,7 @@ C                 Only one processor, NA(2) is the number of leaves
                END IF
                INFO(1)= -7
                INFO(2)= SIZE_TEMP_MEM*id%NSLAVES
-               GOTO 80
+               GOTO 80 !! FIXME propagate error
             end if
             allocate(TEMP_SIZE(SIZE_TEMP_MEM,id%NSLAVES),
      &           stat=allocok) 
@@ -1368,7 +1651,7 @@ C     We reuse the same variable as before
      &           id%KEEP(28), .TRUE., id%KEEP(28), id%KEEP(70),
      &           id%KEEP(50), id%INFO(1), id%ICNTL(1),id%KEEP(47),
      &           id%KEEP(81),id%KEEP(76),id%KEEP(215),
-     &           id%KEEP(234), id%KEEP(55),
+     &           id%KEEP(234), id%KEEP(55), id%KEEP(199),
      &           id%PROCNODE_STEPS(1),TEMP_MEM,id%NSLAVES,
      &           SIZE_TEMP_MEM, PEAK,id%KEEP(90),SIZE_DEPTH_FIRST,
      &           SIZE_COST_TRAV,DEPTH_FIRST(1),DEPTH_FIRST_SEQ(1),
@@ -1376,83 +1659,20 @@ C     We reuse the same variable as before
      &           TEMP_LEAF,TEMP_SIZE,TEMP_ROOT,SBTR_ID(1)
      &              )
          END IF
-C     Compute a grouping of variables for LR approximations.
-C     id%SYM_PERM is used as a work array
-        IF(KEEP(494) .NE. 0) THEN 
-            IF ( (KEEP(54).eq.3) .AND. (KEEP(244).eq.2) ) THEN
-C     If the input matrix is distributed and the parallel analysis is
-C     chosen, the graph has to be centralized in order to compute the
-C     clustering. 
-               CALL DMUMPS_GATHER_MATRIX(id)
-            END IF
-            IF (KEEP(469).EQ.0) THEN
-              CALL DMUMPS_LR_GROUPING(id%N, id%KEEP8(28), id%KEEP(28),
-     &           id%IRN,
-     &           id%JCN, id%FILS, id%FRERE_STEPS,
-     &           id%DAD_STEPS, id%NE_STEPS, id%STEP, id%NA,
-     &           id%LNA, id%LRGROUPS,
-     &           id%KEEP(50),
-     &           id%ICNTL(1), id%KEEP(487), id%KEEP(488), 
-     &           id%KEEP(490), id%KEEP(38), id%KEEP(20), id%KEEP(60),
-     &           id%INFO(1), id%INFO(2),
-     &           id%KEEP(264), id%KEEP(265), id%KEEP(482), id%KEEP(472),
-     &           id%KEEP(127), id%KEEP(10), 
-     &           id%KEEP(54),
-     &           LPOK, LP)
-            ELSE
-              CALL DMUMPS_LR_GROUPING_NEW(id%N, id%KEEP8(28), 
-     &           id%KEEP(28), id%IRN,
-     &           id%JCN, id%FILS, id%FRERE_STEPS,
-     &           id%DAD_STEPS, id%NE_STEPS, id%STEP, id%NA,
-     &           id%LNA, id%LRGROUPS, id%KEEP(50),
-     &           id%ICNTL(1), id%KEEP(487), id%KEEP(488),
-     &           id%KEEP(490), id%KEEP(38), id%KEEP(20), id%KEEP(60), 
-     &           id%INFO(1), id%INFO(2),
-     &           id%KEEP(264), id%KEEP(265), id%KEEP(482), id%KEEP(472),
-     &           id%KEEP(127), id%KEEP(469), id%KEEP(10), 
-     &           id%KEEP(54),
-     &           LPOK, LP)
-            ENDIF
-            IF ( (KEEP(54).eq.3) .AND. (KEEP(244).eq.2) ) THEN
-C           Cleanup the irn and jcn arrays filled up by the
-C           cmumps_gather_matrix above. It might have been done
-C           during grouping
-                IF (associated(id%IRN)) THEN
-                  deallocate(id%IRN)
-                  NULLIFY(id%IRN)
-                ENDIF
-                IF (associated(id%JCN)) THEN
-                  deallocate(id%JCN)
-                  NULLIFY(id%JCN)
-                ENDIF
-            END IF
-         END IF 
-         CALL MUMPS_REALLOC(id%SYM_PERM, id%N, id%INFO, LP, 
-     &     FORCE=.TRUE.,
-     &     STRING='id%SYM_PERM (Analysis)', ERRCODE=-7)
-         IF(INFO(1).LT.0) GOTO 80
+      ENDIF
+      IF (id%MYID.EQ.MASTER) THEN
          CALL DMUMPS_SORT_PERM(id%N, id%NA(1), id%LNA,
      &        id%NE_STEPS(1), id%SYM_PERM(1),
      &        id%FILS(1), id%DAD_STEPS(1),
      &        id%STEP(1), id%KEEP(28), id%INFO(1) )
-      ELSE ! matches the IF (id%MYID .EQ. MASTER) THEN ... above
-         CALL MUMPS_REALLOC(id%SYM_PERM, id%N, id%INFO, LP, 
-     &     FORCE=.TRUE.,
-     &     STRING='id%SYM_PERM (Analysis)', ERRCODE=-7)
-         IF(INFO(1).LT.0) GOTO 80
-         IF ( (KEEP(54).EQ.3) .AND. (KEEP(244).EQ.2)
-     &        .AND. (KEEP(494).NE.0)) THEN
-C     If the input matrix is distributed and the parallel analysis is
-C     chosen, the graph has to be centralized in order to compute the
-C     clustering. 
-            CALL DMUMPS_GATHER_MATRIX(id)
-         END IF         
       ENDIF
 C     Root principal variable
 C     for scalapack (KEEP(38)) might have been updated
-C     since root variables might have been permuted.
+C     since root variables might have been permuted
+C     and/or expanded (MUMPS_EXPAND_TREE) in case of compressed graph
 C     It should thus be redistributed to all procs
-      IF((KEEP(494).NE.0).AND.(id%KEEP(38).GT.0)) 
+      IF(((KEEP(494).NE.0).OR.KEEP(13).NE.0)
+     &      .AND.(id%KEEP(38).GT.0)) 
      &             THEN  ! grouping at analysis (1 => LR
        CALL MPI_BCAST( id%KEEP(38), 1, MPI_INTEGER, MASTER,
      &     id%COMM, IERR )
@@ -1461,7 +1681,7 @@ C     It should thus be redistributed to all procs
 C     Broadcast errors
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &     id%COMM, id%MYID )
-      IF ( INFO(1).LT.0 ) RETURN
+      IF ( INFO(1).LT.0 ) GOTO 500
 C     ---------------------------------------------------
 C     Broadcast information computed on the master to
 C     the slaves.
@@ -1494,10 +1714,10 @@ C     ---------------------------------------------------
       IF (KEEP(55) .EQ. 0) THEN
 C     Assembled matrix format. Fill up the id%PTRAR array
 C     Broadcast id%SYM_PERM needed to fill up id%PTRAR
-C     At the end of ANA_N_PAR, id%PTRAR is already on every processor
+C     At the end of ANA_N_DIST, id%PTRAR is already on every processor
 C     because it is computed in a distributed way.
 C     No need to broadcast it again
-         CALL DMUMPS_ANA_N_PAR(id, id%PTRAR(1))
+         CALL DMUMPS_ANA_N_DIST(id, id%PTRAR)
          IF(id%MYID .EQ. MASTER) THEN
 C           -----------------------------------
 C           For distributed structure on entry,
@@ -1507,11 +1727,11 @@ C           -----------------------------------
             IF ( (KEEP(244) .EQ. 1) .AND. (KEEP(54) .EQ. 3) ) THEN
 C               IRN and JCN might have already been deallocated
                 IF (associated(id%IRN)) THEN
-                  deallocate(id%IRN)
+                  DEALLOCATE(id%IRN)
                   NULLIFY(id%IRN)
                 ENDIF
                 IF (associated(id%JCN)) THEN
-                  deallocate(id%JCN)
+                  DEALLOCATE(id%JCN)
                   NULLIFY(id%JCN)
                 ENDIF
             END IF
@@ -1522,7 +1742,7 @@ C     Store size of the stack memory for each
 C     of the sequential subtree.
       IF((id%KEEP(76).EQ.4).OR.(id%KEEP(76).EQ.6))THEN
          IF(associated(id%DEPTH_FIRST)) THEN
-            deallocate(id%DEPTH_FIRST)
+            DEALLOCATE(id%DEPTH_FIRST)
          ENDIF
          allocate(id%DEPTH_FIRST(id%KEEP(28)),stat=allocok)
          IF (allocok .ne.0) then
@@ -1571,7 +1791,7 @@ C     of the sequential subtree.
      &           MPI_INTEGER,MASTER, id%COMM, IERR )  
       ELSE
          IF(associated(id%DEPTH_FIRST)) THEN
-            deallocate(id%DEPTH_FIRST)
+            DEALLOCATE(id%DEPTH_FIRST)
          ENDIF
          allocate(id%DEPTH_FIRST(1),stat=allocok)
          IF (allocok .ne.0) then
@@ -1612,7 +1832,7 @@ C     of the sequential subtree.
       ENDIF
       IF(id%KEEP(76).EQ.5)THEN
          IF(associated(id%COST_TRAV)) THEN
-            deallocate(id%COST_TRAV)
+            DEALLOCATE(id%COST_TRAV)
          ENDIF
          allocate(id%COST_TRAV(id%KEEP(28)),stat=allocok)
          IF (allocok .ne.0) then
@@ -1631,7 +1851,7 @@ C     of the sequential subtree.
      &        MPI_DOUBLE_PRECISION,MASTER, id%COMM, IERR )         
       ELSE
          IF(associated(id%COST_TRAV)) THEN
-            deallocate(id%COST_TRAV)
+            DEALLOCATE(id%COST_TRAV)
          ENDIF
          allocate(id%COST_TRAV(1),stat=allocok)
          IF (allocok .ne.0) then
@@ -1671,7 +1891,7 @@ C     of the sequential subtree.
      &                 IDEST, 0, id%COMM,IERR)             
                ELSE
                   IF(associated(id%MEM_SUBTREE)) THEN
-                     deallocate(id%MEM_SUBTREE)
+                     DEALLOCATE(id%MEM_SUBTREE)
                   ENDIF
                   allocate(id%MEM_SUBTREE(J),stat=allocok)
                   IF (allocok .ne.0) then
@@ -1685,7 +1905,7 @@ C     of the sequential subtree.
                   id%NBSA_LOCAL = J
                   id%MEM_SUBTREE(1:J)=TEMP_MEM(1:J,1)
                   IF(associated(id%MY_ROOT_SBTR)) THEN
-                     deallocate(id%MY_ROOT_SBTR)
+                     DEALLOCATE(id%MY_ROOT_SBTR)
                   ENDIF
                   allocate(id%MY_ROOT_SBTR(J),stat=allocok)
                   IF (allocok .ne.0) then
@@ -1698,7 +1918,7 @@ C     of the sequential subtree.
                   END IF
                   id%MY_ROOT_SBTR(1:J)=TEMP_ROOT(1:J,1)
                   IF(associated(id%MY_FIRST_LEAF)) THEN
-                     deallocate(id%MY_FIRST_LEAF)
+                     DEALLOCATE(id%MY_FIRST_LEAF)
                   ENDIF
                   allocate(id%MY_FIRST_LEAF(J),stat=allocok)
                   IF (allocok .ne.0) then
@@ -1711,7 +1931,7 @@ C     of the sequential subtree.
                   END IF
                   id%MY_FIRST_LEAF(1:J)=TEMP_LEAF(1:J,1)
                   IF(associated(id%MY_NB_LEAF)) THEN
-                     deallocate(id%MY_NB_LEAF)
+                     DEALLOCATE(id%MY_NB_LEAF)
                   ENDIF
                   allocate(id%MY_NB_LEAF(J),stat=allocok)
                   IF (allocok .ne.0) then
@@ -1729,7 +1949,7 @@ C     of the sequential subtree.
             CALL MPI_RECV(id%NBSA_LOCAL,1,MPI_INTEGER,
      &           MASTER,0,id%COMM,STATUS, IERR)
             IF(associated(id%MEM_SUBTREE)) THEN
-               deallocate(id%MEM_SUBTREE)
+               DEALLOCATE(id%MEM_SUBTREE)
             ENDIF
             allocate(id%MEM_SUBTREE(id%NBSA_LOCAL),stat=allocok)
             IF (allocok .ne.0) then
@@ -1741,7 +1961,7 @@ C     of the sequential subtree.
                GOTO 87
             END IF
             IF(associated(id%MY_ROOT_SBTR)) THEN
-               deallocate(id%MY_ROOT_SBTR)
+               DEALLOCATE(id%MY_ROOT_SBTR)
             ENDIF
             allocate(id%MY_ROOT_SBTR(id%NBSA_LOCAL),stat=allocok)
             IF (allocok .ne.0) then
@@ -1753,7 +1973,7 @@ C     of the sequential subtree.
                GOTO 87
             END IF
             IF(associated(id%MY_FIRST_LEAF)) THEN
-               deallocate(id%MY_FIRST_LEAF)
+               DEALLOCATE(id%MY_FIRST_LEAF)
             ENDIF
             allocate(id%MY_FIRST_LEAF(id%NBSA_LOCAL),stat=allocok)
             IF (allocok .ne.0) then
@@ -1765,7 +1985,7 @@ C     of the sequential subtree.
                GOTO 87
             END IF
             IF(associated(id%MY_NB_LEAF)) THEN
-               deallocate(id%MY_NB_LEAF)
+               DEALLOCATE(id%MY_NB_LEAF)
             ENDIF
             allocate(id%MY_NB_LEAF(id%NBSA_LOCAL),stat=allocok)
             IF (allocok .ne.0) then
@@ -1792,7 +2012,7 @@ C     of the sequential subtree.
       ELSE
          id%NBSA_LOCAL = -999999
          IF(associated(id%MEM_SUBTREE)) THEN
-            deallocate(id%MEM_SUBTREE)
+            DEALLOCATE(id%MEM_SUBTREE)
          ENDIF
          allocate(id%MEM_SUBTREE(1),stat=allocok)
          IF (allocok .ne.0) then
@@ -1804,7 +2024,7 @@ C     of the sequential subtree.
             GOTO 87
          END IF
          IF(associated(id%MY_ROOT_SBTR)) THEN
-            deallocate(id%MY_ROOT_SBTR)
+            DEALLOCATE(id%MY_ROOT_SBTR)
          ENDIF
          allocate(id%MY_ROOT_SBTR(1),stat=allocok)
          IF (allocok .ne.0) then
@@ -1816,7 +2036,7 @@ C     of the sequential subtree.
             GOTO 87
          END IF
          IF(associated(id%MY_FIRST_LEAF)) THEN
-            deallocate(id%MY_FIRST_LEAF)
+            DEALLOCATE(id%MY_FIRST_LEAF)
          ENDIF
          allocate(id%MY_FIRST_LEAF(1),stat=allocok)
          IF (allocok .ne.0) then
@@ -1828,7 +2048,7 @@ C     of the sequential subtree.
             GOTO 87
          END IF
          IF(associated(id%MY_NB_LEAF)) THEN
-            deallocate(id%MY_NB_LEAF)
+            DEALLOCATE(id%MY_NB_LEAF)
          ENDIF
          allocate(id%MY_NB_LEAF(1),stat=allocok)
          IF (allocok .ne.0) then
@@ -1842,20 +2062,20 @@ C     of the sequential subtree.
       ENDIF
       IF(id%MYID.EQ.MASTER)THEN
          IF(IS_BUILD_LOAD_MEM_CALLED)THEN 
-            deallocate(TEMP_MEM)
-            deallocate(TEMP_SIZE)
-            deallocate(TEMP_ROOT)
-            deallocate(TEMP_LEAF)
-            deallocate(COST_TRAV_TMP)
-            deallocate(DEPTH_FIRST)
-            deallocate(DEPTH_FIRST_SEQ)
-            deallocate(SBTR_ID)
+            DEALLOCATE(TEMP_MEM)
+            DEALLOCATE(TEMP_SIZE)
+            DEALLOCATE(TEMP_ROOT)
+            DEALLOCATE(TEMP_LEAF)
+            DEALLOCATE(COST_TRAV_TMP)
+            DEALLOCATE(DEPTH_FIRST)
+            DEALLOCATE(DEPTH_FIRST_SEQ)
+            DEALLOCATE(SBTR_ID)
          ENDIF
       ENDIF
  87   CONTINUE
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &     id%COMM, id%MYID )
-      IF ( INFO(1).LT.0 ) RETURN
+      IF ( INFO(1).LT.0 ) GOTO 500
 C     
       NB_NIV2 = KEEP(56)        ! KEEP(1:110) was broadcast earlier
 C     NB_NIV2 is now available on all processors.
@@ -1863,7 +2083,7 @@ C     NB_NIV2 is now available on all processors.
 C        Allocate arrays on slaves
          if (id%MYID.ne.MASTER) then
             IF (associated(id%CANDIDATES)) THEN
-               deallocate(id%CANDIDATES)
+               DEALLOCATE(id%CANDIDATES)
             ENDIF
             allocate(PAR2_NODES(NB_NIV2),
      &           id%CANDIDATES(id%NSLAVES+1,NB_NIV2),
@@ -1878,7 +2098,7 @@ C        Allocate arrays on slaves
          end if
          CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &        id%COMM, id%MYID )
-         IF ( INFO(1).LT.0 ) RETURN
+         IF ( INFO(1).LT.0 ) GOTO 500
          CALL MPI_BCAST(PAR2_NODES(1),NB_NIV2,
      &        MPI_INTEGER, MASTER, id%COMM, IERR )
          IF (KEEP(24) .NE.0 ) THEN
@@ -1888,11 +2108,11 @@ C        Allocate arrays on slaves
          ENDIF
       ENDIF
       IF ( associated(id%ISTEP_TO_INIV2)) THEN
-         deallocate(id%ISTEP_TO_INIV2)
+         DEALLOCATE(id%ISTEP_TO_INIV2)
          NULLIFY(id%ISTEP_TO_INIV2)
       ENDIF
       IF ( associated(id%I_AM_CAND)) THEN
-         deallocate(id%I_AM_CAND)
+         DEALLOCATE(id%I_AM_CAND)
          NULLIFY(id%I_AM_CAND)
       ENDIF
       IF (NB_NIV2.EQ.0) THEN 
@@ -1925,6 +2145,7 @@ C   If BLR grouping was performed then PAR2_NODES(INIV2)
 C   might then point to a non principal variable
 C   for which STEP might be negative
 C
+         id%ISTEP_TO_INIV2 = -9999
          DO INIV2 = 1, NB_NIV2
             INN = PAR2_NODES(INIV2)
             id%ISTEP_TO_INIV2(abs(id%STEP(INN))) = INIV2
@@ -1934,9 +2155,8 @@ C
      &        id%CANDIDATES(1,1), id%I_AM_CAND(1) )
       ENDIF
       IF ( I_AM_SLAVE ) THEN
-#if ! defined(OLD_LOAD_MECHANISM)
          IF (associated(id%FUTURE_NIV2)) THEN
-            deallocate(id%FUTURE_NIV2)
+            DEALLOCATE(id%FUTURE_NIV2)
             NULLIFY(id%FUTURE_NIV2)
          ENDIF
          allocate(id%FUTURE_NIV2(id%NSLAVES), stat=allocok)
@@ -1952,15 +2172,14 @@ C
          DO INIV2 = 1, NB_NIV2
             IDEST = MUMPS_PROCNODE(
      &           id%PROCNODE_STEPS(abs(id%STEP(PAR2_NODES(INIV2)))),
-     &           id%NSLAVES)
+     &           id%KEEP(199))
             id%FUTURE_NIV2(IDEST+1)=id%FUTURE_NIV2(IDEST+1)+1
          ENDDO
-#endif
 C     Allocate id%TAB_POS_IN_PERE, 
 C     TAB_POS_IN_PERE is an array of size (id%NSLAVES+2,NB_NIV2)
 C     where NB_NIV2 is the number of type 2 nodes in the tree.
          IF ( associated(id%TAB_POS_IN_PERE)) THEN
-            deallocate(id%TAB_POS_IN_PERE)
+            DEALLOCATE(id%TAB_POS_IN_PERE)
             NULLIFY(id%TAB_POS_IN_PERE)
          ENDIF
          allocate(id%TAB_POS_IN_PERE(id%NSLAVES+2,max(NB_NIV2,1)),
@@ -1981,32 +2200,15 @@ C     where NB_NIV2 is the number of type 2 nodes in the tree.
       END IF
 C     deallocate PAR2_NODES  that was computed
 C     on master and broadcasted on all slaves
-      IF (NB_NIV2.GT.0) deallocate (PAR2_NODES)
+      IF (NB_NIV2.GT.0) DEALLOCATE (PAR2_NODES)
  321  CONTINUE
 C     ----------------
 C     Check for errors
 C     ----------------
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &     id%COMM, id%MYID )
-      IF ( INFO(1).LT.0 ) RETURN
-C     ------------------------------
-C     Perform again the subdivision of array
-C     IS1, both on the master and on
-C     the slaves. This is done so to
-C     ease the passage to the model
-C     where master will work.
-C     ------------------------------
-C     
-      IF ( KEEP(23).NE.0 .and. id%MYID .EQ. MASTER ) THEN
-         IKEEP = id%N + 1
-      ELSE
-         IKEEP = 1
-      END IF
-      FILS   = IKEEP + 3 * id%N
-      NE     = IKEEP + 2 * id%N
-      NA     = IKEEP +     id%N
-      FRERE  = FILS  + id%N
-      NFSIZ  = FRERE + id%N
+      IF ( INFO(1).LT.0 ) GOTO 500
+C
       IF ( KEEP(38) .NE. 0 ) THEN
 C     -------------------------
 C     Initialize root structure
@@ -2050,8 +2252,9 @@ C     Check for errors
 C     ----------------
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &     id%COMM, id%MYID )
-      IF ( INFO(1).LT.0 ) RETURN
+      IF ( INFO(1).LT.0 ) GOTO 500
       IF ( I_AM_SLAVE ) THEN
+C{
 C     
 C     
          IF (KEEP(55) .EQ. 0) THEN
@@ -2071,6 +2274,7 @@ C
      &           id%FRTPTR(1), id%FRTELT(1),
      &           KEEP(1), KEEP8(1), ICNTL(1), id%KEEP(50) )
          ENDIF
+C}
       ENDIF
 C     -----------------------------------------
 C     Perform some local analysis on the slaves
@@ -2078,72 +2282,128 @@ C     to estimate the size of the working space
 C     for factorization
 C     -----------------------------------------
       IF ( I_AM_SLAVE ) THEN
+C{
          locI_AM_CAND => id%I_AM_CAND
          locMYID_NODES = id%MYID_NODES
          locMYID       = id%MYID
-C     
-C     Precompute estimates of local_m,local_n
-C     (number of rows/columns mapped on each processor)
-C     in case of parallel root node.
+C           ===================================================
+C           Precompute estimates of local_m,local_n
+C           (number of rows/columns mapped on each processor)
+C           in case of parallel root node.
+C           and allocate CANDIDATES
+C           ===================================================
 C     
             IF ( id%root%yes ) THEN
-               LOCAL_M = numroc( id%ND_STEPS(id%STEP(KEEP(38))),
+              LOCAL_M = numroc( id%ND_STEPS(id%STEP(KEEP(38))),
      &              id%root%MBLOCK, id%root%MYROW, 0,
      &              id%root%NPROW )
-               LOCAL_M = max(1, LOCAL_M)
-               LOCAL_N = numroc( id%ND_STEPS(id%STEP(KEEP(38))),
+              LOCAL_M = max(1, LOCAL_M)
+              LOCAL_N = numroc( id%ND_STEPS(id%STEP(KEEP(38))),
      &              id%root%NBLOCK, id%root%MYCOL, 0,
      &              id%root%NPCOL )
             ELSE
-               LOCAL_M = 0
-               LOCAL_N = 0
+              LOCAL_M = 0
+              LOCAL_N = 0
             END IF
             IF  ( KEEP(60) .EQ. 2 .OR. KEEP(60) .EQ. 3 ) THEN
-C     Return minimum nb rows/cols to user
+C           Return minimum nb rows/cols to user
                id%SCHUR_MLOC=LOCAL_M
                id%SCHUR_NLOC=LOCAL_N
-C     Also store them in root structure for convenience
+C           Also store them in root structure for convenience
                id%root%SCHUR_MLOC=LOCAL_M
                id%root%SCHUR_NLOC=LOCAL_N
             ENDIF
-               IF ( .NOT. associated(id%CANDIDATES)) THEN
-                  ALLOCATE(id%CANDIDATES(id%NSLAVES+1,1), stat=allocok)
-                  IF (allocok .gt.0) THEN
+            IF ( .NOT. associated(id%CANDIDATES)) THEN
+               ALLOCATE(id%CANDIDATES(id%NSLAVES+1,1), stat=allocok)
+               IF (allocok .gt.0) THEN
                      IF ( LPOK ) THEN
                         WRITE(LP, 150) 'CANDIDATES'
                      END IF
                      INFO(1)= -7
                      INFO(2)= id%NSLAVES+1
-                     goto 93
-                  ENDIF
                ENDIF
-      !CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
-      !&              id%COMM, id%MYID )
-      !          IF ( INFO(1).LT.0 ) RETURN
-               CALL DMUMPS_ANA_DISTM( locMYID_NODES, id%N,
-     &              id%STEP(1), id%FRERE_STEPS(1), id%FILS(1),
-     &              id%NA(1), id%LNA, id%NE_STEPS(1), id%DAD_STEPS(1),
-     &              id%ND_STEPS(1), id%PROCNODE_STEPS(1),
-     &              id%NSLAVES, KEEP8(11), KEEP(26), KEEP(15),
-     &              KEEP8(12),  KEEP8(14),  
-     &              KEEP8(32), KEEP8(33), KEEP8(34), 
-     &              KEEP8(35), KEEP8(50), 
-     &              KEEP8(36), KEEP8(47), KEEP8(37),
-     &              KEEP8(38), KEEP8(39),
-     &              KEEP8(40), KEEP8(41), KEEP8(42), 
-     &              KEEP8(43), KEEP8(44), KEEP8(45), KEEP8(46), 
-     &              KEEP8(51), KEEP8(52),
-     &              KEEP(224),KEEP(225),KEEP(27),RINFO(1),id%CNTL(1),
-     &              KEEP(1), KEEP8(1), LOCAL_M, LOCAL_N, SBUF_RECOLD8,
-     &              SBUF_SEND_FR, SBUF_REC_FR, 
-     &              SBUF_SEND_LR, SBUF_REC_LR, 
-     &              id%COST_SUBTREES, KEEP(28),
-     &              locI_AM_CAND(1), max(KEEP(56),1),
-     &              id%ISTEP_TO_INIV2(1), id%CANDIDATES(1,1), 
-     &              INFO(1), INFO(2), KEEP8(15),MAX_SIZE_FACTOR_TMP, 
-     &              KEEP8(9), ENTRIES_IN_FACTORS_LOC_MASTERS,
-     &              id%root%yes, id%root%NPROW, id%root%NPCOL
+            ENDIF
+C}
+      ENDIF
+      CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &             id%COMM, id%MYID )
+      IF ( INFO(1).LT.0 ) GOTO 500
+C     -- Allocate and initialise IPOOL with leaves 
+C     -- on which stats are performed
+      IF ( I_AM_SLAVE ) THEN
+C{
+           LIPOOL = id%NA(1)
+C         LIPOOL is number of leaf nodes and can be 0 
+C         (for ex AboveL0 with nbthreads is 1)
+          ALLOCATE( IPOOL(max(LIPOOL,1)), 
+     &                   stat=allocok)
+          IF (allocok .gt.0) THEN
+                   IF ( LPOK ) THEN
+                      WRITE(LP, 150) 'Allocation IPOOL'
+                   END IF
+                   INFO(1)= -7
+                   INFO(2)=  LIPOOL
+          ENDIF
+C}
+      ENDIF
+      CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &      id%COMM, id%MYID )
+      IF ( INFO(1).LT.0 ) GOTO 500
+C
+      IF ( I_AM_SLAVE ) THEN
+C{
+C            Initialize IPOOL with leaves of complete tree
+             DO I=1, LIPOOL
+              IPOOL(I) = id%NA(3+I-1)
+             ENDDO
+             ABOVE_L0                   =.FALSE.
+             SIZECB_UNDER_L0            = 0_8
+             SIZECB_UNDER_L0_IF_LRCB    = 0_8
+             MAX_FRONT_SURFACE_LOCAL_L0 = 0_8
+             MAX_SIZE_FACTOR_L0         = 0_8
+             ENTRIES_IN_FACTORS_UNDER_L0= 0_8
+             ENTRIES_IN_FACTORS_MASTERS_UNDER_LO = 0_8
+             MAXFR_UNDER_L0             = 0
+             COST_SUBTREES_UNDER_L0     = 0.0D0
+             OPSA_UNDER_L0              = 0.0D0
+C
+             NE_STEPSPTR => id%NE_STEPS
+           CALL DMUMPS_ANA_DISTM( locMYID_NODES, id%N,
+     &          id%STEP(1), id%FRERE_STEPS(1), id%FILS(1),
+     &          IPOOL, LIPOOL, NE_STEPSPTR(1), id%DAD_STEPS(1),
+     &          id%ND_STEPS(1), id%PROCNODE_STEPS(1),  id%NSLAVES,
+     &          ABOVE_L0,SIZECB_UNDER_L0,SIZECB_UNDER_L0_IF_LRCB,
+     &          MAXFR_UNDER_L0, 
+     &          MAX_FRONT_SURFACE_LOCAL_L0, MAX_SIZE_FACTOR_L0, 
+     &          ENTRIES_IN_FACTORS_UNDER_L0,
+     &          ENTRIES_IN_FACTORS_MASTERS_UNDER_LO,
+     &          COST_SUBTREES_UNDER_L0, OPSA_UNDER_L0,
+     &          KEEP8(53), KEEP8(54),
+     &          KEEP8(11), KEEP(26), KEEP(15),
+     &          KEEP8(12),  KEEP8(14),  
+     &          KEEP8(32), KEEP8(33), KEEP8(34), 
+     &          KEEP8(35), KEEP8(50), 
+     &          KEEP8(36), KEEP8(47), KEEP8(37),
+     &          KEEP8(38), KEEP8(39),
+     &          KEEP8(40), KEEP8(41), KEEP8(42), 
+     &          KEEP8(43), KEEP8(44), KEEP8(45), KEEP8(46), 
+     &          KEEP8(51), KEEP8(52),
+     &          KEEP(224),KEEP(225),KEEP(27),RINFO(1),id%CNTL(1),
+     &          KEEP(1), KEEP8(1), LOCAL_M, LOCAL_N, SBUF_RECOLD8,
+     &          SBUF_SEND_FR, SBUF_REC_FR, SBUF_SEND_LR, SBUF_REC_LR, 
+     &          id%COST_SUBTREES, KEEP(28),
+     &          locI_AM_CAND(1), max(KEEP(56),1),
+     &          id%ISTEP_TO_INIV2(1), id%CANDIDATES(1,1), 
+     &          INFO(1), INFO(2), KEEP8(15),MAX_SIZE_FACTOR_TMP, 
+     &          KEEP8(9), ENTRIES_IN_FACTORS_LOC_MASTERS,
+     &          id%root%yes, id%root%NPROW, id%root%NPCOL
      &           )
+           IF (ALLOCATED(IPOOL)) DEALLOCATE(IPOOL)
+           NULLIFY(NE_STEPSPTR)
+C            SUM_NIRNEC under L0 OMP
+             KEEP(137)=0
+C            SUM_NIRNEC_OOC under L0 OMP
+             KEEP(138)=0
 C           DKEEP(15) is used for dynamic load balancing only
 C           it corresponds to the number of local operations
 C           (in Millions)
@@ -2240,7 +2500,7 @@ C
      &              ' Estimated size of S  (OOC factorization)    :',
      &              KEEP8(17)
             END IF
- 93      continue
+C}
       ELSE
 C     ---------------------
 C     Master is not working
@@ -2255,6 +2515,9 @@ C     ---------------------
          KEEP(27) = 0
          RINFO(1) = 0.0D0
       END IF
+      CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &     id%COMM, id%MYID )
+      IF ( INFO(1) .LT. 0 ) GOTO 500
 C     --------------------------------------
 C     KEEP8( 26 ) : Real arrowhead size
 C     KEEP8( 27 ) : Integer arrowhead size
@@ -2279,24 +2542,25 @@ C     ENTRIES_IN_FACTORS_LOC_MASTERS should lead to the same result
       CALL MPI_ALLREDUCE( KEEP(26), KEEP(126), 1,
      &     MPI_INTEGER, MPI_SUM,
      &     id%COMM, IERR)
-      CALL MUMPS_REDUCEI8( KEEP8(11), KEEP8(111), MPI_SUM,
+C FIXME multicore and 5.3: check RINFO(5) RINFOG(15) and spec
+        CALL MUMPS_REDUCEI8( KEEP8(11), KEEP8(111), MPI_SUM,
+     &       MASTER, id%COMM )
+        CALL MUMPS_SETI8TOI4( KEEP8(111), INFOG(3) )
+C       in Megabytes
+        RINFO(5) = dble(KEEP8(32)*int(KEEP(35),8))/1D6
+        CALL MUMPS_REDUCEI8( KEEP8(32), ITMP8, MPI_SUM,
      &     MASTER, id%COMM )
-      CALL MUMPS_SETI8TOI4( KEEP8(111), INFOG(3) )
-#if ! defined(NORLSOLVE)
 C     in Megabytes
-      RINFO(5) = dble(KEEP8(32))/1D6
-      CALL MUMPS_REDUCEI8( KEEP8(32), ITMP8, MPI_SUM,
-     &     MASTER, id%COMM )
       IF (id%MYID.EQ.MASTER) THEN
-       RINFOG(15) = dble(ITMP8)/1D6
+       RINFOG(15) = dble(ITMP8*int(KEEP(35),8))/1D6
       ENDIF
-#endif
 C     --------------
 C     Flops estimate
 C     --------------
       CALL MPI_ALLREDUCE( RINFO(1), RINFOG(1), 1,
      &     MPI_DOUBLE_PRECISION, MPI_SUM,
      &     id%COMM, IERR)
+C
       CALL MUMPS_SETI8TOI4( KEEP8(11), INFO(3) )
       INFO ( 4 ) = KEEP(  26 )
       INFO ( 5 ) = KEEP(  27 )
@@ -2322,6 +2586,7 @@ C     --------------------------
 C     =========================
 C     IN-CORE MEMORY STATISTICS
 C     =========================
+C
          OOC_STRAT = KEEP(201)
          BLR_STRAT = 0  ! no BLR compression
          IF (KEEP(201) .NE. -1) OOC_STRAT=0 ! We want in-core statistics
@@ -2331,18 +2596,24 @@ C     =========================
      &        id%KEEP8(30),
      &        id%NSLAVES, TOTAL_MBYTES, .FALSE.,
      &        OOC_STRAT, BLR_STRAT, PERLU_ON, TOTAL_BYTES, 
-     &        IDUMMY, BDUMMY, .FALSE.)
+     &        IDUMMY, BDUMMY, .FALSE., 
+     &        .FALSE. ! UNDER_L0_OMP
+     &        )
          KEEP8(2) = TOTAL_BYTES    
+C
+C
          PERLU_ON  = .TRUE.
          CALL DMUMPS_MAX_MEM( KEEP(1), KEEP8(1),
      &        id%MYID, id%N, id%NELT, id%NA(1), id%LNA, id%KEEP8(28),
      &        id%KEEP8(30),
      &        id%NSLAVES, TOTAL_MBYTES, .FALSE.,
      &        OOC_STRAT, BLR_STRAT, PERLU_ON, TOTAL_BYTES, 
-     &        IDUMMY, BDUMMY, .FALSE.)
+     &        IDUMMY, BDUMMY, .FALSE., 
+     &        .FALSE. ! UNDER_L0_OMP 
+     &        )
          IF ( PROK ) THEN
-            WRITE(MP,'(A,I10) ')
-     & ' Estimated space in MBytes for IC factorization            :',
+            WRITE(MP,'(A,I12) ')
+     & ' Estimated space in MBytes for IC factorization   (INFO(15)):',
      &           TOTAL_MBYTES
          END IF
          id%INFO(15) = TOTAL_MBYTES
@@ -2381,22 +2652,28 @@ C        =========================================
          IF (OOC_STRAT .NE. -1) OOC_STRAT=1
 #endif
          PERLU_ON = .FALSE.     ! PERLU NOT taken into account
-C     Used to compute KEEP8(3) (minimum number of bytes for OOC)
+C        Used to compute KEEP8(3) (minimum number of bytes for OOC)
          CALL DMUMPS_MAX_MEM( KEEP(1), KEEP8(1),
      &        id%MYID, id%N, id%NELT, id%NA(1), id%LNA, id%KEEP8(28),
      &        id%KEEP8(30),
      &        id%NSLAVES, TOTAL_MBYTES, .FALSE.,
      &        OOC_STRAT, BLR_STRAT, PERLU_ON, TOTAL_BYTES, 
-     &        IDUMMY, BDUMMY, .FALSE.)
+     &        IDUMMY, BDUMMY, .FALSE., 
+     &        .FALSE. ! UNDER_L0_OMP 
+     &         )
          KEEP8(3) = TOTAL_BYTES
+C
          PERLU_ON  = .TRUE.     ! PERLU taken into account
          CALL DMUMPS_MAX_MEM( KEEP(1), KEEP8(1),
      &        id%MYID, id%N, id%NELT, id%NA(1), id%LNA, id%KEEP8(28),
      &        id%KEEP8(30),
      &        id%NSLAVES, TOTAL_MBYTES, .FALSE.,
      &        OOC_STRAT, BLR_STRAT, PERLU_ON, TOTAL_BYTES,
-     &        IDUMMY, BDUMMY, .FALSE.)
+     &        IDUMMY, BDUMMY, .FALSE., 
+     &        .FALSE. ! UNDER_L0_OMP 
+     &         )
          id%INFO(17) = TOTAL_MBYTES
+C
       CALL MUMPS_MEM_CENTRALIZE( id%MYID, id%COMM,
      &     id%INFO(17), id%INFOG(26), IRANK )
       IF ( PROKG  ) THEN
@@ -2419,7 +2696,8 @@ C        =========================================
      &        id%MYID, id%COMM, 
      &        id%N, id%NELT, id%NA(1), id%LNA, id%KEEP8(28),
      &        id%KEEP8(30), id%NSLAVES,
-     &        id%INFO, id%INFOG, PROK, MP, PROKG, MPG )
+     &        id%INFO, id%INFOG, PROK, MP, PROKG, MPG 
+     &        )
 C
       END IF
 C     -------------------------
@@ -2428,7 +2706,7 @@ C     for the user
 C     -------------------------
       IF ( id%MYID. eq. MASTER .AND. KEEP(54) .eq. 1 ) THEN
          IF (associated( id%MAPPING)) THEN
-            deallocate( id%MAPPING)
+            DEALLOCATE( id%MAPPING)
          ENDIF
          allocate( id%MAPPING(id%KEEP8(28)), stat=allocok)
          IF ( allocok .GT. 0 ) THEN
@@ -2456,18 +2734,30 @@ C     -------------------------
      &        id%FILS(1), IWtemp, id%KEEP(1),id%KEEP8(1),
      &        id%root%MBLOCK, id%root%NBLOCK,
      &        id%root%NPROW, id%root%NPCOL )
-         deallocate( IWtemp )
+         DEALLOCATE( IWtemp )
  92      CONTINUE
       END IF
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &     id%COMM, id%MYID )
-      IF ( INFO(1) .LT. 0 ) RETURN
+      IF ( INFO(1) .LT. 0 ) GOTO 500
+C 
+  500 CONTINUE
+C     Deallocate allocated working space
+      IF (allocated(PROCNODE)) DEALLOCATE(PROCNODE)
+      IF (allocated(XNODEL)) DEALLOCATE(XNODEL)
+      IF (allocated(NODEL)) DEALLOCATE(NODEL)
+      IF (allocated(IPOOL)) DEALLOCATE(IPOOL)
+C     Standard deallocations (error or not)
+      IF (associated(NFSIZPTR)) DEALLOCATE(NFSIZPTR)
+      IF (associated(FREREPTR)) DEALLOCATE(FREREPTR)
+      IF (associated(FILSPTR)) DEALLOCATE(FILSPTR)
       KEEP8(26)=max(1_8,KEEP8(26))
       KEEP8(27)=max(1_8,KEEP8(27))
       RETURN
  110  FORMAT(/' ****** ANALYSIS STEP ********'/)
  112  FORMAT(/' MEMORY ESTIMATIONS ... '/
      &   ' Estimations with standard Full-Rank (FR) factorization:')
+ 145  FORMAT(' ELAPSED TIME SPENT IN BLR CLUSTERING =',F12.4)
  150  FORMAT(
      & /' ** FAILURE DURING DMUMPS_ANA_DRIVER, DYNAMIC ALLOCATION OF',
      &     A30)
@@ -2493,7 +2783,6 @@ C     MP     : INFO
       PROK  = (( MP  .GT. 0 ).AND.(id%ICNTL(4).GE.2))
       PROKG = ( MPG .GT. 0 .and. id%MYID .eq. MASTER )
       PROKG = (PROKG.AND.(id%ICNTL(4).GE.2))
-C     Fwd in facto
       IF (id%MYID.eq.MASTER) THEN
         id%KEEP(256) = id%ICNTL(7) ! copy ordering option
         id%KEEP(252) = id%ICNTL(32)
@@ -2882,22 +3171,24 @@ C     also forbid compressed/constrained ordering...
          IF ( (id%KEEP(23) .NE. 0) .AND. (id%KEEP(256).EQ.1)) THEN
             id%KEEP(23) = 0
             IF (PROKG) THEN
-               WRITE(MPG,'(A)')
-     & ' ** Max-trans not allowed because ordering is given'
+               WRITE(MPG,'(A,A)')
+     &          ' ** Maximum transversal (ICNTL(6)) not allowed ',
+     &         'because ordering is given'
             END IF
          END IF
          IF ( id%KEEP(256) .EQ. 1 ) THEN
             IF (id%KEEP(95) > 1 .AND. PROKG) THEN
                WRITE(MPG,'(A)')
-     & ' ** ICNTL(12) option incompatible with given ordering'
+     &      ' ** ICNTL(12) option incompatible with given ordering'
             END IF
             id%KEEP(95) = 1
          END IF
          IF (id%KEEP(54) .NE. 0) THEN
             IF( id%KEEP(23) .NE. 0 ) THEN
                IF (PROKG) THEN
-                  WRITE(MPG,'(A)')
-     & ' ** Max-trans not allowed because matrix is distributed'
+                  WRITE(MPG,'(A,A)')
+     &            ' ** Maximum transversal (ICNTL(6)) not allowed ',
+     &            'because matrix is distributed'
                END IF
                id%KEEP(23) = 0
             ENDIF
@@ -2905,29 +3196,32 @@ C     also forbid compressed/constrained ordering...
 C           Only Ruiz & Bora scaling available for dist format 
 C           (Work supported by ANR-SOLSTICE (ANR-06-CIS6-010))
                IF (PROKG) THEN
-                  WRITE(MPG,'(A)')
-     & ' ** Scaling during analysis not allowed (matrix is distributed)'
+                  WRITE(MPG,'(A,A)')
+     &            ' ** Scaling (ICNTL(8)) during analysis not ', 
+     &            'allowed because matrix is distributed)'
                ENDIF
             ENDIF
             id%KEEP(52) = 0
             IF (id%KEEP(95) .GT. 1 .AND. MPG.GT.0) THEN
-               WRITE(MPG,'(A)')
-     & ' ** ICNTL(12) option not allowed because matrix is
-     &distributed'
+               WRITE(MPG,'(A,A)')
+     &         ' ** ICNTL(12) option not allowed because matrix is ', 
+     &         'distributed'
             ENDIF
             id%KEEP(95) = 1
          END IF
          IF ( id%KEEP(55) .NE. 0 ) THEN
             IF( id%KEEP(23) .NE. 0 ) THEN
                IF (PROKG) THEN
-                  WRITE(MPG,'(A)')
-     & ' ** Max-trans not allowed for element matrix'
+                  WRITE(MPG,'(A,A)')
+     &            ' ** Maximum transversal (ICNTL(6)) not allowed ',
+     &            'for matrices in elemental format'
                END IF
                id%KEEP(23) = 0
             ENDIF
             IF (PROKG .AND. id%KEEP(52).EQ.-2) THEN
                WRITE(MPG,'(A)')
-     & ' ** Scaling not allowed at analysis for element matrix'
+     &            ' ** Scaling (ICNTL(8)) not allowed ',
+     &            'for matrices in elemental format'
             ENDIF
             id%KEEP(52) = 0
             id%KEEP(95) = 1
@@ -3137,6 +3431,8 @@ C         KEEP(491)>0
             id%KEEP(491) = 1000
           ENDIF
          ENDIF
+C 
+      id%KEEP(13) = 0
 C
 C     end id%MYID.EQ.MASTER 
       END IF 
@@ -3149,14 +3445,16 @@ C     on the host node
       IMPLICIT NONE
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
+      INTEGER IERR, MASTER
+      PARAMETER( MASTER = 0 )
+      INTEGER :: STATUS(MPI_STATUS_SIZE)
       TYPE(DMUMPS_STRUC)  :: id
 C     local variables
       INTEGER, ALLOCATABLE :: REQPTR(:,:)
       INTEGER(8), ALLOCATABLE :: MATPTR(:)
       INTEGER(8), ALLOCATABLE :: MATPTR_cp(:)
       INTEGER(8)           :: IBEG8, IEND8
-      INTEGER              :: MASTER, IERR, INDX
-      INTEGER              :: STATUS(MPI_STATUS_SIZE)
+      INTEGER              :: INDX
       INTEGER              :: LP, MP, MPG, I, K
       INTEGER(8)           :: I8
       LOGICAL              :: PROK, PROKG
@@ -3172,7 +3470,6 @@ C     on all processors
       INTEGER(8)           :: NZ_loc8
 C     for validation only:
       INTEGER              :: NB_BLOCKS, NB_BLOCK_SENT
-      PARAMETER( MASTER = 0 )
       LP  = id%ICNTL( 1 )
       MP  = id%ICNTL( 2 )
       MPG = id%ICNTL( 3 )
@@ -3184,19 +3481,10 @@ C     MP     : INFO
       I_AM_SLAVE = ( id%MYID .ne. MASTER  .OR.
      &     ( id%MYID .eq. MASTER .AND.
      &     id%KEEP(46) .eq. 1 ) )
-C     test IRN_loc and JCN_loc allocated on working procs
-      IF (I_AM_SLAVE .AND. id%KEEP8(29).GT.0 .AND.
-     &     ( (.NOT. associated(id%IRN_loc)) .OR. 
-     &       (.NOT. associated(id%JCN_loc)) )
-     &   ) THEN
-         id%INFO(1) = -22
-         id%INFO(2) = 16
-         GOTO 13
-      ENDIF
 C     iovflo = huge(INTEGER, kind=4)
       IOVFLO = huge(IOVFLO)  
 C     we do not want too large messages
-      BLOCKSIZE = int(max(100000_8,int(IOVFLO,8)/20_8))
+      BLOCKSIZE = int(max(100000_8,int(IOVFLO,8)/200_8))
       IF ( id%KEEP(46) .EQ. 0 .AND. id%MYID .EQ. MASTER ) THEN
 C     host-node mode: master has no entries.
          id%KEEP8(29) = 0_8

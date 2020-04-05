@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -67,6 +67,9 @@ C
             K=1
             DO WHILE ( I .LT. IMX )
               CALL CMUMPS_UPDATEDETER(A(I),DETER,NEXP)
+              IF (SYM.EQ.1) THEN
+               CALL CMUMPS_UPDATEDETER(A(I),DETER,NEXP)
+              ENDIF
               IF (SYM.NE.1) THEN 
                 IF (IPIV(ILOC+K) .NE. IBLOCK*BLOCK_SIZE+K) THEN
                   DETER = -DETER
@@ -180,3 +183,51 @@ C
       ENDIF
       RETURN
       END SUBROUTINE CMUMPS_DETER_SIGN_PERM
+      SUBROUTINE CMUMPS_PAR_ROOT_MINMAX_PIVOT_UPDATE (
+     &                      BLOCK_SIZE,IPIV,
+     &                      MYROW, MYCOL, NPROW, NPCOL,
+     &                      A, LOCAL_M, LOCAL_N, N, MYID,
+     &                      DKEEP, KEEP, SYM)
+       USE CMUMPS_FAC_FRONT_AUX_M, 
+     &      ONLY : CMUMPS_UPDATE_MINMAX_PIVOT 
+      IMPLICIT NONE
+      INTEGER, intent (in)    :: BLOCK_SIZE, NPROW, NPCOL,
+     &                           LOCAL_M, LOCAL_N, N, SYM
+      INTEGER, intent (in)    :: MYROW, MYCOL, MYID, IPIV(LOCAL_M)
+      COMPLEX, intent(in) :: A(*)
+      REAL, INTENT(INOUT) :: DKEEP(230)
+      INTEGER, INTENT(IN) :: KEEP(500)
+      INTEGER  I,IMX,DI,NBLOCK,IBLOCK,ILOC,JLOC,
+     &         ROW_PROC,COL_PROC, K
+      REAL :: ABSPIVOT
+      DI = LOCAL_M + 1 
+      NBLOCK = ( N - 1 ) / BLOCK_SIZE
+      DO IBLOCK = 0, NBLOCK
+        ROW_PROC = mod( IBLOCK, NPROW ) 
+        IF ( MYROW.EQ.ROW_PROC ) THEN
+          COL_PROC = mod( IBLOCK, NPCOL )
+          IF ( MYCOL.EQ.COL_PROC ) THEN
+            ILOC = ( IBLOCK / NPROW ) * BLOCK_SIZE
+            JLOC = ( IBLOCK / NPCOL ) * BLOCK_SIZE
+            I   =   ILOC + JLOC *  LOCAL_M + 1
+            IMX = min(ILOC+BLOCK_SIZE,LOCAL_M)
+     &            + (min(JLOC+BLOCK_SIZE,LOCAL_N)-1)*LOCAL_M
+     &            + 1
+            K=1
+            DO WHILE ( I .LT. IMX )
+             IF (SYM.NE.1) THEN
+              ABSPIVOT =  abs(A(I))
+             ELSE
+              ABSPIVOT =  abs(A(I)*A(I))
+             ENDIF
+             CALL CMUMPS_UPDATE_MINMAX_PIVOT 
+     &           ( ABSPIVOT,
+     &             DKEEP, KEEP, .FALSE.)
+              K = K + 1
+              I = I + DI
+            END DO
+          END IF
+        END IF
+      END DO
+      RETURN
+      END SUBROUTINE CMUMPS_PAR_ROOT_MINMAX_PIVOT_UPDATE

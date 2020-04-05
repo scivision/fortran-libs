@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -11,7 +11,14 @@ C  released under the CeCILL-C license:
 C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE ZMUMPS_ANA_DISTM(MYID, N, STEP, FRERE, FILS,
-     & NA, LNA, NE, DAD, ND, PROCNODE, SLAVEF,
+     & IPOOL, LIPOOL, NE, DAD, ND, PROCNODE, SLAVEF,
+     & ABOVE_L0, SIZECB_UNDER_L0, SIZECB_UNDER_L0_IF_LRCB,
+     & MAXFR_UNDER_L0, 
+     & MAX_FRONT_SURFACE_LOCAL_L0, MAX_SIZE_FACTOR_L0, 
+     & ENTRIES_IN_FACTORS_UNDER_L0,
+     & ENTRIES_IN_FACTORS_MASTERS_UNDER_LO,
+     & COST_SUBTREES_UNDER_LO, OPSA_UNDER_L0,
+     & PEAK_FR, PEAK_FR_OOC, 
      & NRLADU, NIRADU, NIRNEC, NRLNEC, NRLNEC_ACTIVE, 
      & NRLADU_if_LR_LU, NRLNEC_if_LR_LU, NRLNEC_if_LR_LUCB, 
      & NRLNECOOC_if_LR_LUCB, NRLNEC_if_LR_CB, 
@@ -34,7 +41,18 @@ C
       IMPLICIT NONE
       LOGICAL, intent(in) :: ROOT_yes
       INTEGER, intent(in) :: ROOT_NPROW, ROOT_NPCOL
-      INTEGER  MYID, N, LNA, IFLAG, IERROR
+      INTEGER, intent(in) :: MYID, N, LIPOOL
+      LOGICAL, intent(in) :: ABOVE_L0
+      INTEGER, intent(in) :: MAXFR_UNDER_L0
+      INTEGER(8), intent(in) :: MAX_FRONT_SURFACE_LOCAL_L0, 
+     &                          MAX_SIZE_FACTOR_L0, 
+     &                          ENTRIES_IN_FACTORS_UNDER_L0,
+     &                          ENTRIES_IN_FACTORS_MASTERS_UNDER_LO
+      DOUBLE PRECISION, intent(in) :: COST_SUBTREES_UNDER_LO, 
+     &                                OPSA_UNDER_L0
+      INTEGER(8), intent(inout) :: SIZECB_UNDER_L0, 
+     &                             SIZECB_UNDER_L0_IF_LRCB
+      INTEGER, intent(inout) ::  IFLAG, IERROR
       INTEGER  NIRADU, NIRNEC
       INTEGER(8) NRLADU, NRLNEC, NRLNEC_ACTIVE
       INTEGER(8), intent(out) :: NRLADU_if_LR_LU, 
@@ -43,6 +61,7 @@ C
      &  NRLNECOOC_if_LR_LUCB, NRLNECLR_CB_UD,
      &  NRLNECLR_LUCB_UD, NRLNECLR_LUCB_WC
       INTEGER(8), intent(out)::
+     &  PEAK_FR, PEAK_FR_OOC,
      &  PEAK_LRLU_UD, 
      &  PEAK_OOC_LRLU_UD, PEAK_OOC_LRLU_WC,
      &  PEAK_LRLUCB_UD, PEAK_LRLUCB_WC,
@@ -53,7 +72,7 @@ C
       INTEGER MAXFR, NSTEPS
       INTEGER(8) MAX_FRONT_SURFACE_LOCAL
       INTEGER STEP(N)
-      INTEGER FRERE(NSTEPS), FILS(N), NA(LNA), NE(NSTEPS),
+      INTEGER FRERE(NSTEPS), FILS(N), IPOOL(max(LIPOOL,1)), NE(NSTEPS),
      &        ND(NSTEPS), PROCNODE(NSTEPS), DAD(NSTEPS)
       DOUBLE PRECISION UU
       INTEGER  SLAVEF, KEEP(500), LOCAL_M, LOCAL_N
@@ -72,12 +91,14 @@ C
       INTEGER(8) MAX_SIZE_FACTOR
       DOUBLE PRECISION OPS_SUBTREE
       DOUBLE PRECISION OPS_SBTR_LOC 
-      INTEGER, ALLOCATABLE, DIMENSION(:) :: TNSTK, IPOOL, LSTKI 
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: TNSTK, LSTKI 
       INTEGER(8), ALLOCATABLE, DIMENSION(:) :: LSTKR
       INTEGER(8), ALLOCATABLE, DIMENSION(:) :: LSTKR_if_LRCB,
      &                                         LSTKRLR_CB_UD,
      &                                         LSTKRLR_CB_WC
       LOGICAL  OUTER_SENDS_FR  
+      INTEGER(8) :: SAVE_SIZECB_UNDER_L0, 
+     &              SAVE_SIZECB_UNDER_L0_IF_LRCB
       INTEGER SBUFR_FR, SBUFS_FR
       INTEGER SBUFR_LR, SBUFS_LR
       INTEGER(8) SBUFS_CB, SBUFR_CB
@@ -91,7 +112,7 @@ C
       LOGICAL    :: COMPRESS_PANEL, COMPRESS_CB
       INTEGER ISTKI,  STKI, ISTKI_OOC
       INTEGER K,NSTK, IFATH
-      INTEGER INODE, LEAF, NBROOT, IN
+      INTEGER INODE, LEAF, IN
       INTEGER LEVEL, MAXITEMPCB
       INTEGER(8) CURRENT_ACTIVE_MEM, MAXTEMPCB
       INTEGER(8):: MAXTEMPCB_LR
@@ -104,6 +125,9 @@ C
       INTEGER(8) SIZECB_if_LRCB, SIZECB_SLAVE_if_LRCB
       INTEGER(8) SIZECBLR_SLAVE_UD, SIZECBLR_SLAVE_WC
       INTEGER(8) SIZECBLR_UD, SIZECBLR_WC
+      INTEGER(8) :: PEAK_DYN_LRLU_UD, PEAK_DYN_LRCB_UD,
+     &              PEAK_DYN_LRLUCB_UD, PEAK_DYN_LRLU_WC,
+     &              PEAK_DYN_LRLUCB_WC
       INTEGER SIZEHEADER, SIZEHEADER_OOC, XSIZE_OOC
       INTEGER EXTRA_PERM_INFO_OOC
       INTEGER NBROWMAX, NSLAVES_LOC, NSLAVES_PASSED,
@@ -139,14 +163,14 @@ C
       PACKED_CB=( KEEP(215).EQ.0 .AND. KEEP(50).NE.0 )
       MAX_FRONT_SURFACE_LOCAL=0_8
       MAX_SIZE_FACTOR=0_8
-      ALLOCATE( LSTKR(NSTEPS), TNSTK(NSTEPS), IPOOL(NSTEPS),
+      ALLOCATE( LSTKR(NSTEPS), TNSTK(NSTEPS), 
      &          LSTKI(NSTEPS) , 
      &          LSTKR_if_LRCB(NSTEPS), LSTKRLR_CB_UD(NSTEPS),
      &          LSTKRLR_CB_WC(NSTEPS),
      &          stat=ALLOCOK)
       if (ALLOCOK .GT. 0) THEN
         IFLAG  =-7
-        IERROR = 7*NSTEPS
+        IERROR = 6*NSTEPS
         RETURN
       endif
       LKJIB_FR = max(KEEP(5),KEEP(6))
@@ -157,9 +181,7 @@ C
       ENDIF
       LKJIB_LR = max(LKJIB_FR,KEEP(488))
       TNSTK = NE
-      LEAF = NA(1)+1
-      IPOOL(1:LEAF-1) = NA(3:3+LEAF-2)
-      NBROOT = NA(2)
+      LEAF = LIPOOL+1 
 #if defined(OLD_OOC_NOPANEL)
       XSIZE_OOC=XSIZE_OOC_NOPANEL
 #else
@@ -174,10 +196,10 @@ C
       ISTKR_if_LRCB   = 0_8
       ISTKRLR_CB_UD   = 0_8
       ISTKRLR_CB_WC   = 0_8
+      ISTKR           = 0_8
+      ISTKI           = 0
+      ISTKI_OOC       = 0
       NBNODES_BLR     = 0
-      ISTKR      = 0_8
-      ISTKI      = 0
-      ISTKI_OOC  = 0
       OPSA_LOC   = 0.0D0
       ENTRIES_IN_FACTORS_LOC = 0_8
       ENTRIES_IN_FACTORS_LOC_MASTERS = 0_8
@@ -190,6 +212,18 @@ C
       NRLADULR_WC = 0_8
       NRLADU_ROOT_3 = 0_8
       NRLNEC_ACTIVE = 0_8
+      IF (ABOVE_L0) THEN
+        SAVE_SIZECB_UNDER_L0 = SIZECB_UNDER_L0
+        SAVE_SIZECB_UNDER_L0_IF_LRCB = SIZECB_UNDER_L0_IF_LRCB
+      ELSE
+        SAVE_SIZECB_UNDER_L0 = 0_8
+        SAVE_SIZECB_UNDER_L0_IF_LRCB = 0_8
+      ENDIF
+      PEAK_DYN_LRLU_UD   = SAVE_SIZECB_UNDER_L0
+      PEAK_DYN_LRCB_UD   = SAVE_SIZECB_UNDER_L0_IF_LRCB
+      PEAK_DYN_LRLUCB_UD = SAVE_SIZECB_UNDER_L0_IF_LRCB
+      PEAK_DYN_LRLU_WC   = SAVE_SIZECB_UNDER_L0
+      PEAK_DYN_LRLUCB_WC = SAVE_SIZECB_UNDER_L0
       NRLNEC     = 0_8
       NRLADU_if_LR_LU      = 0_8
       NRLNEC_if_LR_LU      = 0_8
@@ -199,18 +233,20 @@ C
       NRLNECLR_CB_UD       = 0_8
       NRLNECLR_LUCB_UD     = 0_8
       NRLNECLR_LUCB_WC     = 0_8
-      PEAK_LRLU_UD         = 0_8
-      PEAK_OOC_LRLU_UD     = 0_8
-      PEAK_OOC_LRLU_WC     = 0_8
-      PEAK_LRLUCB_UD       = 0_8
-      PEAK_LRLUCB_WC       = 0_8
-      PEAK_OOC_LRLUCB_UD   = 0_8
-      PEAK_OOC_LRLUCB_WC   = 0_8
-      PEAK_LRCB_UD         = 0_8
-      PEAK_OOC_LRCB_UD     = 0_8
       NIRNEC     = 0
       NIRNEC_OOC = 0
       MAXFR      = 0
+      PEAK_FR           = 0_8
+      PEAK_FR_OOC       = 0_8
+      PEAK_LRLU_UD      = 0_8
+      PEAK_OOC_LRLU_UD  = 0_8
+      PEAK_OOC_LRLU_WC  = 0_8
+      PEAK_LRLUCB_UD    = 0_8
+      PEAK_LRLUCB_WC    = 0_8
+      PEAK_OOC_LRLUCB_UD= 0_8
+      PEAK_OOC_LRLUCB_WC= 0_8
+      PEAK_LRCB_UD      = 0_8
+      PEAK_OOC_LRCB_UD  = 0_8
       ITOP       = 0
       MAXTEMPCB  = 0_8
       MAXTEMPCB_LR  = 0_8
@@ -234,7 +270,7 @@ C
         NRLNEC_if_LR_CB   = NRLADU
         NRLNEC_if_LR_LUCB = NRLADU
         PEAK_LRLU_UD      = max(PEAK_LRLU_UD,
-     &                      NRLNEC_if_LR_LU + NRLADULR_UD)
+     &             NRLNEC_if_LR_LU + NRLADULR_UD + SIZECB_UNDER_L0)
         PEAK_OOC_LRLU_UD = 
      &             max(PEAK_OOC_LRLU_UD,
      &             NRLNEC_ACTIVE + NRLADULR_UD)
@@ -259,7 +295,7 @@ C
         PEAK_OOC_LRCB_UD =
      &             max(PEAK_OOC_LRCB_UD,
      &             NRLNECOOC_if_LR_LUCB + NRLNECLR_CB_UD)
-        IF (MUMPS_PROCNODE(PROCNODE(STEP(INODE)),SLAVEF)
+        IF (MUMPS_PROCNODE(PROCNODE(STEP(INODE)),KEEP(199))
      &                                       .EQ. MYID) THEN
           NIRADU     = SIZEHEADER+2*(ND(STEP(INODE))+KEEP(253))
           NIRADU_OOC = SIZEHEADER_OOC+2*(ND(STEP(INODE))+KEEP(253))
@@ -280,8 +316,12 @@ C
          LEAF = LEAF - 1
          INODE = IPOOL(LEAF)
       ELSE
-         WRITE(MYID+6,*) ' ERROR 1 in ZMUMPS_ANA_DISTM '
-         CALL MUMPS_ABORT()
+         IF (LIPOOL.NE.0) THEN
+           WRITE(MYID+6,*) ' ERROR 1 in ZMUMPS_ANA_DISTM '
+           CALL MUMPS_ABORT()
+         ELSE
+           GOTO 115
+         ENDIF
       ENDIF
  95   CONTINUE 
       NFR    = ND(STEP(INODE))+KEEP(253)
@@ -295,11 +335,11 @@ C
         IF (IN .GT. 0 ) GOTO 100
       IFSON = -IN
       IFATH = DAD(STEP(INODE))
-      MASTER = MUMPS_PROCNODE(PROCNODE(STEP(INODE)),SLAVEF)
+      MASTER = MUMPS_PROCNODE(PROCNODE(STEP(INODE)),KEEP(199))
      &           .EQ. MYID
-      LEVEL  = MUMPS_TYPENODE(PROCNODE(STEP(INODE)),SLAVEF)
+      LEVEL  = MUMPS_TYPENODE(PROCNODE(STEP(INODE)),KEEP(199))
       INSSARBR = MUMPS_IN_OR_ROOT_SSARBR(PROCNODE(STEP(INODE)),
-     &        SLAVEF)
+     &        KEEP(199))
       UPDATE=.FALSE.
        if(.NOT.FORCE_CAND) then
          UPDATE = ( (MASTER.AND.(LEVEL.NE.3) ).OR. LEVEL.EQ.2 )
@@ -446,7 +486,7 @@ C
       ENDIF
       IF(KEEP(86).EQ.1)THEN
          IF(MASTER.AND.(.NOT.MUMPS_IN_OR_ROOT_SSARBR(
-     &        PROCNODE(STEP(INODE)), SLAVEF))
+     &        PROCNODE(STEP(INODE)), KEEP(199)))
      &     )THEN
             IF(LEVEL.EQ.1)THEN
                MAX_FRONT_SURFACE_LOCAL=max(MAX_FRONT_SURFACE_LOCAL,
@@ -602,6 +642,25 @@ C
      &       KEEP(50).EQ.2.AND.LEVEL.EQ.2) THEN
              CURRENT_ACTIVE_MEM = CURRENT_ACTIVE_MEM + int(NELIM,8)
          ENDIF
+         IF (SLAVEF.EQ.1) THEN
+           NRLNEC_if_LR_CB   = 
+     &             max(NRLNEC_if_LR_CB  ,NRLADU+
+     &             CURRENT_ACTIVE_MEM-ISTKR+ISTKR_if_LRCB)
+           NRLNEC_if_LR_LUCB = 
+     &             max(NRLNEC_if_LR_LUCB,NRLADU_if_LR_LU+
+     &             CURRENT_ACTIVE_MEM-ISTKR+ISTKR_if_LRCB+
+     &             NRLADU_CURRENT_MISSING)
+         ELSE
+           NRLNEC_if_LR_CB   = 
+     &             max(NRLNEC_if_LR_CB  ,NRLADU+
+     &             CURRENT_ACTIVE_MEM-ISTKR+ISTKR_if_LRCB+
+     &             MAXTEMPCB_LR)
+           NRLNEC_if_LR_LUCB = 
+     &             max(NRLNEC_if_LR_LUCB,NRLADU_if_LR_LU+
+     &             CURRENT_ACTIVE_MEM-ISTKR+ISTKR_if_LRCB+
+     &             MAXTEMPCB_LR+
+     &             NRLADU_CURRENT_MISSING)
+         ENDIF
          IF (NSTK .NE. 0 .AND. INSSARBR .AND.
      &     KEEP(234).NE.0 .AND. KEEP(55).EQ.0) THEN
            CURRENT_ACTIVE_MEM = CURRENT_ACTIVE_MEM - LSTKR(ITOP)
@@ -613,13 +672,6 @@ C
            NRLNEC_if_LR_LU = 
      &             max(NRLNEC_if_LR_LU,NRLADU_if_LR_LU+
      &             CURRENT_ACTIVE_MEM+NRLADU_CURRENT_MISSING)
-           NRLNEC_if_LR_CB   = 
-     &             max(NRLNEC_if_LR_CB  ,NRLADU+
-     &             CURRENT_ACTIVE_MEM-ISTKR+ISTKR_if_LRCB)
-           NRLNEC_if_LR_LUCB = 
-     &             max(NRLNEC_if_LR_LUCB,NRLADU_if_LR_LU+
-     &             CURRENT_ACTIVE_MEM-ISTKR+ISTKR_if_LRCB+
-     &             NRLADU_CURRENT_MISSING)
            NRLNECOOC_if_LR_LUCB = 
      &             max(NRLNECOOC_if_LR_LUCB,
      &             NRLADU_CURRENT+NRLADU_ROOT_3+
@@ -631,15 +683,6 @@ C
            NRLNEC_if_LR_LU = 
      &             max(NRLNEC_if_LR_LU,NRLADU_if_LR_LU+
      &             CURRENT_ACTIVE_MEM+MAXTEMPCB+
-     &             NRLADU_CURRENT_MISSING)
-           NRLNEC_if_LR_CB   = 
-     &             max(NRLNEC_if_LR_CB  ,NRLADU+
-     &             CURRENT_ACTIVE_MEM-ISTKR+ISTKR_if_LRCB+
-     &             MAXTEMPCB_LR)
-           NRLNEC_if_LR_LUCB = 
-     &             max(NRLNEC_if_LR_LUCB,NRLADU_if_LR_LU+
-     &             CURRENT_ACTIVE_MEM-ISTKR+ISTKR_if_LRCB+
-     &             MAXTEMPCB_LR+
      &             NRLADU_CURRENT_MISSING)
            NRLNECOOC_if_LR_LUCB = max(NRLNECOOC_if_LR_LUCB,
      &             NRLADU_ROOT_3+CURRENT_ACTIVE_MEM-ISTKR+
@@ -706,9 +749,9 @@ C
       ELSE IF (LEVEL.NE.3) THEN
          DO WHILE (IFSON.GT.0) 
             UPDATES=.FALSE.
-            MASTERSON = MUMPS_PROCNODE(PROCNODE(STEP(IFSON)),SLAVEF)
+            MASTERSON = MUMPS_PROCNODE(PROCNODE(STEP(IFSON)),KEEP(199))
      &                  .EQ.MYID
-            LEVELSON  = MUMPS_TYPENODE(PROCNODE(STEP(IFSON)),SLAVEF)
+            LEVELSON  = MUMPS_TYPENODE(PROCNODE(STEP(IFSON)),KEEP(199))
             if(.NOT.FORCE_CAND) then
                UPDATES =((MASTERSON.AND.(LEVELSON.NE.3)).OR. 
      &                   LEVELSON.EQ.2)
@@ -815,7 +858,7 @@ C
      &                 int(NSLAVES_LOC,8)
          ENDIF
          IF (MUMPS_IN_OR_ROOT_SSARBR(PROCNODE(STEP(INODE)),
-     &        SLAVEF) .OR. NE(STEP(INODE))==0) THEN
+     &        KEEP(199)) .OR. NE(STEP(INODE))==0) THEN
            IF (LEVEL == 1) THEN
              OPS_SBTR_LOC = OPS_SBTR_LOC + OPS_NODE
            ELSE
@@ -827,13 +870,16 @@ C
          ENDIF
         ENDIF
       IF (IFATH .EQ. 0) THEN
-         NBROOT = NBROOT - 1
-         IF (NBROOT.EQ.0) GOTO 115
-         GOTO 90
+        IF (LEAF.GT.1) THEN
+         GOTO 90 
+        ELSE
+         GOTO 115 
+        ENDIF 
       ELSE
          NFRF = ND(STEP(IFATH))+KEEP(253)
          IF (DAD(STEP(IFATH)).EQ.0) THEN
-           NELIMF = NFRF
+           NELIMF = NFRF-KEEP(253)
+           IF (ABOVE_L0) IN=0
          ELSE
            NELIMF = 0
            IN = IFATH
@@ -843,8 +889,9 @@ C
            ENDDO
          ENDIF
          NCBF = NFRF - NELIMF
-         LEVELF = MUMPS_TYPENODE(PROCNODE(STEP(IFATH)),SLAVEF)
-         MASTERF= MUMPS_PROCNODE(PROCNODE(STEP(IFATH)),SLAVEF).EQ.MYID
+         LEVELF = MUMPS_TYPENODE(PROCNODE(STEP(IFATH)),KEEP(199))
+         MASTERF= MUMPS_PROCNODE(PROCNODE(STEP(IFATH)),
+     &                           KEEP(199)).EQ.MYID
          UPDATEF= .FALSE.
          if(.NOT.FORCE_CAND) then
             UPDATEF= ((MASTERF.AND.(LEVELF.NE.3)).OR.LEVELF.EQ.2)
@@ -1279,27 +1326,29 @@ C
      &         NRLADU + int(KEEP(30),8))
       NRLNECOOC_if_LR_LUCB = max(NRLNECOOC_if_LR_LUCB,
      &                    MAX_SIZE_FACTOR+ int(KEEP(30),8))
+      PEAK_FR      = SAVE_SIZECB_UNDER_L0 + NRLNEC
+      PEAK_FR_OOC  = SAVE_SIZECB_UNDER_L0 + NRLNEC_ACTIVE
       PEAK_LRCB_UD =
-     &             max(PEAK_LRCB_UD,
-     &             NRLNEC_if_LR_CB + NRLNECLR_CB_UD)
+     &          max(PEAK_LRCB_UD,
+     &          NRLNEC_if_LR_CB + NRLNECLR_CB_UD)
       PEAK_LRLU_UD = 
-     &             max(PEAK_LRLU_UD,
-     &             NRLNEC_if_LR_LU + NRLADULR_UD)
+     &          max(PEAK_LRLU_UD,
+     &          NRLNEC_if_LR_LU + NRLADULR_UD)
       PEAK_OOC_LRLU_UD = 
-     &             max(PEAK_OOC_LRLU_UD,
-     &             NRLNEC_ACTIVE + NRLADULR_UD)
+     &          max(PEAK_OOC_LRLU_UD,
+     &          NRLNEC_ACTIVE + NRLADULR_UD)
       PEAK_OOC_LRLU_WC = 
-     &             max(PEAK_OOC_LRLU_WC,
-     &             NRLNEC_ACTIVE + NRLADULR_WC)
+     &          max(PEAK_OOC_LRLU_WC,
+     &          NRLNEC_ACTIVE + NRLADULR_WC)
       PEAK_LRLUCB_UD = 
-     &             max(PEAK_LRLUCB_UD,
-     &             NRLNEC_if_LR_LUCB + NRLNECLR_LUCB_UD)
+     &          max(PEAK_LRLUCB_UD,
+     &          NRLNEC_if_LR_LUCB + NRLNECLR_LUCB_UD)
       PEAK_LRLUCB_WC = 
-     &             max(PEAK_LRLUCB_WC,
-     &             NRLNEC_if_LR_LUCB + NRLNECLR_LUCB_WC)
+     &          max(PEAK_LRLUCB_WC,
+     &          NRLNEC_if_LR_LUCB + NRLNECLR_LUCB_WC)
       PEAK_OOC_LRLUCB_UD = 
-     &             max(PEAK_OOC_LRLUCB_UD,
-     &             NRLNECOOC_if_LR_LUCB + NRLNECLR_LUCB_UD)
+     &          max(PEAK_OOC_LRLUCB_UD,
+     &          NRLNECOOC_if_LR_LUCB + NRLNECLR_LUCB_UD)
       PEAK_OOC_LRLUCB_WC = 
      &             max(PEAK_OOC_LRLUCB_WC,
      &             NRLNECOOC_if_LR_LUCB + NRLNECLR_LUCB_WC)
@@ -1326,10 +1375,28 @@ C
          SBUF_SEND_FR= 1
          SBUF_SEND_LR= 1
       ENDIF
-      DEALLOCATE( LSTKR, TNSTK, IPOOL,
-     &          LSTKI )
+      DEALLOCATE( LSTKR, TNSTK, LSTKI )
+      IF (ABOVE_L0) THEN 
+        KEEP(470) = KEEP(470)+  NBNODES_BLR
+      ELSE
+        KEEP(470) = NBNODES_BLR
+      ENDIF
+      IF (.NOT.ABOVE_L0) THEN
+       PEAK_FR     = NRLNEC
+       PEAK_FR_OOC = NRLNEC_ACTIVE
+      ENDIF
+      MAXFR = max(MAXFR, MAXFR_UNDER_L0)
+      MAX_FRONT_SURFACE_LOCAL = max (MAX_FRONT_SURFACE_LOCAL,
+     &                               MAX_FRONT_SURFACE_LOCAL_L0)
+      MAX_SIZE_FACTOR         = max (MAX_SIZE_FACTOR, 
+     &                               MAX_SIZE_FACTOR_L0)
+      ENTRIES_IN_FACTORS_LOC_MASTERS = ENTRIES_IN_FACTORS_LOC_MASTERS +
+     &                          ENTRIES_IN_FACTORS_MASTERS_UNDER_LO
+      ENTRIES_IN_FACTORS_LOC = ENTRIES_IN_FACTORS_LOC +
+     &                         ENTRIES_IN_FACTORS_UNDER_L0
+      OPS_SBTR_LOC = OPS_SBTR_LOC + COST_SUBTREES_UNDER_LO
+      OPSA_LOC     = OPSA_LOC + OPSA_UNDER_L0
       OPS_SUBTREE = dble(OPS_SBTR_LOC)
       OPSA        = dble(OPSA_LOC)
-      KEEP(470) = NBNODES_BLR
       RETURN
       END SUBROUTINE ZMUMPS_ANA_DISTM

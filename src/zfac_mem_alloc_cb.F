@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -18,11 +18,12 @@ C
      &   SLAVEF, PROCNODE_STEPS, DAD,
      &   PTRIST,PTRAST,STEP,PIMASTER,PAMASTER,
      &   LREQ, LREQCB, NODE_ARG, STATE_ARG, SET_HEADER,
-     &   COMP, LRLUS, IFLAG, IERROR )
+     &   COMP, LRLUS, LRLUSM, IFLAG, IERROR )
+!$    USE OMP_LIB
       USE ZMUMPS_LOAD
       IMPLICIT NONE
       INTEGER N,LIW, KEEP(500)
-      INTEGER(8) LA, LRLU, IPTRLU, LRLUS, LREQCB
+      INTEGER(8) LA, LRLU, IPTRLU, LRLUS, LRLUSM, LREQCB
       INTEGER(8) PAMASTER(KEEP(28)), PTRAST(KEEP(28))
       INTEGER IWPOS,IWPOSCB
       INTEGER(8) :: MIN_SPACE_IN_PLACE
@@ -41,7 +42,7 @@ C
       INTEGER INODE_LOC,NPIV,NASS,NROW,NCB
       INTEGER ISIZEHOLE
       INTEGER(8) :: MEM_GAIN, RSIZEHOLE, LREQCB_EFF, LREQCB_WISHED
-      INTEGER(8) :: DYN_SIZE
+      INTEGER(8) :: DYN_SIZE, KEEP8TMPCOPY
       IF ( INPLACE ) THEN
         LREQCB_EFF = MIN_SPACE_IN_PLACE
         IF ( MIN_SPACE_IN_PLACE > 0_8 ) THEN
@@ -127,7 +128,7 @@ C
      &                    PTRIST,PTRAST,
      &                    STEP, PIMASTER,PAMASTER,KEEP(216),LRLUS,
      &                    KEEP(IXSZ), COMP, DKEEP(97), MYID,
-     &                    SLAVEF, PROCNODE_STEPS, DAD)
+     &                    SLAVEF, KEEP(199), PROCNODE_STEPS, DAD)
          ENDIF
       ENDIF
       CALL ZMUMPS_GET_SIZE_NEEDED 
@@ -165,21 +166,21 @@ C
       IPTRLU = IPTRLU - LREQCB
       LRLU   = LRLU - LREQCB
       LRLUS  = LRLUS - LREQCB_EFF
-      KEEP8(67) = min(LRLUS, KEEP8(67))
-      KEEP8(69) = KEEP8(69) + LREQCB_EFF
-      KEEP8(68) = max(KEEP8(69), KEEP8(68))
-#if ! defined(OLD_LOAD_MECHANISM)
+      LRLUSM = min(LRLUS, LRLUSM)
+      IF (KEEP(405) .EQ. 0) THEN
+        KEEP8(69) = KEEP8(69) + LREQCB_EFF
+        KEEP8(68) = max(KEEP8(69), KEEP8(68))
+      ELSE
+!$OMP   ATOMIC CAPTURE
+        KEEP8(69) = KEEP8(69) + LREQCB_EFF
+        KEEP8TMPCOPY = KEEP8(69)
+!$OMP   END ATOMIC
+!$OMP   ATOMIC UPDATE
+        KEEP8(68) = max(KEEP8TMPCOPY, KEEP8(68))
+!$OMP   END ATOMIC
+      ENDIF
       CALL ZMUMPS_LOAD_MEM_UPDATE(SSARBR,PROCESS_BANDE,
      &              LA-LRLUS,0_8,LREQCB_EFF,KEEP,KEEP8,LRLUS)
-#else
-#if defined (CHECK_COHERENCE)
-      CALL ZMUMPS_LOAD_MEM_UPDATE(SSARBR,PROCESS_BANDE,
-     &              LA-LRLUS,0_8,LREQCB_EFF,KEEP,KEEP8,LRLUS)
-#else
-      CALL ZMUMPS_LOAD_MEM_UPDATE(SSARBR,.FALSE.,
-     &              LA-LRLUS,0_8,LREQCB_EFF,KEEP,KEEP8,LRLUS)
-#endif
-#endif
  650  CONTINUE
       RETURN
       END SUBROUTINE ZMUMPS_ALLOC_CB

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -45,6 +45,8 @@ C
       INTEGER(8) :: K79REF
       PARAMETER(K79REF=12000000_8)
       LOGICAL SPLITROOT
+      INTEGER, PARAMETER :: LIDUMMY = 1
+      INTEGER :: IDUMMY(1) 
       INTEGER, DIMENSION(:), ALLOCATABLE :: IW
       INTEGER, DIMENSION(:), ALLOCATABLE :: IW2
       INTEGER, DIMENSION(:), ALLOCATABLE :: PARENT
@@ -254,7 +256,7 @@ C
            GOTO 90
          ENDIF
          IF (METIS_IDX_SIZE .EQ. 32) THEN
-           CALL MUMPS_METIS_NODEND_MIXEDto32(N, IPE8, IW2(1),
+           CALL MUMPS_METIS_NODEND_MIXEDto32(N, IPE8, IW2,
 #if defined(metis4) || defined(parmetis3)
      &          NUMFLAG,  
 #else
@@ -263,7 +265,7 @@ C
      &          METIS_OPTIONS(1), OPT_METIS_SIZE,
      &          IKEEP(1:N,2), IKEEP(1:N,1), INFO(1), LP, LPOK)
          ELSE IF (METIS_IDX_SIZE .EQ. 64) THEN
-           CALL MUMPS_METIS_NODEND_MIXEDto64(N, IPE8, IW2(1),
+           CALL MUMPS_METIS_NODEND_MIXEDto64(N, IPE8, IW2,
 #if defined(metis4) || defined(parmetis3)
      &          NUMFLAG, 
 #else
@@ -341,7 +343,8 @@ C
      &     INFO(6), FILS, FRERE, IWtemp(1,3), NEMIN, 
      &     IW(L2),  KEEP(60), KEEP(20), KEEP(38),
      &     IW2,KEEP(104),IW(L2+N),KEEP(50),
-     &     ICNTL(13), KEEP(37), NSLAVES, KEEP(250).EQ.1)
+     &     ICNTL(13), KEEP(37), NSLAVES, KEEP(250).EQ.1,
+     &     .FALSE., IDUMMY, LIDUMMY)
 #endif
       DEALLOCATE(IW2)
       IF (KEEP(60).NE.0) THEN
@@ -390,7 +393,9 @@ C
        IF (KEEP(210).EQ.1) THEN
         SPLITROOT = .FALSE. 
         IF ( KEEP(62).GE.1) THEN
-          CALL CMUMPS_CUTNODES(N, FRERE, FILS, NFSIZ,INFO(6),
+          IDUMMY(1)= -1
+          CALL CMUMPS_CUTNODES(N, FRERE, FILS, NFSIZ,
+     &                       IDUMMY, LIDUMMY, INFO(6),
      &                       NSLAVES, KEEP,KEEP8, SPLITROOT,
      &                       MP, LDIAG, INFO(1), INFO(2))
           IF (INFO(1).LT.0) GOTO 90 
@@ -408,7 +413,9 @@ C
       ENDIF
       SPLITROOT = (SPLITROOT.AND.( (KEEP(60).EQ.0) ))
       IF (SPLITROOT) THEN
-         CALL CMUMPS_CUTNODES(N, FRERE, FILS, NFSIZ,INFO(6),
+         IDUMMY(1) = -1
+         CALL CMUMPS_CUTNODES(N, FRERE, FILS, NFSIZ,
+     &                    IDUMMY, LIDUMMY, INFO(6),
      &                    NSLAVES, KEEP,KEEP8, SPLITROOT,
      &                    MP, LDIAG, INFO(1), INFO(2))
          IF (INFO(1).LT.0) GOTO 90 
@@ -729,22 +736,25 @@ C
       INTEGER(8) :: IPTRI8, IPTRR8, NVAR8
       INTEGER ELT, I, K
       INTEGER TYPE_PARALL, ITYPE, IRANK
+      LOGICAL :: EARLYT3ROOTINS
       TYPE_PARALL = KEEP(46)
       PTRAIW( 1:NELT ) = 0_8
+      EARLYT3ROOTINS = KEEP(200) .EQ.0
       DO I = 1, N
         IF (STEP(I).LT.0) CYCLE
-        ITYPE = MUMPS_TYPENODE( PROCNODE(abs(STEP(I))), SLAVEF )
-        IRANK = MUMPS_PROCNODE( PROCNODE(abs(STEP(I))), SLAVEF )
+        ITYPE = MUMPS_TYPENODE( PROCNODE(abs(STEP(I))), KEEP(199) )
+        IRANK = MUMPS_PROCNODE( PROCNODE(abs(STEP(I))), KEEP(199) )
         IF ( TYPE_PARALL .eq. 0 ) THEN
           IRANK = IRANK + 1
         END IF
         IF ( (ITYPE .EQ. 2) .OR.
+     &       (ITYPE .EQ. 3 .AND. .NOT. EARLYT3ROOTINS ) .OR.
      &       (ITYPE .EQ. 1 .AND. IRANK .EQ. MYID) ) THEN
           DO K = FRTPTR(I),FRTPTR(I+1)-1
             ELT = FRTELT(K)
             PTRAIW( ELT ) = PTRARW(ELT+1) - PTRARW(ELT)
           ENDDO
-        ELSE 
+        ELSE  
         END IF
       END DO
       IPTRI8 = 1_8
@@ -795,19 +805,24 @@ C
       KEEP8(26) = IPTRR8 - 1_8
       RETURN
       END SUBROUTINE CMUMPS_ANA_DIST_ELEMENTS
-      SUBROUTINE CMUMPS_ELTPROC( N, NELT, ELTPROC, SLAVEF, PROCNODE )
+      SUBROUTINE CMUMPS_ELTPROC( N, NELT, ELTPROC, SLAVEF, PROCNODE,
+     &                           KEEP)
       IMPLICIT NONE
-      INTEGER N, NELT, SLAVEF
-      INTEGER PROCNODE( N ), ELTPROC( NELT )
-      INTEGER ELT, I, ITYPE, MUMPS_TYPENODE, MUMPS_PROCNODE
-      EXTERNAL MUMPS_TYPENODE, MUMPS_PROCNODE
+      INTEGER, INTENT(IN)    :: N, NELT, SLAVEF
+      INTEGER, INTENT(IN)    :: PROCNODE( N )
+      INTEGER, INTENT(INOUT) :: ELTPROC( NELT )
+      INTEGER                :: KEEP(500)
+      INTEGER ELT, I, ITYPE
+      LOGICAL :: EARLYT3ROOTINS 
+      INTEGER, EXTERNAL :: MUMPS_TYPENODE, MUMPS_PROCNODE
+      EARLYT3ROOTINS = KEEP(200) .EQ.0
       DO ELT = 1, NELT
           I = ELTPROC(ELT)
           IF ( I .NE. 0) THEN
-           ITYPE = MUMPS_TYPENODE(PROCNODE(I),SLAVEF)
+           ITYPE = MUMPS_TYPENODE(PROCNODE(I),KEEP(199))
            IF (ITYPE.EQ.1) THEN
-             ELTPROC(ELT) = MUMPS_PROCNODE(PROCNODE(I),SLAVEF)
-           ELSE IF (ITYPE.EQ.2) THEN
+             ELTPROC(ELT) = MUMPS_PROCNODE(PROCNODE(I),KEEP(199))
+           ELSE IF ( ITYPE.EQ.2 .OR. .NOT. EARLYT3ROOTINS ) THEN
              ELTPROC(ELT) = -1
            ELSE
             ELTPROC(ELT) = -2

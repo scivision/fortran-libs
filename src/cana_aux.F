@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -13,28 +13,28 @@ C
       MODULE CMUMPS_ANA_AUX_M
       IMPLICIT NONE
       CONTAINS
-      SUBROUTINE CMUMPS_ANA_F(N, NZ8, IRN, ICN, LIW8, 
+      SUBROUTINE CMUMPS_ANA_F(N, NZ8, IRN, ICN, LIWALLOC,
      &     IKEEP1, IKEEP2, IKEEP3,
      &     IORD, NFSIZ, FILS, FRERE, LISTVAR_SCHUR, SIZE_SCHUR,
      &     ICNTL, INFO, KEEP,KEEP8, NSLAVES, PIV, 
      &     CNTL4, COLSCA, ROWSCA
 #if defined(metis) || defined(parmetis) || defined(metis4) || defined(parmetis3)         
-     &            , METIS_OPTIONS
+     &          , METIS_OPTIONS
 #endif      
      & )
-      USE CMUMPS_STRUC_DEF
       USE MUMPS_ANA_ORD_WRAPPERS
+      USE MUMPS_ANA_BLK_M, ONLY : COMPACT_GRAPH_T
       IMPLICIT NONE
       INTEGER, INTENT(IN)    :: N,  SIZE_SCHUR, NSLAVES
       INTEGER(8), INTENT(IN) :: NZ8
-      INTEGER(8), INTENT(IN) :: LIW8
+      INTEGER(8), INTENT(IN) :: LIWALLOC
       INTEGER, INTENT(in) :: LISTVAR_SCHUR(:)
       INTEGER, POINTER :: IRN(:), ICN(:)
       INTEGER, INTENT(IN)    :: ICNTL(60)
       INTEGER, INTENT(INOUT) :: IORD
       INTEGER, INTENT(INOUT) :: INFO(80), KEEP(500)
       INTEGER(8), INTENT(INOUT) :: KEEP8(150)
-      INTEGER, INTENT(OUT)   :: NFSIZ(:), FILS(:), FRERE(:) 
+      INTEGER, INTENT(OUT)   :: NFSIZ(:), FILS(:), FRERE(:)
       INTEGER, INTENT(INOUT) :: PIV(:)
       INTEGER, INTENT(INOUT) :: IKEEP1(:), IKEEP2(:), IKEEP3(:)
       REAL :: CNTL4
@@ -42,21 +42,23 @@ C
 #if defined(metis) || defined(parmetis) || defined(metis4) || defined(parmetis3)      
       INTEGER, INTENT(IN)    :: METIS_OPTIONS(40)
 #endif      
-      INTEGER, DIMENSION(:), ALLOCATABLE :: IW 
-      INTEGER(8), DIMENSION(:), ALLOCATABLE :: IPE
+      INTEGER, DIMENSION(:), ALLOCATABLE, TARGET :: IWALLOC
+      INTEGER, DIMENSION(:), POINTER             :: IW
+      INTEGER(8), DIMENSION(:), ALLOCATABLE, TARGET :: IPEALLOC
+      INTEGER(8), DIMENSION(:), POINTER             :: IPE 
       INTEGER(8), DIMENSION(:), ALLOCATABLE :: IPQ8
       INTEGER, DIMENSION(:,:), ALLOCATABLE :: PTRAR
       INTEGER, DIMENSION(:), ALLOCATABLE   :: PARENT
       INTEGER, DIMENSION(:), ALLOCATABLE   :: IWL1
       INTEGER NBBUCK
-      INTEGER, DIMENSION(:), ALLOCATABLE :: WTEMP
+      INTEGER, DIMENSION(:), ALLOCATABLE   :: WTEMP
       INTEGER IERR
       INTEGER I, K, NCMPA, IN, IFSON
       INTEGER(8) :: J8, I8
       INTEGER(8) IWFR8
       INTEGER NEMIN, LP, MP, LDIAG, ITEMP, symmetry
       INTEGER NBQD, AvgDens
-      LOGICAL PROK, COMPRESS_SCHUR, LPOK
+      LOGICAL PROK, COMPRESS_SCHUR, LPOK, COMPUTE_PERM
 #if defined(metis) || defined(parmetis) || defined(metis4) || defined(parmetis3)
 #if defined(metis4) || defined(parmetis3)
       INTEGER NUMFLAG
@@ -77,11 +79,18 @@ C
       PARAMETER (MINSYM=50)
       INTEGER(8) :: K79REF
       PARAMETER(K79REF=12000000_8)
+      INTEGER, PARAMETER :: LIDUMMY = 1 
+      INTEGER            :: IDUMMY(1)   
       INTEGER MTRANS, COMPRESS,NCMP,IERROR,J,JPERM,NCST
-      INTEGER TOTEL
+      INTEGER TOTEL 
+#if defined(pord)
+      INTEGER TOTW
+#endif
       LOGICAL IDENT,SPLITROOT
       LOGICAL FREE_CENTRALIZED_MATRIX
+      LOGICAL GCOMP_PROVIDED
       LOGICAL INPLACE64_GRAPH_COPY, INPLACE64_RESTORE_GRAPH
+      INTEGER(8) :: LIW8, NZG8
       DOUBLE PRECISION TIMEB
       EXTERNAL MUMPS_ANA_H, CMUMPS_ANA_J, 
      &     CMUMPS_ANA_K, CMUMPS_ANA_GNEW,
@@ -92,11 +101,13 @@ C
       EXTERNAL CMUMPS_GNEW_SCHUR
       EXTERNAL CMUMPS_LDLT_COMPRESS, CMUMPS_EXPAND_PERMUTATION,
      &     CMUMPS_SET_CONSTRAINTS
-      ALLOCATE( IW (LIW8), stat = IERR )
-      IF ( IERR .GT. 0 ) THEN
+      IF (LIWALLOC.GT.0_8) THEN
+        ALLOCATE( IWALLOC (LIWALLOC), stat = IERR )
+        IF ( IERR .GT. 0 ) THEN
          INFO( 1 ) = -7
-         CALL MUMPS_SET_IERROR(LIW8,INFO(2))
+         CALL MUMPS_SET_IERROR(LIWALLOC,INFO(2))
          GOTO 90                
+        ENDIF
       ENDIF
       ALLOCATE( IWL1 (N), stat = IERR )
       IF ( IERR .GT. 0 ) THEN
@@ -104,7 +115,7 @@ C
          INFO( 2 ) = N
          GOTO 90                
       ENDIF
-      ALLOCATE( IPE(N+1), stat = IERR )
+      ALLOCATE( IPEALLOC(N+1), stat = IERR )
       IF ( IERR .GT. 0 ) THEN
          INFO( 1 ) = -7
          INFO( 2 ) = (N+1)*KEEP(10)
@@ -116,13 +127,20 @@ C
          INFO( 2 ) = 3*N
          GOTO 90                
       ENDIF
+      symmetry      = INFO(8)
+      NBQD          = 0
+      GCOMP_PROVIDED=.FALSE.
+        LIW8 =  LIWALLOC
+        NZG8 = NZ8
+        IW   => IWALLOC(1:LIW8)
+        IPE  => IPEALLOC(1:N+1)
       LP    = ICNTL(1)
       MP    = ICNTL(3)
       LPOK  = ((LP.GT.0).AND.(ICNTL(4).GE.1))
       PROK  = ((MP.GT.0).AND.(ICNTL(4).GE.2))
       LDIAG = ICNTL(4)
       COMPRESS_SCHUR = .FALSE.
-      FREE_CENTRALIZED_MATRIX = (
+       FREE_CENTRALIZED_MATRIX = (
      &                    (KEEP(54).EQ.3).AND.
      &                    (KEEP(494).EQ.0).AND.
      &                    (KEEP(106).NE.2)
@@ -132,10 +150,10 @@ C
       IF (KEEP(1).LT.0) KEEP(1) = 0
       NEMIN = KEEP(1)
       IF (LDIAG.GT.2 .AND. MP.GT.0) THEN
-         WRITE (MP,99999) N, NZ8, LIW8, INFO(1)
-         J8 = min(10_8,NZ8)
-         IF (LDIAG.EQ.4) J8 = NZ8
-         IF (J8.GT.0_8) WRITE (MP,99998) (IRN(I8),ICN(I8),I8=1_8,J8)
+          J8 = min(NZG8, 10_8)
+          IF (LDIAG .EQ.4) J8 = NZG8
+          WRITE (MP,99999) N, NZG8, LIW8, INFO(1)
+          IF (J8.GT.0_8) WRITE (MP,99998) (IRN(I8),ICN(I8),I8=1_8,J8)
          K = min0(10,N)
          IF (LDIAG.EQ.4) K = N
          IF (IORD.EQ.1 .AND. K.GT.0) THEN
@@ -160,7 +178,7 @@ C
            INFO( 2 ) = N*KEEP(10)
          ENDIF
          CALL CMUMPS_GNEW_SCHUR(N,NCMP,NZ8,IRN(1), ICN(1), IW(1), LIW8,
-     &        IPE, PTRAR(1,2),
+     &        IPE(1), PTRAR(1,2),
      &        IPQ8, IWL1, IWFR8, KEEP8(126), KEEP8(127),
      &        INFO(1), INFO(2), ICNTL, symmetry, 
      &        KEEP(50), NBQD, AvgDens, 
@@ -176,21 +194,24 @@ C
          NBQD     = 0           
       ELSE
 #endif
-         ALLOCATE(IPQ8(N),stat=IERR)
-         IF ( IERR .GT. 0 ) THEN
+          ALLOCATE(IPQ8(N),stat=IERR)
+          IF ( IERR .GT. 0 ) THEN
            INFO( 1 ) = -7
            INFO( 2 ) = N*KEEP(10)
-         ENDIF
-         CALL CMUMPS_ANA_GNEW(N,NZ8,IRN(1), ICN(1), IW(1), LIW8,
-     &        IPE, PTRAR(1,2),
+          ENDIF
+          IF ( PROK ) THEN
+            CALL MUMPS_SECDEB( TIMEB )
+          ENDIF
+          CALL CMUMPS_ANA_GNEW(N,NZ8,IRN(1), ICN(1), IW(1), LIW8,
+     &        IPE(1), PTRAR(1,2),
      &        IPQ8, IWL1, IWFR8, KEEP8(126), KEEP8(127),
      &        INFO(1), INFO(2), ICNTL, symmetry, 
      &        KEEP(50), NBQD, AvgDens, KEEP(264), KEEP(265), 
      &        .TRUE., INPLACE64_GRAPH_COPY)
-         INFO(8) = symmetry
-         INPLACE64_GRAPH_COPY = INPLACE64_GRAPH_COPY.AND.
-     &                          (.NOT.FREE_CENTRALIZED_MATRIX)
-         DEALLOCATE(IPQ8)
+          INFO(8) = symmetry
+          INPLACE64_GRAPH_COPY = INPLACE64_GRAPH_COPY.AND.
+     &                           (.NOT.FREE_CENTRALIZED_MATRIX)
+          DEALLOCATE(IPQ8)
 #if defined(metis) || defined(parmetis) || defined(metis4) || defined(parmetis3)
       ENDIF
 #endif
@@ -214,7 +235,7 @@ C
         IORD = 2 
       ENDIF
       CALL MUMPS_SET_ORDERING( N, KEEP(50), NSLAVES, IORD, 
-     &     symmetry, NBQD, AvgDens,
+     &     NBQD, AvgDens,
      &     PROK, MP )
       IF(KEEP(50) .EQ. 2) THEN
          IF(KEEP(95) .EQ. 3 .AND. IORD .NE. 2) THEN
@@ -223,12 +244,6 @@ C
      &      ' available with selected ordering. Move to' //
      &      ' compressed ordering.'
             KEEP(95) = 2
-         ENDIF
-         IF(KEEP(95) .EQ. 2 .AND. IORD .EQ. 0) THEN 
-            IF (PROK) WRITE(MP,*)
-     &      'WARNING: CMUMPS_ANA_F AMD not available with ', 
-     &      ' compressed ordering -> move to QAMD'
-            IORD = 6
          ENDIF
       ELSE
          KEEP(95) = 1
@@ -250,7 +265,7 @@ C
       IF(MTRANS .GT. 0 .AND. KEEP(50) .EQ. 2) THEN
          KEEP(23) = 0
       ENDIF
-      IF(COMPRESS .EQ. 2) THEN
+      IF (COMPRESS .EQ. 2) THEN
          IF (IORD.NE.2) THEN
             WRITE(*,*) "IORD not compatible with COMPRESS:",
      &           IORD, COMPRESS
@@ -262,7 +277,7 @@ C
      &        )
       ENDIF
       IF ( IORD .NE. 1 ) THEN
-         IF(COMPRESS .GE. 1) THEN
+         IF (COMPRESS .GE. 1) THEN
             ALLOCATE(IPQ8(N),stat=IERR)
             IF ( IERR .GT. 0 ) THEN
                INFO( 1 ) = -7
@@ -270,7 +285,7 @@ C
             ENDIF
             CALL CMUMPS_LDLT_COMPRESS(
      &           N, NZ8, IRN(1), ICN(1), PIV(1),
-     &           NCMP, IW(1), LIW8, IPE, PTRAR(1,2), IPQ8,
+     &           NCMP, IW(1), LIW8, IPE(1), PTRAR(1,2), IPQ8,
      &           IWL1, FILS(1), IWFR8,
      &           IERROR, KEEP, KEEP8, ICNTL, INPLACE64_GRAPH_COPY)
             DEALLOCATE(IPQ8)
@@ -319,7 +334,7 @@ C
                   ENDIF
                   CALL CMUMPS_ANA_GNEW
      &                 (N,NZ8,IRN(1), ICN(1), IW(1), LIW8, 
-     &                  IPE, PTRAR(1,2), 
+     &                  IPE(1), PTRAR(1,2), 
      &                 IPQ8, IWL1, IWFR8, KEEP8(126), KEEP8(127), 
      &                 INFO(1), INFO(2), ICNTL, symmetry, KEEP(50),
      &                 NBQD, AvgDens, KEEP(264), KEEP(265), 
@@ -377,7 +392,7 @@ C
             CALL MUMPS_SECDEB( TIMEB )
          ENDIF
          IF ( KEEP(60) .NE. 0 ) THEN
-            CALL MUMPS_HAMD(N, LIW8, IPE, IWFR8, PTRAR(1,2), IW(1), 
+            CALL MUMPS_HAMD(N, LIW8, IPE(1), IWFR8, PTRAR(1,2), IW(1), 
      &           IWL1, IKEEP1(1), 
      &           IKEEP2(1), NCMPA, FILS(1), IKEEP3(1),
      &           PTRAR, PTRAR(1,3),
@@ -393,24 +408,28 @@ C
 #if defined(pord)
             ELSEIF (IORD .EQ. 4) THEN
                CALL MUMPS_PORD_INTSIZE(PORD_INT_SIZE)
-               IF (COMPRESS .EQ. 1) THEN
-                  DO I=1,KEEP(93)/2
-                     IWL1(I) = 2
-                  ENDDO
-                  DO I=1+KEEP(93)/2,NCMP
-                     IWL1(I) = 1
-                  ENDDO
+               TOTW = N
+               IF ( (COMPRESS .EQ. 1) 
+     &                 ) THEN
+                 IF (COMPRESS .EQ. 1) THEN
+                   DO I=1,KEEP(93)/2
+                      IWL1(I) = 2
+                   ENDDO
+                   DO I=1+KEEP(93)/2,NCMP
+                      IWL1(I) = 1
+                   ENDDO
+                 ENDIF
                   IF (PORD_INT_SIZE .EQ. 64) THEN
                     CALL MUMPS_PORDF_WND_MIXEDto64(NCMP, IWFR8-1_8,
      &                   IPE, IW,
-     &                   IWL1, NCMPA, N, PARENT, 
+     &                   IWL1, NCMPA, TOTW, PARENT, 
      &                   INFO(1), LP, LPOK, KEEP(10),
      &                   INPLACE64_GRAPH_COPY
      &                   )
                   ELSE IF (PORD_INT_SIZE .EQ. 32) THEN
                     CALL MUMPS_PORDF_WND_MIXEDto32(NCMP, IWFR8-1_8,
      &                   IPE, IW,
-     &                   IWL1, NCMPA, N, PARENT, 
+     &                   IWL1, NCMPA, TOTW, PARENT, 
      &                   INFO(1), LP, LPOK, KEEP(10))
                   ELSE
                      WRITE(*,*)
@@ -425,26 +444,28 @@ C
                      GOTO 90 
                   ENDIF
                   IF (INFO(1) .LT.0) GOTO 90
-                  CALL CMUMPS_GET_ELIM_TREE(NCMP,PARENT,IWL1,FILS(1))
-                  CALL CMUMPS_GET_PERM_FROM_PE(NCMP,PARENT,IKEEP1(1),
+                  IF (COMPRESS.EQ.1) THEN
+                   CALL CMUMPS_GET_ELIM_TREE(NCMP,PARENT,IWL1,FILS(1))
+                   CALL CMUMPS_GET_PERM_FROM_PE(NCMP,PARENT,IKEEP1(1),
      &                 FRERE(1),PTRAR(1,1))
-                  DO I=1,NCMP
+                   DO I=1,NCMP
                      IKEEP2(IKEEP1(I))=I
-                  ENDDO
+                   ENDDO
+                  ENDIF
                ELSE  
                   IF (PORD_INT_SIZE.EQ.64) THEN
                   CALL MUMPS_PORDF_MIXEDto64(NCMP, IWFR8-1_8, IPE,
-     &                 IW(1), 
+     &                 IW, 
      &                 IWL1, NCMPA, PARENT, 
      &                 INFO(1), LP, LPOK, KEEP(10),
      &                 INPLACE64_GRAPH_COPY
      &                 )
                   ELSE IF (PORD_INT_SIZE.EQ.32) THEN
                   CALL MUMPS_PORDF_MIXEDto32(NCMP, IWFR8-1_8, IPE,
-     &                 IW(1), 
+     &                 IW, 
      &                 IWL1, NCMPA, PARENT, 
      &                 INFO(1), LP, LPOK, KEEP(10))
-               ELSE
+                  ELSE
                     WRITE(*,*)
      &              "Internal error in PORD wrappers, PORD_INT_SIZE=",
      &              PORD_INT_SIZE
@@ -477,7 +498,7 @@ C
                  CALL MUMPS_SCOTCH_MIXEDto64(NCMP, 
      &              IWFR8-1_8, IPE,
      &              PARENT, IWFR8,
-     &              PTRAR(1,2), IW(1), IWL1, IKEEP1,
+     &              PTRAR(1,2), IW, IWL1, IKEEP1,
      &              IKEEP2, NCMPA, INFO, LP, LPOK, KEEP(10),
      &              INPLACE64_GRAPH_COPY)
               ELSE
@@ -487,7 +508,8 @@ C
                  CALL MUMPS_ABORT()
                ENDIF
                IF (INFO(1) .LT. 0) GOTO 90
-               IF (COMPRESS .EQ. 1) THEN
+               IF ( (COMPRESS .EQ. 1)
+     &            ) THEN
                  CALL CMUMPS_GET_ELIM_TREE(NCMP,PARENT,IWL1,FILS(1))
                  CALL CMUMPS_GET_PERM_FROM_PE(NCMP,PARENT,IKEEP1(1),
      &                FRERE(1),PTRAR(1,1))
@@ -498,31 +520,36 @@ C
 #endif
             ELSEIF (IORD .EQ. 2) THEN
                NBBUCK = 2*N
-               ALLOCATE( WTEMP ( 0: NBBUCK + 1), stat = IERR )
-               IF ( IERR .GT. 0 ) THEN
-                  INFO( 1 ) = -7
-                  INFO( 2 ) = NBBUCK+2
-                  GOTO 90       
-               ENDIF
+               COMPUTE_PERM=.FALSE.
                IF(COMPRESS .GE. 1) THEN
+                  COMPUTE_PERM=.TRUE.
                   DO I=1,KEEP(93)/2
                      IWL1(I) = 2
                   ENDDO
                   DO I=1+KEEP(93)/2,NCMP
                      IWL1(I) = 1
                   ENDDO
+                  TOTEL = KEEP(93)+KEEP(94)
                ELSE
                   IWL1(1) = -1
+                  TOTEL   = N
+               ENDIF
+               ALLOCATE( WTEMP ( 0: NBBUCK + 1), stat = IERR )
+               IF ( IERR .GT. 0 ) THEN
+                  INFO( 1 ) = -7
+                  INFO( 2 ) = NBBUCK+2
+                  GOTO 90       
                ENDIF
                IF(COMPRESS .LE. 1) THEN
-                  CALL MUMPS_HAMF4(NCMP, NBBUCK, LIW8, IPE,
+                  CALL MUMPS_HAMF4
+     &               (TOTEL, NCMP, COMPUTE_PERM, NBBUCK, LIW8, IPE(1),
      &               IWFR8, PTRAR(1,2),
      &               IW(1), IWL1, IKEEP1(1), IKEEP2(1), NCMPA, FILS(1),
      &               IKEEP3(1), PTRAR, PTRAR(1,3), WTEMP, PARENT(1))
                ELSE
                   IF(PROK) WRITE(MP,'(A)') 
      &                 ' Constrained Ordering based on AMF'
-                  CALL MUMPS_CST_AMF(NCMP, NBBUCK, LIW8, IPE,
+                  CALL MUMPS_CST_AMF(NCMP, NBBUCK, LIW8, IPE(1),
      &             IWFR8, PTRAR(1,2), 
      &             IW(1), IWL1, IKEEP1(1), IKEEP2(1), NCMPA, FILS(1), 
      &             IKEEP3(1), PTRAR, PTRAR(1,3), WTEMP,
@@ -538,7 +565,9 @@ C
                ENDIF
                THRESH = 1
                IVersion = 2
+               COMPUTE_PERM=.FALSE.
                IF(COMPRESS .EQ. 1) THEN
+                  COMPUTE_PERM=.TRUE.
                   DO I=1,KEEP(93)/2
                      IWL1(I) = 2
                   ENDDO
@@ -550,13 +579,29 @@ C
                   IWL1(1) = -1
                   TOTEL = N
                ENDIF
-               CALL MUMPS_QAMD(TOTEL,IVersion, THRESH, WTEMP,
-     &              NCMP, LIW8, IPE, IWFR8, PTRAR(1,2), IW(1),
+               CALL MUMPS_QAMD
+     &              (TOTEL,COMPUTE_PERM,IVersion, THRESH, WTEMP,
+     &              NCMP, LIW8, IPE(1), IWFR8, PTRAR(1,2), IW(1),
      &              IWL1, IKEEP1(1), IKEEP2(1), NCMPA, FILS(1),
      &              IKEEP3(1), PTRAR, PTRAR(1,3), PARENT(1))
                DEALLOCATE(WTEMP)
             ELSE
-               CALL MUMPS_ANA_H(NCMP, LIW8, IPE, IWFR8, PTRAR(1,2),
+               COMPUTE_PERM=.FALSE.
+               IF(COMPRESS .EQ. 1) THEN
+                  COMPUTE_PERM=.TRUE.
+                  DO I=1,KEEP(93)/2
+                     IWL1(I) = 2
+                  ENDDO
+                  DO I=1+KEEP(93)/2,NCMP
+                     IWL1(I) = 1
+                  ENDDO
+                  TOTEL = KEEP(93)+KEEP(94)
+               ELSE
+                  IWL1(1) = -1
+                  TOTEL = N
+               ENDIF
+               CALL MUMPS_ANA_H(TOTEL, COMPUTE_PERM,
+     &              NCMP, LIW8, IPE(1), IWFR8, PTRAR(1,2),
      &              IW(1), IWL1, IKEEP1(1), IKEEP2(1), NCMPA, FILS(1),
      &              IKEEP3(1), PTRAR, PTRAR(1,3), PARENT(1))
             ENDIF
@@ -606,60 +651,60 @@ C
 #if defined(metis4) || defined(parmetis3)
             IF (METIS_IDX_SIZE .EQ.32) THEN
               CALL MUMPS_METIS_NODEWND_MIXEDto32(
-     &           NCMP, IPE, IW(1),FRERE, 
+     &           NCMP, IPE, IW, FRERE, 
      &           NUMFLAG, METIS_OPTIONS(1), OPT_METIS_SIZE,
      &           IKEEP2, IKEEP1, INFO(1), LP, LPOK )
             ELSE IF (METIS_IDX_SIZE .EQ.64) THEN
               CALL MUMPS_METIS_NODEWND_MIXEDto64(
-     &           NCMP, IPE, IW(1),FRERE, 
+     &           NCMP, IPE, IW, FRERE, 
      &           NUMFLAG, METIS_OPTIONS(1), OPT_METIS_SIZE,
      &           IKEEP2, IKEEP1, INFO(1), LP, LPOK, KEEP(10),
      &           INPLACE64_GRAPH_COPY )
-           ELSE
+            ELSE
               WRITE(*,*)
      &        "Internal error in METIS wrappers, METIS_IDX_SIZE=",
      &        METIS_IDX_SIZE
               CALL MUMPS_ABORT()
             ENDIF
          ELSE
-            IF (METIS_IDX_SIZE .EQ.32) THEN
+             IF (METIS_IDX_SIZE .EQ.32) THEN
               CALL MUMPS_METIS_NODEND_MIXEDto32(
-     &           NCMP, IPE, IW(1), NUMFLAG, 
+     &           NCMP, IPE, IW, NUMFLAG, 
      &           METIS_OPTIONS(1), OPT_METIS_SIZE,
      &           IKEEP2, IKEEP1, INFO(1), LP, LPOK )
-            ELSE IF (METIS_IDX_SIZE .EQ.64) THEN
+             ELSE IF (METIS_IDX_SIZE .EQ.64) THEN
               CALL MUMPS_METIS_NODEND_MIXEDto64(
-     &           NCMP, IPE, IW(1), NUMFLAG, 
+     &           NCMP, IPE, IW, NUMFLAG, 
      &           METIS_OPTIONS(1), OPT_METIS_SIZE,
      &           IKEEP2, IKEEP1, INFO(1), LP,LPOK,KEEP(10), 
      &           LIW8, INPLACE64_GRAPH_COPY,
      &           INPLACE64_RESTORE_GRAPH)
-           ELSE
+             ELSE
               WRITE(*,*)
      &        "Internal error in METIS wrappers, METIS_IDX_SIZE=",
      &        METIS_IDX_SIZE
               CALL MUMPS_ABORT()
-            ENDIF
+           ENDIF
          ENDIF
 #else
          ELSE
-            DO I=1,NCMP
+             DO I=1,NCMP
                FRERE(I) = 1
-            ENDDO
+             ENDDO 
          ENDIF
          IF (METIS_IDX_SIZE .EQ. 32) THEN
            CALL MUMPS_METIS_NODEND_MIXEDto32(
-     &        NCMP, IPE, IW(1), FRERE,
+     &        NCMP, IPE, IW, FRERE,
      &        METIS_OPTIONS(1), OPT_METIS_SIZE,
      &        IKEEP2, IKEEP1, INFO(1), LP, LPOK )
          ELSE IF (METIS_IDX_SIZE .EQ. 64) THEN
            CALL MUMPS_METIS_NODEND_MIXEDto64(
-     &        NCMP, IPE, IW(1),FRERE,
+     &        NCMP, IPE, IW, FRERE,
      &        METIS_OPTIONS(1), OPT_METIS_SIZE,
      &        IKEEP2, IKEEP1, INFO(1), LP,LPOK,KEEP(10),
      &        LIW8, INPLACE64_GRAPH_COPY,
      &        INPLACE64_RESTORE_GRAPH)
-        ELSE
+         ELSE
               IF (LPOK) WRITE(LP,*)
      &        "Internal error in METIS wrappers, METIS_IDX_SIZE=",
      &        METIS_IDX_SIZE
@@ -690,22 +735,8 @@ C
             WRITE(MP,'(A)') ' Ordering given is used'
          ENDIF
       ENDIF
-      IF ((IORD.EQ.1) 
-     &     ) THEN
-         DO K=1,N
-            PTRAR(K,1) = 0
-         ENDDO
-         DO K=1,N
-            IF ((IKEEP1(K).LE.0).OR.(IKEEP1(K).GT.N)) 
-     &           GO TO 40
-            IF (PTRAR(IKEEP1(K),1).EQ.1) THEN
-               GOTO 40
-            ELSE
-               PTRAR(IKEEP1(K),1) = 1
-            ENDIF
-         ENDDO
-      ENDIF
-      IF (IORD.EQ.1 .OR. IORD.EQ.5 .OR. COMPRESS.EQ.-1) THEN
+      IF (IORD.EQ.1 .OR. IORD.EQ.5 .OR. COMPRESS.EQ.-1 
+     &   ) THEN
          IF ((KEEP(106).EQ.1).OR.(KEEP(106).EQ.3)
      &          .OR.(KEEP(60).NE.0)) THEN
             IF ( COMPRESS .EQ. -1 ) THEN
@@ -715,7 +746,7 @@ C
                      INFO( 2 ) = N*KEEP(10)
                ENDIF
                CALL CMUMPS_ANA_GNEW(N,NZ8,IRN(1),ICN(1),IW(1),LIW8,
-     &              IPE, PTRAR(1,2),
+     &              IPE(1), PTRAR(1,2),
      &              IPQ8, IWL1, IWFR8, KEEP8(126), KEEP8(127),
      &              INFO(1), INFO(2), ICNTL, symmetry, KEEP(50),
      &              NBQD, AvgDens, KEEP(264),KEEP(265), .TRUE.,
@@ -743,9 +774,11 @@ C
                ENDIF
             ENDIF
             AGG6 =.FALSE.
+             IWL1(1) = -1
+             TOTEL = N
             CALL MUMPS_SYMQAMD(THRESH, WTEMP,
-     &           N, LIW8, IPE, IWFR8, PTRAR(1,2), IW,
-     &           IWL1, WTEMP(N+1),
+     &           N, TOTEL, LIW8, IPE(1), IWFR8, PTRAR(1,2), IW(1),
+     &           IWL1(1), WTEMP(N+1),
      &           IKEEP2(1), NCMPA, FILS(1), IKEEP3(1), PTRAR, 
      &           PTRAR(1,3),IKEEP1(1), LISTVAR_SCHUR(1), ITEMP, 
      &           AGG6, PARENT)
@@ -753,7 +786,7 @@ C
            ENDIF  
          ELSE
             CALL CMUMPS_ANA_J(N, NZ8, IRN(1), ICN(1), IKEEP1(1), IW(1),
-     &           LIW8, IPE,
+     &           LIW8, IPE(1),
      &           PTRAR(1,2), IWL1, IWFR8,
      &           INFO(1),INFO(2), MP)
             IF (KEEP(60) .EQ. 0) THEN
@@ -761,7 +794,7 @@ C
             ELSE 
                ITEMP = SIZE_SCHUR
             ENDIF
-            CALL CMUMPS_ANA_K(N, IPE, IW, LIW8, IWFR8, IKEEP1(1),
+            CALL CMUMPS_ANA_K(N, IPE(1), IW(1), LIW8, IWFR8, IKEEP1(1),
      &              IKEEP2(1), IWL1,
      &              PTRAR, NCMPA, ITEMP, PARENT)
             IF (KEEP(60) .EQ. 0) THEN
@@ -779,19 +812,20 @@ C
      &     NFSIZ, INFO(6), FILS(1), FRERE(1), PTRAR(1,3),
      &     NEMIN, KEEP(60))
 #else
-      IF (allocated(IPE)) DEALLOCATE(IPE)
+      IF (allocated(IPEALLOC)) DEALLOCATE(IPEALLOC)
       ALLOCATE(WTEMP(N), stat=IERR)
       IF ( IERR .GT. 0 ) THEN
          INFO( 1 ) = -7
          INFO( 2 ) = N
          GOTO 90                
       ENDIF
-      CALL CMUMPS_ANA_LNEW
+       CALL CMUMPS_ANA_LNEW
      &     (N, PARENT, IWL1, IKEEP1(1), IKEEP2(1), IKEEP3(1),
      &     NFSIZ(1), PTRAR, INFO(6), FILS(1), FRERE(1), 
      &     PTRAR(1,3), NEMIN, WTEMP, KEEP(60),
      &     KEEP(20),KEEP(38),PTRAR(1,2),KEEP(104),IW(1),KEEP(50), 
-     &     ICNTL(13), KEEP(37), NSLAVES, KEEP(250).EQ.1)
+     &     ICNTL(13), KEEP(37), NSLAVES, KEEP(250).EQ.1 
+     &     , .FALSE., IDUMMY, LIDUMMY )
       DEALLOCATE(WTEMP)
 #endif
       IF (KEEP(60).NE.0)  THEN
@@ -855,7 +889,9 @@ C
        IF (KEEP(210).EQ.1) THEN
         SPLITROOT = .FALSE. 
         IF ( KEEP(62).GE.1) THEN
-          CALL CMUMPS_CUTNODES(N, FRERE(1), FILS(1), NFSIZ(1), INFO(6),
+          IWL1(1) = -1
+          CALL CMUMPS_CUTNODES(N, FRERE(1), FILS(1), NFSIZ(1), 
+     &                       IWL1(1), N, INFO(6),
      &                       NSLAVES, KEEP,KEEP8, SPLITROOT,
      &                       MP, LDIAG, INFO(1), INFO(2))
           IF (INFO(1).LT.0) GOTO 90 
@@ -873,7 +909,9 @@ C
       ENDIF
       SPLITROOT = (SPLITROOT.AND.( (KEEP(60).EQ.0) ))
       IF (SPLITROOT) THEN
-         CALL CMUMPS_CUTNODES(N, FRERE(1), FILS(1), NFSIZ(1), INFO(6),
+         IWL1(1) = -1
+         CALL CMUMPS_CUTNODES(N, FRERE(1), FILS(1), NFSIZ(1), 
+     &                    IWL1(1), N, INFO(6),
      &                    NSLAVES, KEEP,KEEP8, SPLITROOT,
      &                    MP, LDIAG, INFO(1), INFO(2))
          IF (INFO(1).LT.0) GOTO 90 
@@ -890,7 +928,7 @@ C
          IF (K.GT.0) WRITE (MP,99988) (FRERE(I),I=1,K)
       ENDIF
       GO TO 90
- 40   INFO(1) = -4
+      INFO(1) = -4
       INFO(2) = K
       GOTO 90 
  90   CONTINUE 
@@ -898,25 +936,757 @@ C
         IF ((LP.GT.0).AND.(ICNTL(4).GE.1)) 
      &           WRITE (LP,99996) INFO(1), INFO(2)
       ENDIF
-      IF (allocated(IW))     DEALLOCATE(IW)
-      IF (allocated(IWL1))   DEALLOCATE(IWL1)
-      IF (allocated(IPE))    DEALLOCATE(IPE)
-      IF (allocated(PTRAR))  DEALLOCATE(PTRAR)
-      IF (allocated(PARENT)) DEALLOCATE(PARENT)
+      IF (allocated(IWALLOC))  DEALLOCATE(IWALLOC)
+      IF (allocated(IWL1))     DEALLOCATE(IWL1)
+      IF (allocated(IPEALLOC)) DEALLOCATE(IPEALLOC)
+      IF (allocated(PTRAR))    DEALLOCATE(PTRAR)
+      IF (allocated(PARENT))   DEALLOCATE(PARENT)
       RETURN
-99999 FORMAT (/'Entering analysis phase with ...'/
-     &     '                N        NNZ         LIW       INFO(1)'/,
-     &     9X, I10, I11, I12, I14)
+99999 FORMAT (/'Entering ordering phase with ...'/
+     &  '                N        NNZ       LIW       INFO(1)'/,
+     &     6X, I10, I11, I12, I10)
 99998 FORMAT ('Matrix entries:    IRN()   ICN()'/
-     &     (I12, I7, I12, I7, I12, I7))
-99997 FORMAT ('IKEEP1(.)=', 10I6/(12X, 10I6))
+     &     (I12, I9, I12, I9, I12, I9))
+99997 FORMAT ('IKEEP1(.)=', 10I8/(12X, 10I8))
 99996 FORMAT 
      &  (/'** Error/warning return ** from Analysis *  INFO(1:2)= ', 
      &       (I3, I16))
-99989 FORMAT ('FILS (.)  =', 10I6/(12X, 10I6))
-99988 FORMAT ('FRERE(.)  =', 10I6/(12X, 10I6))
-99987 FORMAT ('NFSIZ(.)  =', 10I6/(12X, 10I6))
+99989 FORMAT ('FILS (.)  =', 10I9/(11X, 10I9))
+99988 FORMAT ('FRERE(.)  =', 10I9/(11X, 10I9))
+99987 FORMAT ('NFSIZ(.)  =', 10I9/(11X, 10I9))
       END SUBROUTINE CMUMPS_ANA_F
+      SUBROUTINE CMUMPS_ANA_N_DIST( id, PTRAR )
+      USE CMUMPS_STRUC_DEF, ONLY : CMUMPS_STRUC
+      IMPLICIT NONE
+      include 'mpif.h'
+      TYPE(CMUMPS_STRUC), INTENT(INOUT), TARGET :: id
+      INTEGER(8), INTENT(OUT), TARGET        :: PTRAR(:)
+      INTEGER          :: IERR, allocok
+      INTEGER          :: IOLD, JOLD, INEW, JNEW
+      INTEGER(8)       :: K, INZ
+      INTEGER, POINTER :: IIRN(:), IJCN(:)
+      INTEGER(8), POINTER :: IWORK1(:), IWORK2(:)
+      LOGICAL          :: IDO
+      IF(id%KEEP(54) .EQ. 3) THEN
+            IIRN => id%IRN_loc
+            IJCN => id%JCN_loc
+            INZ = id%KEEP8(29)
+            IWORK1 => PTRAR(id%N+1:id%N+id%N)
+            allocate(IWORK2(id%N),stat=allocok)
+            IF (allocok > 0 ) THEN
+               id%INFO(1) = -7
+               id%INFO(2) = id%N
+               RETURN
+            ENDIF
+            IDO = .TRUE.
+      ELSE
+            IIRN => id%IRN
+            IJCN => id%JCN
+            INZ  =  id%KEEP8(28)
+            IWORK1 => PTRAR(1:id%N)
+            IWORK2 => PTRAR(id%N+1:id%N+id%N)
+            IDO = id%MYID .EQ. 0
+      END IF
+      DO 50 IOLD=1,id%N
+         IWORK1(IOLD) = 0_8
+         IWORK2(IOLD) = 0_8
+ 50   CONTINUE
+      IF(IDO) THEN
+         DO 70 K=1_8,INZ
+            IOLD = IIRN(K)
+            JOLD = IJCN(K)
+            IF ( (IOLD.GT.id%N).OR.(JOLD.GT.id%N).OR.(IOLD.LT.1)
+     &           .OR.(JOLD.LT.1) ) GOTO 70
+            IF (IOLD.NE.JOLD) THEN
+               INEW = id%SYM_PERM(IOLD)
+               JNEW = id%SYM_PERM(JOLD)
+               IF ( id%KEEP( 50 ) .EQ. 0 ) THEN
+                  IF (INEW.LT.JNEW) THEN
+                     IWORK2(IOLD) = IWORK2(IOLD) + 1_8
+                  ELSE
+                     IWORK1(JOLD) = IWORK1(JOLD) + 1_8
+                  ENDIF
+               ELSE
+                  IF ( INEW .LT. JNEW ) THEN
+                     IWORK1( IOLD ) = IWORK1( IOLD ) + 1_8
+                  ELSE 
+                     IWORK1( JOLD ) = IWORK1( JOLD ) + 1_8
+                  END IF
+               ENDIF
+            ENDIF
+ 70      CONTINUE
+      END IF
+      IF (id%KEEP(54) .EQ. 3) THEN
+         CALL MPI_ALLREDUCE(IWORK1(1), PTRAR(1), id%N,
+     &        MPI_INTEGER8, MPI_SUM, id%COMM, IERR )
+         CALL MPI_ALLREDUCE(IWORK2(1), PTRAR(id%N+1), id%N,
+     &        MPI_INTEGER8, MPI_SUM, id%COMM, IERR )
+         deallocate(IWORK2)
+      ELSE
+         CALL MPI_BCAST( PTRAR(1), 2*id%N, MPI_INTEGER8,
+     &        0, id%COMM, IERR )
+      END IF
+      RETURN
+      END SUBROUTINE CMUMPS_ANA_N_DIST
+      SUBROUTINE CMUMPS_ANA_O( N, NZ, MTRANS, PERM, IKEEPALLOC,
+     &     idIRN, idJCN, idA, idROWSCA, idCOLSCA, WORK2, KEEP,
+     &     ICNTL, INFO, INFOG )
+      IMPLICIT NONE
+      INTEGER, INTENT(IN)    :: N
+      INTEGER(8), INTENT(IN) :: NZ 
+      INTEGER, INTENT(OUT)   :: PERM(:) 
+      INTEGER, POINTER, DIMENSION(:) :: idIRN, idJCN
+      COMPLEX, POINTER, DIMENSION(:) :: idA
+      REAL, POINTER, DIMENSION(:) :: idROWSCA, idCOLSCA
+      INTEGER, TARGET        :: IKEEPALLOC(3*N)
+      INTEGER, INTENT(INOUT) :: MTRANS
+      INTEGER                :: KEEP(500)
+      INTEGER, INTENT(IN)    :: ICNTL(60)
+      INTEGER, INTENT(INOUT) :: INFO(80)
+      INTEGER, INTENT(INOUT) :: INFOG(80) 
+      INTEGER, TARGET        :: WORK2(N)
+      INTEGER    :: allocok
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: IW
+      REAL, ALLOCATABLE, DIMENSION(:) :: S2
+      TARGET :: S2
+      INTEGER ICNTL64(10), INFO64(10)
+      INTEGER ICNTL_SYM_MWM(10),INFO_SYM_MWM(10)
+      REAL CNTL64(10)
+      INTEGER MPRINT,LP, MP       
+      INTEGER JPERM
+      INTEGER NUMNZ, I, J, JPOS
+      LOGICAL PROK, IDENT, DUPPLI
+      INTEGER K50, KER_SIZE, NZER_DIAG, MTRANSLOC,RZ_DIAG
+      INTEGER(8) :: LIWG
+      INTEGER(8), DIMENSION(:), ALLOCATABLE :: IPE
+      INTEGER(8), DIMENSION(:), ALLOCATABLE :: IPQ8
+      INTEGER    :: LSC
+      INTEGER(8) :: NZTOT, NZREAL, IPIW, LIW, LIWMIN, NZsave, 
+     &              K, KPOS, LDW, LDWMIN, IRNW, RSPOS, CSPOS,
+     &              LS2,J8, N8
+      LOGICAL SCALINGLOC
+      INTEGER,POINTER,DIMENSION(:) :: ZERODIAG
+      INTEGER,POINTER,DIMENSION(:) :: STR_KER
+      INTEGER,POINTER,DIMENSION(:) :: MARKED
+      INTEGER,POINTER,DIMENSION(:) :: FLAG
+      INTEGER,POINTER,DIMENSION(:) :: PIV_OUT
+      REAL THEMIN, THEMAX, COLNORM,MAXDBL, ABSAK
+      REAL ZERO,TWO,ONE
+      PARAMETER(ZERO = 0.0E0,TWO = 2.0E0,ONE = 1.0E0)
+      N8     = int(N,8)
+      MPRINT = ICNTL(3)
+      LP     = ICNTL(1)
+      MP     = ICNTL(2)
+      PROK   = ((MPRINT.GT.0).AND.(ICNTL(4).GE.2))
+      K50 = KEEP(50)
+      SCALINGLOC = .FALSE.
+      IF(KEEP(52) .EQ. -2) THEN
+         IF(.not.associated(idA)) THEN
+            INFO(1) = -22
+            INFO(2) = 4
+            GOTO 500
+         ELSE
+            SCALINGLOC = .TRUE.
+         ENDIF
+      ELSE IF(KEEP(52) .EQ. 77) THEN
+         SCALINGLOC = .TRUE.
+         IF( MTRANS .NE. 5 .AND. MTRANS .NE. 6 
+     &           .AND. MTRANS .NE. 7) THEN
+               SCALINGLOC = .FALSE.
+         ENDIF
+         IF(.not.associated(idA)) THEN
+            SCALINGLOC = .FALSE.
+            IF (PROK) 
+     &           WRITE(MPRINT,*) 'Analysis: auto scaling OFF because ',
+     &                           'A not provided at analysis '
+         ENDIF
+      ENDIF
+      IF ( (KEEP(50).EQ.2).AND.(ICNTL(8).NE.-2).AND.
+     &    (MTRANS .EQ. 7 .OR. KEEP(95) .EQ. 0) ) THEN
+        ZERODIAG => IKEEPALLOC(1:N)
+        ZERODIAG = 0
+        NZER_DIAG = N
+        RZ_DIAG = 0
+        DO K=1,NZ
+            I = idIRN(K)
+            J = idJCN(K)
+            IF (I.NE.J) CYCLE
+            IF ( (J.LE.N).AND.(J.GE.1) ) THEN
+              IF(ZERODIAG(I) .EQ. 0) THEN
+                ZERODIAG(I) = 1
+                IF(associated(idA)) THEN
+                  ABSAK= abs(idA(K))
+                  IF(ABSAK .EQ. real(0.0E0)) THEN
+                     RZ_DIAG = RZ_DIAG + 1
+                  ENDIF
+                  NZER_DIAG = NZER_DIAG - 1                     
+                  ENDIF
+               ENDIF
+            ENDIF
+        ENDDO
+        IF( (NZER_DIAG+RZ_DIAG) .LT. (N/10) ) THEN
+          MTRANS = 0
+          KEEP(95) =1
+          GOTO 500
+        ENDIF
+      ENDIF
+      IF(SCALINGLOC) THEN
+         IF (PROK) WRITE(MPRINT,*) 
+     &        'Scaling will be computed during analysis'
+      ENDIF
+      MTRANSLOC = MTRANS
+      IF (MTRANS.LT.0 .OR. MTRANS.GT.7) GO TO 500
+      IF (K50 .EQ. 0) THEN
+         IF(.NOT. SCALINGLOC .AND. MTRANS .EQ. 7) THEN 
+            GO TO 500
+         ENDIF
+         IF(SCALINGLOC) THEN
+            IF (MTRANSLOC.NE.6) THEN
+              MTRANSLOC = 5
+            ENDIF
+         ENDIF
+      ELSE
+         IF (MTRANS .EQ. 7) MTRANSLOC = 5
+      ENDIF
+      IF(SCALINGLOC .AND. MTRANSLOC .NE. 5 .AND.
+     &     MTRANSLOC .NE. 6 ) THEN
+         IF (PROK) WRITE(MPRINT,*)
+     &        'WARNING scaling required: set MTRANS option to 5'
+         MTRANSLOC = 5
+      ENDIF
+      IF (N.EQ.1) THEN
+        MTRANS=0
+        GO TO 500
+      ENDIF
+      IF(K50 .NE. 0) THEN
+         NZTOT = 2_8*NZ+N8
+      ELSE
+         NZTOT = NZ
+      ENDIF
+      ZERODIAG => IKEEPALLOC(1:N) 
+      STR_KER => IKEEPALLOC(N+1:2*N)
+      CALL CMUMPS_MTRANSI(ICNTL64,CNTL64)
+      ICNTL64(1) = ICNTL(1)
+      ICNTL64(2) = ICNTL(2)
+      ICNTL64(3) = ICNTL(3)
+      ICNTL64(4) = -1
+      IF (ICNTL(4).EQ.3) ICNTL64(4) = 0
+      IF (ICNTL(4).EQ.4) ICNTL64(4) = 1
+      ICNTL64(5) = -1
+      IF (PROK) THEN
+         WRITE(MPRINT,'(A,I3)')
+     &     'Compute maximum matching (Maximum Transversal):',
+     &        MTRANSLOC
+         IF (MTRANSLOC.EQ.1)
+     &   WRITE(MPRINT,'(A,I3)')' ... JOB =',MTRANSLOC
+         IF (MTRANSLOC.EQ.2)
+     &   WRITE(MPRINT,'(A,I3,A)')
+     &     ' ... JOB =',MTRANSLOC,': BOTTLENECK THESIS'
+         IF (MTRANSLOC.EQ.3)
+     &   WRITE(MPRINT,'(A,I3,A)')
+     &     ' ... JOB =',MTRANSLOC,': BOTTLENECK SIMAX'
+         IF (MTRANSLOC.EQ.4)
+     &   WRITE(MPRINT,'(A,I3,A)')
+     &     ' ... JOB =',MTRANSLOC,': MAXIMIZE SUM DIAGONAL'
+         IF (MTRANSLOC.EQ.5 .OR. MTRANSLOC.EQ.6)
+     &   WRITE(MPRINT,'(A,I3,A)')
+     &     ' ... JOB =',MTRANSLOC,
+     &     ': MAXIMIZE PRODUCT DIAGONAL AND SCALE'
+      ENDIF
+      INFOG(23) = MTRANSLOC
+      CNTL64(2) = huge(CNTL64(2))
+      IRNW = 1
+      IPIW = IRNW + NZTOT
+      IF (MTRANSLOC.EQ.1) LIWMIN = 5_8*N8
+      IF (MTRANSLOC.EQ.2) LIWMIN = 3_8*N8
+      IF (MTRANSLOC.EQ.3) LIWMIN = 10_8*N8 + NZTOT
+      IF (MTRANSLOC.EQ.4) LIWMIN = 2_8*N8
+      IF (MTRANSLOC.EQ.5) LIWMIN = 5_8*N8
+      IF (MTRANSLOC.EQ.6) LIWMIN = 5_8*N8 + NZTOT
+      LIW = LIWMIN
+      LIWG  = LIW + NZTOT
+      ALLOCATE(IW(LIWG), stat=allocok)
+      IF (allocok .GT. 0 ) THEN
+         GOTO 410
+      ENDIF
+      ALLOCATE( IPQ8(N), IPE(N+1), stat = allocok )
+      IF ( allocok .GT. 0 ) THEN
+         INFO( 1 ) = -7
+         INFO( 2 ) = (2*N+1)*KEEP(10)
+         GOTO 500               
+      ENDIF
+      IF (MTRANSLOC.EQ.1) THEN
+       LDWMIN = N8+3_8
+      ENDIF
+      IF (MTRANSLOC.EQ.2) LDWMIN = max( N8+NZTOT , N8+3_8 )
+      IF (MTRANSLOC.EQ.3) LDWMIN = max( NZTOT+1_8 , N8+3_8 )
+      IF (MTRANSLOC.EQ.4) LDWMIN = 2_8 * N8 + 
+     &                             max( NZTOT , N8+3_8 )
+      IF (MTRANSLOC.EQ.5) LDWMIN = 3_8*N8 + NZTOT
+      IF (MTRANSLOC.EQ.6) LDWMIN = 4_8*N8 + NZTOT
+      LDW   = LDWMIN
+      ALLOCATE(S2(LDW), stat=allocok)
+      IF (allocok .GT. 0 ) THEN
+         GOTO 430
+      ENDIF
+      IF(MTRANSLOC .NE. 1) LDW = LDW-NZTOT
+      RSPOS = NZTOT
+      CSPOS = RSPOS+N8
+      NZREAL = 0_8
+      DO 5 J=1,N
+        IPQ8(J) = 0_8
+  5   CONTINUE
+      IF(K50 .EQ. 0) THEN
+         DO 10 K=1,NZ
+            I = idIRN(K)
+            J = idJCN(K)
+            IF ( (J.LE.N).AND.(J.GE.1).AND.
+     &           (I.LE.N).AND.(I.GE.1) ) THEN
+               IPQ8(J) = IPQ8(J) + 1_8
+               NZREAL = NZREAL + 1_8
+            ENDIF
+ 10      CONTINUE
+      ELSE
+         ZERODIAG = 0
+         NZER_DIAG = N
+         RZ_DIAG = 0
+         DO K=1,NZ
+            I = idIRN(K)
+            J = idJCN(K)
+            IF ( (J.LE.N).AND.(J.GE.1).AND.
+     &           (I.LE.N).AND.(I.GE.1) ) THEN
+               IPQ8(J) = IPQ8(J) + 1_8
+               NZREAL = NZREAL + 1_8
+               IF(I .NE. J) THEN
+                  IPQ8(I) = IPQ8(I) + 1_8
+                  NZREAL = NZREAL + 1_8
+               ELSE
+                  IF (ZERODIAG(I) .EQ. 0) THEN
+                     ZERODIAG(I) = 1
+                     IF(associated(idA)) THEN
+                        ABSAK= abs(idA(K))
+                        IF(ABSAK .EQ. real(0.0E0)) THEN
+                           RZ_DIAG = RZ_DIAG + 1
+                        ENDIF
+                         ZERODIAG(I) = exponent(ABSAK)
+                         if ( ZERODIAG(I).EQ.0)  ZERODIAG(I)=1
+                     ENDIF
+                     NZER_DIAG = NZER_DIAG - 1                     
+                  ELSE
+                     IF(associated(idA)) THEN
+                        ABSAK= abs(idA(K))
+                        ZERODIAG(I) = ZERODIAG(I)+ exponent(ABSAK)
+                        if ( ZERODIAG(I).EQ.0)  ZERODIAG(I)=1
+                     ENDIF
+                  ENDIF
+               ENDIF
+            ENDIF
+         ENDDO
+         IF(MTRANSLOC .GE. 4) THEN
+            DO I =1, N
+               IF(ZERODIAG(I) .EQ. 0) THEN
+                  IPQ8(I) = IPQ8(I) + 1_8
+                  NZREAL = NZREAL + 1_8
+               ENDIF
+            ENDDO
+         ENDIF
+      ENDIF
+      IPE(1)   = 1
+      DO 20 J=1,N
+        IPE(J+1)   = IPE(J)+IPQ8(J)
+  20  CONTINUE
+      DO 25 J=1, N
+        IPQ8(J ) = IPE(J)
+  25  CONTINUE
+      IF(K50 .EQ. 0) THEN
+         IF (MTRANSLOC.EQ.1) THEN
+            DO K=1,NZ
+               I = idIRN(K)
+               J = idJCN(K)
+               IF ( (J.LE.N).AND.(J.GE.1) .AND.
+     &              (I.LE.N).AND.(I.GE.1)) THEN
+                  KPOS              = IPQ8(J)
+                  IW(IRNW+KPOS-1_8) = I
+                  IPQ8(J)   = IPQ8(J) + 1_8
+               ENDIF
+            END DO
+         ELSE
+            IF ( .not.associated(idA)) THEN
+               INFO(1) = -22
+               INFO(2) = 4
+               GOTO 500
+            ENDIF
+            DO K=1,NZ
+               I = idIRN(K)
+               J = idJCN(K)
+               IF ( (J.LE.N).AND.(J.GE.1) .AND.
+     &              (I.LE.N).AND.(I.GE.1)) THEN
+                  KPOS            = IPQ8(J)
+                  IW(IRNW+KPOS-1) = I
+                  S2(KPOS)         = abs(idA(K))
+                  IPQ8(J)   = IPQ8(J) + 1_8
+               ENDIF
+            END DO
+         ENDIF
+      ELSE
+         IF (MTRANSLOC.EQ.1) THEN
+            DO K=1,NZ
+               I = idIRN(K)
+               J = idJCN(K)
+               IF ( (J.LE.N).AND.(J.GE.1) .AND.
+     &              (I.LE.N).AND.(I.GE.1)) THEN
+                  KPOS            = IPQ8(J)
+                  IW(IRNW+KPOS-1) = I
+                  IPQ8(J)   = IPQ8(J) + 1_8
+                  IF(I.NE.J) THEN
+                     KPOS            = IPQ8(I)
+                     IW(IRNW+KPOS-1) = J
+                     IPQ8(I)   = IPQ8(I) + 1_8
+                  ENDIF
+               ENDIF
+            ENDDO
+         ELSE
+            IF ( .not.associated(idA) ) THEN
+               INFO(1) = -22
+               INFO(2) = 4
+               GOTO 500
+            ENDIF
+            THEMAX = ZERO
+            THEMIN = huge(THEMIN)
+            DO K=1,NZ
+               I = idIRN(K)
+               J = idJCN(K)
+               IF ( (J.LE.N).AND.(J.GE.1) .AND.
+     &              (I.LE.N).AND.(I.GE.1)) THEN
+                  KPOS            = IPQ8(J)
+                  IW(IRNW+KPOS-1_8) = I
+                  S2(KPOS)          = abs(idA(K))
+                  IPQ8(J)   = IPQ8(J) + 1_8
+                  IF(abs(idA(K)) .GT. THEMAX) THEN
+                     THEMAX = abs(idA(K))
+                  ELSE IF(abs(idA(K)) .LT. THEMIN 
+     &                    .AND. abs(idA(K)).GT. ZERO) THEN
+                     THEMIN = abs(idA(K))
+                  ENDIF
+                  IF(I.NE.J) THEN
+                     KPOS            = IPQ8(I)
+                     IW(IRNW+KPOS-1) = J
+                     S2(KPOS)         = abs(idA(K))
+                     IPQ8(I)   = IPQ8(I) + 1_8
+                  ENDIF
+               ENDIF
+            ENDDO
+            DO I =1, N
+               IF(ZERODIAG(I) .EQ. 0) THEN
+                  KPOS            = IPQ8(I)
+                  IW(IRNW+KPOS-1) = I
+                  S2(KPOS)         = ZERO
+                  IPQ8(I)   = IPQ8(I) + 1_8
+               ENDIF
+            ENDDO
+            IF ( THEMAX .NE. ZERO ) THEN
+              CNTL64(2) = (log(THEMAX/THEMIN))*(real(N))
+     &             - log(THEMIN) + ONE
+            ENDIF
+         ENDIF
+      ENDIF
+      DUPPLI = .FALSE.
+      NZsave = NZREAL
+      FLAG => IKEEPALLOC(2*N+1:3*N)
+      IF(MTRANSLOC.NE.1) THEN
+         CALL CMUMPS_SUPPRESS_DUPPLI_VAL(N,NZREAL,IPE(1),IW(IRNW),S2,
+     &        PERM(1),IPQ8(1))
+      ELSE
+         CALL CMUMPS_SUPPRESS_DUPPLI_STR(N,NZREAL,IPE(1),IW(IRNW),
+     &        PERM(1))
+      ENDIF
+      IF(NZREAL .NE. NZsave) DUPPLI = .TRUE.
+      LS2 = NZTOT
+      IF ( MTRANSLOC .EQ. 1 ) THEN
+         LS2 = 1_8
+         LDW = 1_8
+      ENDIF
+      CALL CMUMPS_MTRANS_DRIVER(MTRANSLOC ,N, N, NZREAL, 
+     &     IPE, IW(IRNW), S2(1), LS2,
+     &     NUMNZ, PERM(1), LIW, IW(IPIW), LDW, S2(LS2+1),
+     &     IPQ8,
+     &     ICNTL64, CNTL64, INFO64, INFO)
+      IF (INFO(1).LT.0) THEN 
+         IF (LP.GT.0 .AND. ICNTL(4).GE.1)
+     &        WRITE(LP,'(A,I5)')
+     &   ' Not enough memory in MAXTRANS INFO(1)=',INFO(1)
+         GOTO 500 
+      ENDIF
+      IF (INFO64(1).LT.0) THEN
+         IF (LP.GT.0 .AND. ICNTL(4).GE.1)
+     &        WRITE(LP,'(A,I5)')
+     &   ' INTERNAL ERROR in MAXTRANS INFO(1)=',INFO64(1)
+         INFO(1) = -9964
+         INFO(2) = INFO64(1)
+         GO TO 500
+      ENDIF
+      IF (INFO64(1).GT.0) THEN
+         IF (MP.GT.0 .AND. ICNTL(4).GE.2)
+     &        WRITE(MP,'(A,I5)')
+     &        ' WARNING in MAXTRANS INFO(1)=',INFO64(1)
+      ENDIF
+      KER_SIZE = 0
+      IF(K50 .EQ. 2) THEN
+         DO I=1,N
+            IF(ZERODIAG(I) .EQ. 0) THEN
+               IF(PERM(I) .EQ. I) THEN
+                  KER_SIZE = KER_SIZE + 1
+                  PERM(I) = -I
+                  STR_KER(KER_SIZE) = I
+               ENDIF
+            ENDIF
+         ENDDO
+      ENDIF
+      IF (NUMNZ.LT.N) GO TO 400
+      IF(K50 .EQ. 0) THEN
+         IDENT = .TRUE.
+         IF (MTRANS .EQ. 0 ) GOTO 102
+         DO 80 J=1,N
+            JPERM = PERM(J)
+            IW(IRNW+int(JPERM-1,8)) = J
+            IF (JPERM.NE.J) IDENT = .FALSE.
+ 80      CONTINUE
+         IF(IDENT) THEN 
+            MTRANS = 0
+         ELSE
+            IF(MTRANS .EQ. 7) THEN
+               MTRANS = -9876543
+               GOTO 102
+            ENDIF
+            IF (PROK) WRITE(MPRINT,'(A)')
+     &           ' ... Apply column permutation'
+            DO 100 K=1,NZ
+               J = idJCN(K)
+               IF ((J.LE.0).OR.(J.GT.N)) GO TO 100
+               idJCN(K) = IW(IRNW+int(J-1,8))
+ 100        CONTINUE
+            IF (MP.GT.0 .AND. ICNTL(4).GE.2)
+     &           WRITE(MP,'(/A)')
+     &           ' WARNING input matrix data modified'
+         ENDIF
+ 102     CONTINUE
+         IF (SCALINGLOC) THEN
+            IF ( associated(idCOLSCA))
+     &           DEALLOCATE( idCOLSCA )
+            IF ( associated(idROWSCA))
+     &           DEALLOCATE( idROWSCA )
+            ALLOCATE( idCOLSCA(N), stat=allocok)
+            IF (allocok .GT.0) THEN
+               INFO(1)=-5
+               INFO(2)=N
+               IF ((LP.GE.0).AND.(ICNTL(4).GE.1)) THEN
+                  WRITE (LP,'(/A)') '** Error in CMUMPS_ANA_O'
+                  WRITE (LP,'(A)') 
+     &                 '** Failure during allocation of COLSCA'
+                  GOTO 500
+               ENDIF
+            ENDIF
+            ALLOCATE( idROWSCA(N), stat=allocok)
+            IF (allocok .GT.0) THEN
+               INFO(1)=-5
+               INFO(2)=N
+               IF ((LP.GE.0).AND.(ICNTL(4).GE.1)) THEN
+                  WRITE (LP,'(/A)') '** Error in CMUMPS_ANA_O'
+                  WRITE (LP,'(A)') 
+     &                 '** Failure during allocation of ROWSCA'
+                  GOTO 500
+               ENDIF
+            ENDIF
+            KEEP(52) = -2
+            KEEP(74) = 1
+            MAXDBL = log(huge(MAXDBL))
+            DO J=1,N
+               IF(S2(RSPOS+J) .GT. MAXDBL) THEN
+                  S2(RSPOS+J) = ZERO
+               ENDIF
+               IF(S2(CSPOS+J) .GT. MAXDBL) THEN
+                  S2(CSPOS+J)= ZERO
+               ENDIF
+            ENDDO
+            DO 105 J=1,N
+               J8 = int(J,8)
+               idROWSCA(J) = exp(S2(RSPOS+J8))
+               IF(idROWSCA(J) .EQ. ZERO) THEN
+                  idROWSCA(J) = ONE
+               ENDIF
+               IF ( MTRANS .EQ.  -9876543 .OR. MTRANS.EQ. 0 ) THEN
+                 idCOLSCA(J)= exp(S2(CSPOS+J8))
+                 IF(idCOLSCA(J) .EQ. ZERO) THEN
+                   idCOLSCA(J) = ONE
+                 ENDIF
+               ELSE
+                 idCOLSCA(IW(IRNW+J8-1_8))= exp(S2(CSPOS+J8))
+                 IF(idCOLSCA(IW(IRNW+J8-1_8)) .EQ. ZERO) THEN
+                   idCOLSCA(IW(IRNW+J8-1_8)) = ONE
+                 ENDIF
+               ENDIF
+ 105        CONTINUE
+         ENDIF
+      ELSE
+         IDENT = .FALSE.         
+         IF(SCALINGLOC) THEN
+            IF ( associated(idCOLSCA)) DEALLOCATE( idCOLSCA )
+            IF ( associated(idROWSCA)) DEALLOCATE( idROWSCA )
+            ALLOCATE( idCOLSCA(N), stat=allocok)
+            IF (allocok .GT.0) THEN
+               INFO(1)=-5
+               INFO(2)=N
+               IF ((LP.GE.0).AND.(ICNTL(4).GE.1)) THEN
+                  WRITE (LP,'(/A)') '** Error in CMUMPS_ANA_O'
+                  WRITE (LP,'(A)') 
+     &                 '** Failure during allocation of COLSCA'
+                  GOTO 500
+               ENDIF
+            ENDIF
+            ALLOCATE( idROWSCA(N), stat=allocok)
+            IF (allocok .GT.0) THEN
+               INFO(1)=-5
+               INFO(2)=N
+               IF ((LP.GE.0).AND.(ICNTL(4).GE.1)) THEN
+                  WRITE (LP,'(/A)') '** Error in CMUMPS_ANA_O'
+                  WRITE (LP,'(A)') 
+     &                 '** Failure during allocation of ROWSCA'
+                  GOTO 500
+               ENDIF
+            ENDIF
+            KEEP(52) = -2
+            KEEP(74) = 1
+            MAXDBL = log(huge(MAXDBL))
+            DO J=1,N
+               J8 = int(J,8)
+               IF(S2(RSPOS+J8)+S2(CSPOS+J8) .GT. MAXDBL) THEN
+                  S2(RSPOS+J8) = ZERO
+                  S2(CSPOS+J8)= ZERO
+               ENDIF
+            ENDDO
+            DO J=1,N
+               J8 = int(J,8)
+               IF(PERM(J) .GT. 0) THEN
+                  idROWSCA(J) = 
+     &                 exp((S2(RSPOS+J8)+S2(CSPOS+J8))/TWO)
+                  IF(idROWSCA(J) .EQ. ZERO) THEN
+                     idROWSCA(J) = ONE
+                  ENDIF
+                  idCOLSCA(J)= idROWSCA(J)
+               ENDIF
+            ENDDO
+            DO JPOS=1,KER_SIZE
+               I = STR_KER(JPOS)
+               COLNORM = ZERO
+               DO K = IPE(I),IPE(I+1) - 1
+                  IF ( PERM( IW( IRNW+K-1_8) ) > 0 ) THEN
+                    COLNORM = max(COLNORM,S2(J))
+                  ENDIF
+               ENDDO
+               COLNORM = exp(COLNORM) 
+               idROWSCA(I) = ONE / COLNORM
+               idCOLSCA(I) = idROWSCA(I)
+            ENDDO
+         ENDIF
+         IF(MTRANS .EQ. 7 .OR. KEEP(95) .EQ. 0) THEN
+            IF( (NZER_DIAG+RZ_DIAG) .LT. (N/10) 
+     &           .AND. KEEP(95) .EQ. 0) THEN
+               MTRANS = 0
+               KEEP(95) = 1
+               GOTO 390
+            ELSE
+               IF(KEEP(95) .EQ. 0) THEN
+                 IF(SCALINGLOC) THEN
+                  KEEP(95) = 3
+                 ELSE
+                  KEEP(95) = 2   
+                 ENDIF
+               ENDIF
+               IF(MTRANS .EQ. 7) MTRANS = 5
+            ENDIF
+         ENDIF
+         IF(MTRANS .EQ. 0) GOTO 390
+         ICNTL_SYM_MWM = 0
+         INFO_SYM_MWM = 0
+         IF(MTRANS .EQ. 5 .OR. MTRANS .EQ. 6 .OR.
+     &        MTRANS .EQ. 7) THEN
+            ICNTL_SYM_MWM(1) = 0
+            ICNTL_SYM_MWM(2) = 1
+         ELSE IF(MTRANS .EQ. 4) THEN
+            ICNTL_SYM_MWM(1) = 2
+            ICNTL_SYM_MWM(2) = 1
+         ELSE
+            ICNTL_SYM_MWM(1) = 0
+            ICNTL_SYM_MWM(2) = 1
+         ENDIF
+         MARKED => IKEEPALLOC(N+1:2*N)
+         FLAG => IKEEPALLOC(2*N+1:3*N)
+         PIV_OUT => WORK2(1:N)
+         IF(MTRANSLOC .LT. 4) THEN
+            LSC = 1
+         ELSE
+            LSC = 2*N
+         ENDIF
+         CALL CMUMPS_SYM_MWM(
+     &        N, NZREAL, IPE, IW(IRNW), S2(1),LSC, PERM(1),
+     &        ZERODIAG(1),
+     &        ICNTL_SYM_MWM, S2(LSC+1),MARKED(1),FLAG(1),
+     &        PIV_OUT(1), INFO_SYM_MWM)
+         IF(INFO_SYM_MWM(1) .NE. 0) THEN
+            WRITE(*,*) '** Error in CMUMPS_ANA_O'
+            RETURN
+         ENDIF
+         IF(INFO_SYM_MWM(3) .EQ. N) THEN
+            IDENT = .TRUE.
+         ELSEIF  ( (ICNTL(12).EQ.0).AND.
+     &           ( (N-INFO_SYM_MWM(4)-INFO_SYM_MWM(3)) .GT. N/10 )
+     &           ) THEN
+            IDENT = .TRUE.
+            KEEP(95) = 1
+         ELSE
+            DO I=1,N
+               PERM(I) = PIV_OUT(I)
+            ENDDO
+         ENDIF
+         KEEP(93) = INFO_SYM_MWM(4)
+         KEEP(94) = INFO_SYM_MWM(3)
+         IF (IDENT) MTRANS=0
+      ENDIF
+ 390  IF(MTRANS .EQ. 0) THEN
+         KEEP(95) = 1 
+         IF (PROK) THEN
+           WRITE (MPRINT,'(A)')
+     &  ' ... Column permutation not used'
+         ENDIF
+      ENDIF
+      GO TO 500
+ 400  IF ((LP.GE.0).AND.(ICNTL(4).GE.1))
+     &   WRITE (LP,'(/A)') '** Error: Matrix is structurally singular'
+      INFO(1) = -6
+      INFO(2) = NUMNZ
+      GOTO 500
+ 410  IF ((LP.GE.0).AND.(ICNTL(4).GE.1)) THEN
+       WRITE (LP,'(/A)') '** Error in CMUMPS_ANA_O'
+       WRITE (LP,'(A,I14)')
+     & '** Failure during allocation of INTEGER array of size ',
+     & LIWG
+      ENDIF
+      INFO(1) = -7
+      CALL MUMPS_SET_IERROR(LIWG,INFO(2))
+      GOTO 500
+ 430  IF ((LP.GE.0).AND.(ICNTL(4).GE.1)) THEN
+       WRITE (LP,'(/A)') '** Error in CMUMPS_ANA_O'
+       WRITE (LP,'(A)') '** Failure during allocation of S2'
+      ENDIF
+      INFO(1) = -5
+      CALL MUMPS_SET_IERROR(LDW,INFO(2))
+ 500  CONTINUE
+      IF (allocated(IW)) DEALLOCATE(IW)
+      IF (allocated(S2)) DEALLOCATE(S2)
+      IF (allocated(IPE)) DEALLOCATE(IPE)
+      IF (allocated(IPQ8)) DEALLOCATE(IPQ8)
+      RETURN
+      END SUBROUTINE CMUMPS_ANA_O
       END MODULE CMUMPS_ANA_AUX_M
       SUBROUTINE CMUMPS_ANA_K(N,IPE, IW, LW, IWFR, IPS, IPV, 
      &                           NV, FLAG,
@@ -1399,7 +2169,9 @@ C
      &               FILS, FRERE, ND, NEMIN, SUBORD, KEEP60, 
      &               KEEP20, KEEP38, NAMALG,NAMALGMAX,
      &               CUMUL,KEEP50, ICNTL13, KEEP37, NSLAVES,
-     &               ALLOW_AMALG_TINY_NODES)
+     &               ALLOW_AMALG_TINY_NODES 
+     &               , BLKON, SIZEOFBLOCKS, LSIZEOFBLOCKS
+     &               )
       IMPLICIT NONE
       INTEGER  N, NSTEPS, KEEP60, KEEP20, KEEP38, KEEP50
       INTEGER ND(N), NFSIZ(N)
@@ -1412,6 +2184,9 @@ C
      &                  FLOPS_AVANT, FLOPS_APRES
       INTEGER ICNTL13, KEEP37, NSLAVES
       LOGICAL ALLOW_AMALG_TINY_NODES
+      LOGICAL, INTENT(IN) :: BLKON
+      INTEGER, INTENT(IN) :: LSIZEOFBLOCKS
+      INTEGER, INTENT(IN) :: SIZEOFBLOCKS(LSIZEOFBLOCKS) 
 #if  defined(NOAMALGTOFATHER)
 #else
 #endif
@@ -1421,20 +2196,26 @@ C
       INTEGER IPERM
       INTEGER MAXNODE
 #if defined(NOAMALGTOFATHER)
-      INTEGER INB,INF,INFS,INL,INSW,INT,NR1
+      INTEGER INB,INF,INFS,INL,INSW,INT1,NR1
 #else
       INTEGER DADI
-      LOGICAL AMALG_TO_father_OK
 #endif
+      LOGICAL AMALG_TO_father_OK
       AMALG_COUNT = 0
       DO 10 I=1,N
         CUMUL(I)= 0
         IPS(I)  = 0
         NE(I)   = 0
-        NODE(I) = 1
         SUBORD(I) = 0
         NAMALG(I) = 0
    10 CONTINUE
+      DO I=1,N
+        IF (BLKON) THEN
+         NODE(I) = SIZEOFBLOCKS(I)
+        ELSE
+         NODE(I) = 1
+        ENDIF
+      ENDDO
       FRERE(1:N) = IPE(1:N)
       NR = N + 1
       MAXNODE = 1   
@@ -1443,7 +2224,11 @@ C
         IF (NV(I).EQ.0) THEN
           IF (SUBORD(IF).NE.0) SUBORD(I) = SUBORD(IF)
           SUBORD(IF) = I
-          NODE(IF) = NODE(IF)+1
+          IF (BLKON) THEN
+            NODE(IF) = NODE(IF)+SIZEOFBLOCKS(I)
+          ELSE
+            NODE(IF) = NODE(IF)+1
+          ENDIF
           MAXNODE = max(NODE(IF),MAXNODE)
         ELSE
           IF (IF.NE.0) THEN
@@ -1509,6 +2294,7 @@ C
       ENDIF
         INS      = INB
         GO TO 1070
+ 1151   CONTINUE
 #endif
       DO 51 I=1,N
        FILS(I) = IPS(I)
@@ -1706,10 +2492,10 @@ C
         ENDIF
  107    IN = INOS
         IF (IN.EQ.0) GO TO 120
- 108    INT = IN
+ 108    INT1 = IN
         IN =  FRERE(IN)
         IF (IN.GT.0) GO TO 108
-        FRERE(INT) = -I
+        FRERE(INT1) = -I
         GO TO 120
 #endif
   110   IS = IS + 1
@@ -1822,657 +2608,6 @@ C
       ENDIF
       RETURN
       END SUBROUTINE CMUMPS_ANA_R
-      SUBROUTINE CMUMPS_ANA_O( N, NZ, MTRANS, PERM,
-     &     id, ICNTL, INFO )
-      USE CMUMPS_STRUC_DEF
-      IMPLICIT NONE
-      TYPE (CMUMPS_STRUC)    :: id
-      INTEGER, INTENT(IN)    :: N
-      INTEGER(8), INTENT(IN) :: NZ 
-      INTEGER, INTENT(OUT)   :: PERM(N)
-      INTEGER, INTENT(INOUT) :: MTRANS
-      INTEGER, INTENT(IN)   :: ICNTL(60)
-      INTEGER, INTENT(INOUT) :: INFO(80)
-      INTEGER    :: allocok
-      INTEGER, ALLOCATABLE, DIMENSION(:) :: IW
-      REAL, ALLOCATABLE, DIMENSION(:) :: S2
-      TARGET :: S2
-      INTEGER ICNTL64(10), INFO64(10)
-      INTEGER ICNTL_SYM_MWM(10),INFO_SYM_MWM(10)
-      REAL CNTL64(10)
-      INTEGER MPRINT,LP, MP       
-      INTEGER JPERM
-      INTEGER NUMNZ, I, J, JPOS
-      LOGICAL PROK, IDENT, DUPPLI
-      INTEGER K50, KER_SIZE, NZER_DIAG, MTRANSLOC,RZ_DIAG
-      INTEGER(8) :: LIWG
-      INTEGER(8), DIMENSION(:), ALLOCATABLE :: IPE
-      INTEGER(8), DIMENSION(:), ALLOCATABLE :: IPQ8
-      INTEGER    :: LSC
-      INTEGER(8) :: NZTOT, NZREAL, IPIW, LIW, LIWMIN, NZsave, 
-     &              K, KPOS, LDW, LDWMIN, IRNW, RSPOS, CSPOS,
-     &              LS2,J8, N8
-      LOGICAL SCALINGLOC
-      INTEGER,POINTER,DIMENSION(:) :: ZERODIAG
-      INTEGER,POINTER,DIMENSION(:) :: STR_KER
-      INTEGER,POINTER,DIMENSION(:) :: MARKED
-      INTEGER,POINTER,DIMENSION(:) :: FLAG
-      INTEGER,POINTER,DIMENSION(:) :: PIV_OUT
-      REAL THEMIN, THEMAX, COLNORM,MAXDBL, ABSAK
-      REAL ZERO,TWO,ONE
-      PARAMETER(ZERO = 0.0E0,TWO = 2.0E0,ONE = 1.0E0)
-      N8     = int(N,8)
-      MPRINT = ICNTL(3)
-      LP     = ICNTL(1)
-      MP     = ICNTL(2)
-      PROK   = ((MPRINT.GT.0).AND.(ICNTL(4).GE.2))
-      K50 = id%KEEP(50)
-      SCALINGLOC = .FALSE.
-      IF(id%KEEP(52) .EQ. -2) THEN
-         IF(.not.associated(id%A)) THEN
-            INFO(1) = -22
-            INFO(2) = 4
-            GOTO 500
-         ELSE
-            SCALINGLOC = .TRUE.
-         ENDIF
-      ELSE IF(id%KEEP(52) .EQ. 77) THEN
-         SCALINGLOC = .TRUE.
-         IF( MTRANS .NE. 5 .AND. MTRANS .NE. 6 
-     &           .AND. MTRANS .NE. 7) THEN
-               SCALINGLOC = .FALSE.
-         ENDIF
-         IF(.not.associated(id%A)) THEN
-            SCALINGLOC = .FALSE.
-            IF (PROK) 
-     &           WRITE(MPRINT,*) 'Analysis: auto scaling OFF because ',
-     &                           'A not provided at analysis '
-         ENDIF
-      ENDIF
-      IF ( (id%SYM.EQ.2).AND.(id%ICNTL(8).NE.-2).AND.
-     &    (MTRANS .EQ. 7 .OR. id%KEEP(95) .EQ. 0) ) THEN
-        ZERODIAG => id%IS1(N+1:2*N)
-        ZERODIAG = 0
-        NZER_DIAG = N
-        RZ_DIAG = 0
-        DO K=1,NZ
-            I = id%IRN(K)
-            J = id%JCN(K)
-            IF (I.NE.J) CYCLE
-            IF ( (J.LE.N).AND.(J.GE.1) ) THEN
-              IF(ZERODIAG(I) .EQ. 0) THEN
-                ZERODIAG(I) = 1
-                IF(associated(id%A)) THEN
-                  ABSAK= abs(id%A(K))
-                  IF(ABSAK .EQ. real(0.0E0)) THEN
-                     RZ_DIAG = RZ_DIAG + 1
-                  ENDIF
-                  NZER_DIAG = NZER_DIAG - 1                     
-                  ENDIF
-               ENDIF
-            ENDIF
-        ENDDO
-        IF( (NZER_DIAG+RZ_DIAG) .LT. (N/10) ) THEN
-          MTRANS = 0
-          id%KEEP(95) =1
-          GOTO 500
-        ENDIF
-      ENDIF
-      IF(SCALINGLOC) THEN
-         IF (PROK) WRITE(MPRINT,*) 
-     &        'Scaling will be computed during analysis'
-      ENDIF
-      MTRANSLOC = MTRANS
-      IF (MTRANS.LT.0 .OR. MTRANS.GT.7) GO TO 500
-      IF (K50 .EQ. 0) THEN
-         IF(.NOT. SCALINGLOC .AND. MTRANS .EQ. 7) THEN 
-            GO TO 500
-         ENDIF
-         IF(SCALINGLOC) THEN
-            MTRANSLOC = 5
-         ENDIF
-      ELSE
-         IF (MTRANS .EQ. 7) MTRANSLOC = 5
-      ENDIF
-      IF(SCALINGLOC .AND. MTRANSLOC .NE. 5 .AND.
-     &     MTRANSLOC .NE. 6 ) THEN
-         IF (PROK) WRITE(MPRINT,*)
-     &        'WARNING scaling required: set MTRANS option to 5'
-         MTRANSLOC = 5
-      ENDIF
-      IF (N.EQ.1) THEN
-        MTRANS=0
-        GO TO 500
-      ENDIF
-      IF(K50 .NE. 0) THEN
-         NZTOT = 2_8*NZ+N8
-      ELSE
-         NZTOT = NZ
-      ENDIF
-      ZERODIAG => id%IS1(N+1:2*N) 
-      STR_KER => id%IS1(2*N+1:3*N)
-      CALL CMUMPS_MTRANSI(ICNTL64,CNTL64)
-      ICNTL64(1) = ICNTL(1)
-      ICNTL64(2) = ICNTL(2)
-      ICNTL64(3) = ICNTL(2)
-      ICNTL64(4) = -1
-      IF (ICNTL(4).EQ.3) ICNTL64(4) = 0
-      IF (ICNTL(4).EQ.4) ICNTL64(4) = 1
-      ICNTL64(5) = -1
-      IF (PROK) THEN
-         WRITE(MPRINT,'(A,I3)')
-     &     'Compute maximum matching (Maximum Transversal):',
-     &        MTRANSLOC
-         IF (MTRANSLOC.EQ.1)
-     &   WRITE(MPRINT,'(A,I3)')' ... JOB =',MTRANSLOC
-         IF (MTRANSLOC.EQ.2)
-     &   WRITE(MPRINT,'(A,I3,A)')
-     &     ' ... JOB =',MTRANSLOC,': BOTTLENECK THESIS'
-         IF (MTRANSLOC.EQ.3)
-     &   WRITE(MPRINT,'(A,I3,A)')
-     &     ' ... JOB =',MTRANSLOC,': BOTTLENECK SIMAX'
-         IF (MTRANSLOC.EQ.4)
-     &   WRITE(MPRINT,'(A,I3,A)')
-     &     ' ... JOB =',MTRANSLOC,': MAXIMIZE SUM DIAGONAL'
-         IF (MTRANSLOC.EQ.5 .OR. MTRANSLOC.EQ.6)
-     &   WRITE(MPRINT,'(A,I3,A)')
-     &     ' ... JOB =',MTRANSLOC,
-     &     ': MAXIMIZE PRODUCT DIAGONAL AND SCALE'
-      ENDIF
-      id%INFOG(23) = MTRANSLOC
-      CNTL64(2) = huge(CNTL64(2))
-      IRNW = 1
-      IPIW = IRNW + NZTOT
-      IF (MTRANSLOC.EQ.1) LIWMIN = 5_8*N8
-      IF (MTRANSLOC.EQ.2) LIWMIN = 3_8*N8
-      IF (MTRANSLOC.EQ.3) LIWMIN = 10_8*N8 + NZTOT
-      IF (MTRANSLOC.EQ.4) LIWMIN = 2_8*N8
-      IF (MTRANSLOC.EQ.5) LIWMIN = 5_8*N8
-      IF (MTRANSLOC.EQ.6) LIWMIN = 5_8*N8 + NZTOT
-      LIW = LIWMIN
-      LIWG  = LIW + NZTOT
-      ALLOCATE(IW(LIWG), stat=allocok)
-      IF (allocok .GT. 0 ) THEN
-         GOTO 410
-      ENDIF
-      ALLOCATE( IPQ8(N), IPE(N+1), stat = allocok )
-      IF ( allocok .GT. 0 ) THEN
-         INFO( 1 ) = -7
-         INFO( 2 ) = (2*N+1)*id%KEEP(10)
-         GOTO 500               
-      ENDIF
-      IF (MTRANSLOC.EQ.1) THEN
-       LDWMIN = N8+3_8
-      ENDIF
-      IF (MTRANSLOC.EQ.2) LDWMIN = max( N8+NZTOT , N8+3_8 )
-      IF (MTRANSLOC.EQ.3) LDWMIN = max( NZTOT+1_8 , N8+3_8 )
-      IF (MTRANSLOC.EQ.4) LDWMIN = 2_8 * N8 + 
-     &                             max( NZTOT , N8+3_8 )
-      IF (MTRANSLOC.EQ.5) LDWMIN = 3_8*N8 + NZTOT
-      IF (MTRANSLOC.EQ.6) LDWMIN = 4_8*N8 + NZTOT
-      LDW   = LDWMIN
-      ALLOCATE(S2(LDW), stat=allocok)
-      IF (allocok .GT. 0 ) THEN
-         GOTO 430
-      ENDIF
-      IF(MTRANSLOC .NE. 1) LDW = LDW-NZTOT
-      RSPOS = NZTOT
-      CSPOS = RSPOS+N8
-      NZREAL = 0_8
-      DO 5 J=1,N
-        IPQ8(J) = 0_8
-  5   CONTINUE
-      IF(K50 .EQ. 0) THEN
-         DO 10 K=1,NZ
-            I = id%IRN(K)
-            J = id%JCN(K)
-            IF ( (J.LE.N).AND.(J.GE.1).AND.
-     &           (I.LE.N).AND.(I.GE.1) ) THEN
-               IPQ8(J) = IPQ8(J) + 1_8
-               NZREAL = NZREAL + 1_8
-            ENDIF
- 10      CONTINUE
-      ELSE
-         ZERODIAG = 0
-         NZER_DIAG = N
-         RZ_DIAG = 0
-         DO K=1,NZ
-            I = id%IRN(K)
-            J = id%JCN(K)
-            IF ( (J.LE.N).AND.(J.GE.1).AND.
-     &           (I.LE.N).AND.(I.GE.1) ) THEN
-               IPQ8(J) = IPQ8(J) + 1_8
-               NZREAL = NZREAL + 1_8
-               IF(I .NE. J) THEN
-                  IPQ8(I) = IPQ8(I) + 1_8
-                  NZREAL = NZREAL + 1_8
-               ELSE
-                  IF (ZERODIAG(I) .EQ. 0) THEN
-                     ZERODIAG(I) = 1
-                     IF(associated(id%A)) THEN
-                        ABSAK= abs(id%A(K))
-                        IF(ABSAK .EQ. real(0.0E0)) THEN
-                           RZ_DIAG = RZ_DIAG + 1
-                        ENDIF
-                         ZERODIAG(I) = exponent(ABSAK)
-                         if ( ZERODIAG(I).EQ.0)  ZERODIAG(I)=1
-                     ENDIF
-                     NZER_DIAG = NZER_DIAG - 1                     
-                  ELSE
-                     IF(associated(id%A)) THEN
-                        ABSAK= abs(id%A(K))
-                        ZERODIAG(I) = ZERODIAG(I)+ exponent(ABSAK)
-                        if ( ZERODIAG(I).EQ.0)  ZERODIAG(I)=1
-                     ENDIF
-                  ENDIF
-               ENDIF
-            ENDIF
-         ENDDO
-         IF(MTRANSLOC .GE. 4) THEN
-            DO I =1, N
-               IF(ZERODIAG(I) .EQ. 0) THEN
-                  IPQ8(I) = IPQ8(I) + 1_8
-                  NZREAL = NZREAL + 1_8
-               ENDIF
-            ENDDO
-         ENDIF
-      ENDIF
-      IPE(1)   = 1
-      DO 20 J=1,N
-        IPE(J+1)   = IPE(J)+IPQ8(J)
-  20  CONTINUE
-      DO 25 J=1, N
-        IPQ8(J ) = IPE(J)
-  25  CONTINUE
-      IF(K50 .EQ. 0) THEN
-         IF (MTRANSLOC.EQ.1) THEN
-            DO K=1,NZ
-               I = id%IRN(K)
-               J = id%JCN(K)
-               IF ( (J.LE.N).AND.(J.GE.1) .AND.
-     &              (I.LE.N).AND.(I.GE.1)) THEN
-                  KPOS              = IPQ8(J)
-                  IW(IRNW+KPOS-1_8) = I
-                  IPQ8(J)   = IPQ8(J) + 1_8
-               ENDIF
-            END DO
-         ELSE
-            IF ( .not.associated(id%A)) THEN
-               INFO(1) = -22
-               INFO(2) = 4
-               GOTO 500
-            ENDIF
-            DO K=1,NZ
-               I = id%IRN(K)
-               J = id%JCN(K)
-               IF ( (J.LE.N).AND.(J.GE.1) .AND.
-     &              (I.LE.N).AND.(I.GE.1)) THEN
-                  KPOS            = IPQ8(J)
-                  IW(IRNW+KPOS-1) = I
-                  S2(KPOS)         = abs(id%A(K))
-                  IPQ8(J)   = IPQ8(J) + 1_8
-               ENDIF
-            END DO
-         ENDIF
-      ELSE
-         IF (MTRANSLOC.EQ.1) THEN
-            DO K=1,NZ
-               I = id%IRN(K)
-               J = id%JCN(K)
-               IF ( (J.LE.N).AND.(J.GE.1) .AND.
-     &              (I.LE.N).AND.(I.GE.1)) THEN
-                  KPOS            = IPQ8(J)
-                  IW(IRNW+KPOS-1) = I
-                  IPQ8(J)   = IPQ8(J) + 1_8
-                  IF(I.NE.J) THEN
-                     KPOS            = IPQ8(I)
-                     IW(IRNW+KPOS-1) = J
-                     IPQ8(I)   = IPQ8(I) + 1_8
-                  ENDIF
-               ENDIF
-            ENDDO
-         ELSE
-            IF ( .not.associated(id%A)) THEN
-               INFO(1) = -22
-               INFO(2) = 4
-               GOTO 500
-            ENDIF
-            THEMAX = ZERO
-            THEMIN = huge(THEMIN)
-            DO K=1,NZ
-               I = id%IRN(K)
-               J = id%JCN(K)
-               IF ( (J.LE.N).AND.(J.GE.1) .AND.
-     &              (I.LE.N).AND.(I.GE.1)) THEN
-                  KPOS            = IPQ8(J)
-                  IW(IRNW+KPOS-1_8) = I
-                  S2(KPOS)          = abs(id%A(K))
-                  IPQ8(J)   = IPQ8(J) + 1_8
-                  IF(abs(id%A(K)) .GT. THEMAX) THEN
-                     THEMAX = abs(id%A(K))
-                  ELSE IF(abs(id%A(K)) .LT. THEMIN 
-     &                    .AND. abs(id%A(K)).GT. ZERO) THEN
-                     THEMIN = abs(id%A(K))
-                  ENDIF
-                  IF(I.NE.J) THEN
-                     KPOS            = IPQ8(I)
-                     IW(IRNW+KPOS-1) = J
-                     S2(KPOS)         = abs(id%A(K))
-                     IPQ8(I)   = IPQ8(I) + 1_8
-                  ENDIF
-               ENDIF
-            ENDDO
-            DO I =1, N
-               IF(ZERODIAG(I) .EQ. 0) THEN
-                  KPOS            = IPQ8(I)
-                  IW(IRNW+KPOS-1) = I
-                  S2(KPOS)         = ZERO
-                  IPQ8(I)   = IPQ8(I) + 1_8
-               ENDIF
-            ENDDO
-            IF ( THEMAX .NE. ZERO ) THEN
-              CNTL64(2) = (log(THEMAX/THEMIN))*(real(N))
-     &             - log(THEMIN) + ONE
-            ENDIF
-         ENDIF
-      ENDIF
-      DUPPLI = .FALSE.
-      NZsave = NZREAL
-      FLAG => id%IS1(3*N+1:4*N)
-      IF(MTRANSLOC.NE.1) THEN
-         CALL CMUMPS_SUPPRESS_DUPPLI_VAL(N,NZREAL,IPE(1),IW(IRNW),S2,
-     &        PERM,IPQ8(1))
-      ELSE
-         CALL CMUMPS_SUPPRESS_DUPPLI_STR(N,NZREAL,IPE(1),IW(IRNW),
-     &        PERM)
-      ENDIF
-      IF(NZREAL .NE. NZsave) DUPPLI = .TRUE.
-      LS2 = NZTOT
-      IF ( MTRANSLOC .EQ. 1 ) THEN
-         LS2 = 1_8
-         LDW = 1_8
-      ENDIF
-      CALL CMUMPS_MTRANS_DRIVER(MTRANSLOC ,N, N, NZREAL, 
-     &     IPE, IW(IRNW), S2(1), LS2,
-     &     NUMNZ, PERM, LIW, IW(IPIW), LDW, S2(LS2+1),
-     &     IPQ8,
-     &     ICNTL64, CNTL64, INFO64, INFO)
-      IF (INFO(1).LT.0) THEN 
-         IF (LP.GT.0 .AND. ICNTL(4).GE.1)
-     &        WRITE(LP,'(A,I5)')
-     &   ' Not enough memory in MAXTRANS INFO(1)=',INFO(1)
-         GOTO 500 
-      ENDIF
-      IF (INFO64(1).LT.0) THEN
-         IF (LP.GT.0 .AND. ICNTL(4).GE.1)
-     &        WRITE(LP,'(A,I5)')
-     &   ' INTERNAL ERROR in MAXTRANS INFO(1)=',INFO64(1)
-         INFO(1) = -9964
-         INFO(2) = INFO64(1)
-         GO TO 500
-      ENDIF
-      IF (INFO64(1).GT.0) THEN
-         IF (MP.GT.0 .AND. ICNTL(4).GE.2)
-     &        WRITE(MP,'(A,I5)')
-     &        ' WARNING in MAXTRANS INFO(1)=',INFO64(1)
-      ENDIF
-      KER_SIZE = 0
-      IF(K50 .EQ. 2) THEN
-         DO I=1,N
-            IF(ZERODIAG(I) .EQ. 0) THEN
-               IF(PERM(I) .EQ. I) THEN
-                  KER_SIZE = KER_SIZE + 1
-                  PERM(I) = -I
-                  STR_KER(KER_SIZE) = I
-               ENDIF
-            ENDIF
-         ENDDO
-      ENDIF
-      IF (NUMNZ.LT.N) GO TO 400
-      IF(K50 .EQ. 0) THEN
-         IDENT = .TRUE.
-         IF (MTRANS .EQ. 0 ) GOTO 102
-         DO 80 J=1,N
-            JPERM = PERM(J)
-            IW(IRNW+int(JPERM-1,8)) = J
-            IF (JPERM.NE.J) IDENT = .FALSE.
- 80      CONTINUE
-         IF(IDENT) THEN 
-            MTRANS = 0
-         ELSE
-            IF(MTRANS .EQ. 7) THEN
-               MTRANS = -9876543
-               GOTO 102
-            ENDIF
-            IF (PROK) WRITE(MPRINT,'(A)')
-     &           ' ... Apply column permutation'
-            DO 100 K=1,NZ
-               J = id%JCN(K)
-               IF ((J.LE.0).OR.(J.GT.N)) GO TO 100
-               id%JCN(K) = IW(IRNW+int(J-1,8))
- 100        CONTINUE
-            IF (MP.GT.0 .AND. ICNTL(4).GE.2)
-     &           WRITE(MP,'(/A)')
-     &           ' WARNING input matrix data modified'
-         ENDIF
- 102     CONTINUE
-         IF (SCALINGLOC) THEN
-            IF ( associated(id%COLSCA))
-     &           DEALLOCATE( id%COLSCA )
-            IF ( associated(id%ROWSCA))
-     &           DEALLOCATE( id%ROWSCA )
-            ALLOCATE( id%COLSCA(N), stat=allocok)
-            IF (allocok .GT.0) THEN
-               id%INFO(1)=-5
-               id%INFO(2)=N
-               IF ((LP.GE.0).AND.(ICNTL(4).GE.1)) THEN
-                  WRITE (LP,'(/A)') '** Error in CMUMPS_ANA_O'
-                  WRITE (LP,'(A)') 
-     &                 '** Failure during allocation of COLSCA'
-                  GOTO 500
-               ENDIF
-            ENDIF
-            ALLOCATE( id%ROWSCA(N), stat=allocok)
-            IF (allocok .GT.0) THEN
-               id%INFO(1)=-5
-               id%INFO(2)=N
-               IF ((LP.GE.0).AND.(ICNTL(4).GE.1)) THEN
-                  WRITE (LP,'(/A)') '** Error in CMUMPS_ANA_O'
-                  WRITE (LP,'(A)') 
-     &                 '** Failure during allocation of ROWSCA'
-                  GOTO 500
-               ENDIF
-            ENDIF
-            id%KEEP(52) = -2
-            id%KEEP(74) = 1
-            MAXDBL = log(huge(MAXDBL))
-            DO J=1,N
-               IF(S2(RSPOS+J) .GT. MAXDBL) THEN
-                  S2(RSPOS+J) = ZERO
-               ENDIF
-               IF(S2(CSPOS+J) .GT. MAXDBL) THEN
-                  S2(CSPOS+J)= ZERO
-               ENDIF
-            ENDDO
-            DO 105 J=1,N
-               J8 = int(J,8)
-               id%ROWSCA(J) = exp(S2(RSPOS+J8))
-               IF(id%ROWSCA(J) .EQ. ZERO) THEN
-                  id%ROWSCA(J) = ONE
-               ENDIF
-               IF ( MTRANS .EQ.  -9876543 .OR. MTRANS.EQ. 0 ) THEN
-                 id%COLSCA(J)= exp(S2(CSPOS+J8))
-                 IF(id%COLSCA(J) .EQ. ZERO) THEN
-                   id%COLSCA(J) = ONE
-                 ENDIF
-               ELSE
-                 id%COLSCA(IW(IRNW+J8-1_8))= exp(S2(CSPOS+J8))
-                 IF(id%COLSCA(IW(IRNW+J8-1_8)) .EQ. ZERO) THEN
-                   id%COLSCA(IW(IRNW+J8-1_8)) = ONE
-                 ENDIF
-               ENDIF
- 105        CONTINUE
-         ENDIF
-      ELSE
-         IDENT = .FALSE.         
-         IF(SCALINGLOC) THEN
-            IF ( associated(id%COLSCA)) DEALLOCATE( id%COLSCA )
-            IF ( associated(id%ROWSCA)) DEALLOCATE( id%ROWSCA )
-            ALLOCATE( id%COLSCA(N), stat=allocok)
-            IF (allocok .GT.0) THEN
-               id%INFO(1)=-5
-               id%INFO(2)=N
-               IF ((LP.GE.0).AND.(ICNTL(4).GE.1)) THEN
-                  WRITE (LP,'(/A)') '** Error in CMUMPS_ANA_O'
-                  WRITE (LP,'(A)') 
-     &                 '** Failure during allocation of COLSCA'
-                  GOTO 500
-               ENDIF
-            ENDIF
-            ALLOCATE( id%ROWSCA(N), stat=allocok)
-            IF (allocok .GT.0) THEN
-               id%INFO(1)=-5
-               id%INFO(2)=N
-               IF ((LP.GE.0).AND.(ICNTL(4).GE.1)) THEN
-                  WRITE (LP,'(/A)') '** Error in CMUMPS_ANA_O'
-                  WRITE (LP,'(A)') 
-     &                 '** Failure during allocation of ROWSCA'
-                  GOTO 500
-               ENDIF
-            ENDIF
-            id%KEEP(52) = -2
-            id%KEEP(74) = 1
-            MAXDBL = log(huge(MAXDBL))
-            DO J=1,N
-               J8 = int(J,8)
-               IF(S2(RSPOS+J8)+S2(CSPOS+J8) .GT. MAXDBL) THEN
-                  S2(RSPOS+J8) = ZERO
-                  S2(CSPOS+J8)= ZERO
-               ENDIF
-            ENDDO
-            DO J=1,N
-               J8 = int(J,8)
-               IF(PERM(J) .GT. 0) THEN
-                  id%ROWSCA(J) = 
-     &                 exp((S2(RSPOS+J8)+S2(CSPOS+J8))/TWO)
-                  IF(id%ROWSCA(J) .EQ. ZERO) THEN
-                     id%ROWSCA(J) = ONE
-                  ENDIF
-                  id%COLSCA(J)= id%ROWSCA(J)
-               ENDIF
-            ENDDO
-            DO JPOS=1,KER_SIZE
-               I = STR_KER(JPOS)
-               COLNORM = ZERO
-               DO K = IPE(I),IPE(I+1) - 1
-                  IF ( PERM( IW( IRNW+K-1_8) ) > 0 ) THEN
-                    COLNORM = max(COLNORM,S2(J))
-                  ENDIF
-               ENDDO
-               COLNORM = exp(COLNORM) 
-               id%ROWSCA(I) = ONE / COLNORM
-               id%COLSCA(I) = id%ROWSCA(I)
-            ENDDO
-         ENDIF
-         IF(MTRANS .EQ. 7 .OR. id%KEEP(95) .EQ. 0) THEN
-            IF( (NZER_DIAG+RZ_DIAG) .LT. (N/10) 
-     &           .AND. id%KEEP(95) .EQ. 0) THEN
-               MTRANS = 0
-               id%KEEP(95) = 1
-               GOTO 390
-            ELSE
-               IF(id%KEEP(95) .EQ. 0) THEN
-                 IF(SCALINGLOC) THEN
-                  id%KEEP(95) = 3
-                 ELSE
-                  id%KEEP(95) = 2   
-                 ENDIF
-               ENDIF
-               IF(MTRANS .EQ. 7) MTRANS = 5
-            ENDIF
-         ENDIF
-         IF(MTRANS .EQ. 0) GOTO 390
-         ICNTL_SYM_MWM = 0
-         INFO_SYM_MWM = 0
-         IF(MTRANS .EQ. 5 .OR. MTRANS .EQ. 6 .OR.
-     &        MTRANS .EQ. 7) THEN
-            ICNTL_SYM_MWM(1) = 0
-            ICNTL_SYM_MWM(2) = 1
-         ELSE IF(MTRANS .EQ. 4) THEN
-            ICNTL_SYM_MWM(1) = 2
-            ICNTL_SYM_MWM(2) = 1
-         ELSE
-            ICNTL_SYM_MWM(1) = 0
-            ICNTL_SYM_MWM(2) = 1
-         ENDIF
-         MARKED => id%IS1(2*N+1:3*N)
-         FLAG => id%IS1(3*N+1:4*N)
-         PIV_OUT => id%IS1(4*N+1:5*N)
-         IF(MTRANSLOC .LT. 4) THEN
-            LSC = 1
-         ELSE
-            LSC = 2*N
-         ENDIF
-         CALL CMUMPS_SYM_MWM(
-     &        N, NZREAL, IPE, IW(IRNW), S2(1),LSC, PERM,
-     &        ZERODIAG(1),
-     &        ICNTL_SYM_MWM, S2(LSC+1),MARKED(1),FLAG(1),
-     &        PIV_OUT(1), INFO_SYM_MWM)
-         IF(INFO_SYM_MWM(1) .NE. 0) THEN
-            WRITE(*,*) '** Error in CMUMPS_ANA_O'
-            RETURN
-         ENDIF
-         IF(INFO_SYM_MWM(3) .EQ. N) THEN
-            IDENT = .TRUE.
-         ELSEIF  ( (ICNTL(12).EQ.0).AND.
-     &           ( (N-INFO_SYM_MWM(4)-INFO_SYM_MWM(3)) .GT. N/10 )
-     &           ) THEN
-            IDENT = .TRUE.
-            id%KEEP(95) = 1
-         ELSE
-            DO I=1,N
-               PERM(I) = PIV_OUT(I)
-            ENDDO
-         ENDIF
-         id%KEEP(93) = INFO_SYM_MWM(4)
-         id%KEEP(94) = INFO_SYM_MWM(3)
-         IF (IDENT) MTRANS=0
-      ENDIF
- 390  IF(MTRANS .EQ. 0) THEN
-         id%KEEP(95) = 1 
-         IF (PROK) THEN
-           WRITE (MPRINT,'(A)')
-     &  ' ... Column permutation not used'
-         ENDIF
-      ENDIF
-      GO TO 500
- 400  IF ((LP.GE.0).AND.(ICNTL(4).GE.1))
-     &   WRITE (LP,'(/A)') '** Error: Matrix is structurally singular'
-      INFO(1) = -6
-      INFO(2) = NUMNZ
-      GOTO 500
- 410  IF ((LP.GE.0).AND.(ICNTL(4).GE.1)) THEN
-       WRITE (LP,'(/A)') '** Error in CMUMPS_ANA_O'
-       WRITE (LP,'(A,I14)')
-     & '** Failure during allocation of INTEGER array of size ',
-     & LIWG
-      ENDIF
-      INFO(1) = -7
-      CALL MUMPS_SET_IERROR(LIWG,INFO(2))
-      GOTO 500
- 430  IF ((LP.GE.0).AND.(ICNTL(4).GE.1)) THEN
-       WRITE (LP,'(/A)') '** Error in CMUMPS_ANA_O'
-       WRITE (LP,'(A)') '** Failure during allocation of S2'
-      ENDIF
-      INFO(1) = -5
-      CALL MUMPS_SET_IERROR(LDW,INFO(2))
- 500  CONTINUE
-      IF (allocated(IW)) DEALLOCATE(IW)
-      IF (allocated(S2)) DEALLOCATE(S2)
-      IF (allocated(IPE)) DEALLOCATE(IPE)
-      IF (allocated(IPQ8)) DEALLOCATE(IPQ8)
-      RETURN
-      END SUBROUTINE CMUMPS_ANA_O
       SUBROUTINE CMUMPS_DIAG_ANA
      &( MYID, COMM, KEEP,KEEP8, INFO, INFOG, RINFO, RINFOG, ICNTL )
       IMPLICIT NONE
@@ -2486,7 +2621,8 @@ C
       IF ( MYID.eq.MASTER.and.MPG.GT.0.AND.ICNTL(4).GE.2) THEN
        WRITE(MPG, 99992) INFO(1), INFO(2),
      &  KEEP8(109), KEEP8(111), INFOG(4),
-     &  INFOG(5), KEEP(28), INFOG(32), INFOG(7), KEEP(23), ICNTL(7), 
+     &  INFOG(5), KEEP(28), INFOG(32), INFOG(7), KEEP(23), 
+     &  ICNTL(7), 
      &  KEEP(12), KEEP(56), KEEP(61), RINFOG(1)
        IF (KEEP(95).GT.1)             
      &      WRITE(MPG, 99993) KEEP(95) 
@@ -2518,12 +2654,15 @@ C
 99996 FORMAT(' Forward solution during factorization, NRHS    =',I16)
       END SUBROUTINE CMUMPS_DIAG_ANA
       SUBROUTINE CMUMPS_CUTNODES
-     &           ( N, FRERE, FILS, NFSIZ, NSTEPS, NSLAVES, 
+     &           ( N, FRERE, FILS, NFSIZ, SIZEOFBLOCKS, LSIZEOFBLOCKS,
+     &             NSTEPS, NSLAVES, 
      &             KEEP, KEEP8, SPLITROOT, MP, LDIAG, INFO1, INFO2 )
       IMPLICIT NONE
       INTEGER N, NSTEPS, NSLAVES, KEEP(500)
       INTEGER(8) KEEP8(150)
       INTEGER FRERE( N ), FILS( N ), NFSIZ( N )
+      INTEGER LSIZEOFBLOCKS
+      INTEGER SIZEOFBLOCKS(LSIZEOFBLOCKS)
       LOGICAL SPLITROOT
       INTEGER MP, LDIAG  
       INTEGER INFO1, INFO2
@@ -2532,6 +2671,8 @@ C
       INTEGER MAX_DEPTH, ISON, TOT_CUT, MAX_CUT, STRAT
       INTEGER(8) :: K79
       INTEGER NFRONT, K82, allocok
+      LOGICAL BLKON
+      BLKON = .NOT.(SIZEOFBLOCKS(1).EQ.-1) 
       K79  = KEEP8(79)
       K82  = abs(KEEP(82))
       STRAT= KEEP(62)
@@ -2592,7 +2733,7 @@ C
         NFRONT = NFSIZ( INODE )
         K79 = max(
      &         int(NFRONT,8)*int(NFRONT,8)/(int(K82+1,8)*int(K82+1,8)),
-     &         1_8)
+     &         9_8)
         IF (KEEP(53).NE.0) THEN
           MAX_CUT =  NFRONT
           K79 = 121_8*121_8
@@ -2618,7 +2759,8 @@ C
         CALL CMUMPS_SPLIT_1NODE
      &           ( INODE, N, FRERE, FILS, NFSIZ, NSTEPS, NSLAVES,
      &             KEEP,KEEP8, TOT_CUT, STRAT, DEPTH, 
-     &             K79, SPLITROOT, MP, LDIAG )
+     &             K79, SPLITROOT, MP, LDIAG, 
+     &             BLKON, SIZEOFBLOCKS, LSIZEOFBLOCKS )
         IF ( TOT_CUT > MAX_CUT )  EXIT
       END DO
       KEEP(61) = TOT_CUT
@@ -2627,7 +2769,8 @@ C
       END SUBROUTINE CMUMPS_CUTNODES
       RECURSIVE SUBROUTINE CMUMPS_SPLIT_1NODE
      & ( INODE, N, FRERE, FILS, NFSIZ, NSTEPS, NSLAVES, KEEP,KEEP8,
-     &   TOT_CUT, STRAT, DEPTH, K79, SPLITROOT, MP, LDIAG )
+     &   TOT_CUT, STRAT, DEPTH, K79, SPLITROOT, MP, LDIAG,
+     &   BLKON, SIZEOFBLOCKS, LSIZEOFBLOCKS )
       IMPLICIT NONE
       INTEGER(8) :: K79
       INTEGER INODE, N, NSTEPS, NSLAVES, KEEP(500), STRAT, 
@@ -2635,10 +2778,14 @@ C
       INTEGER(8) KEEP8(150)
       INTEGER FRERE( N ), FILS( N ), NFSIZ( N )
       LOGICAL SPLITROOT
+      LOGICAL BLKON
+      INTEGER LSIZEOFBLOCKS
+      INTEGER SIZEOFBLOCKS(LSIZEOFBLOCKS)
       INTEGER I, IN, NPIV, NFRONT, NSLAVES_ESTIM
       REAL WK_SLAVE, WK_MASTER
       INTEGER INODE_SON, INODE_FATH, IN_SON, IN_FATH, IN_GRANDFATH
-      INTEGER NPIV_SON, NPIV_FATH
+      INTEGER NPIV_COMPG, NPIV_SON_COMPG, NPIV_FATH_COMPG
+      INTEGER NPIV_SON, NPIV_FATH, NPIV_TEMP
       INTEGER NCB, NSLAVESMIN, NSLAVESMAX
       INTEGER  MUMPS_BLOC2_GET_NSLAVESMIN,
      &         MUMPS_BLOC2_GET_NSLAVESMAX
@@ -2649,6 +2796,16 @@ C
         IF ( FRERE ( INODE ) .eq. 0 ) THEN 
           NFRONT = NFSIZ( INODE )
           NPIV = NFRONT
+          IF (BLKON) THEN
+           IN = INODE
+           NPIV_COMPG = 0 
+           DO WHILE( IN > 0 )
+             NPIV_COMPG = NPIV_COMPG + 1
+             IN = FILS( IN )
+           ENDDO
+          ELSE 
+            NPIV_COMPG = NPIV
+          ENDIF
           NCB = 0
           IF ( int(NFRONT,8)*int(NFRONT,8).GT.K79
      &    ) THEN 
@@ -2659,11 +2816,16 @@ C
       IF ( FRERE ( INODE ) .eq. 0 ) RETURN
       NFRONT = NFSIZ( INODE )
       IN = INODE
-      NPIV = 0
+      NPIV       = 0
+      NPIV_COMPG = 0 
       DO WHILE( IN > 0 )
+        IF (BLKON) THEN
+          NPIV = NPIV + SIZEOFBLOCKS(IN)
+        ENDIF
+        NPIV_COMPG = NPIV_COMPG + 1
         IN = FILS( IN )
-        NPIV = NPIV + 1
       END DO
+      IF (.NOT.BLKON) NPIV = NPIV_COMPG
       NCB = NFRONT - NPIV
       IF ( (NFRONT - (NPIV/2)) .LE. KEEP(9)) RETURN
       IF ((KEEP(50) == 0.and.int(NFRONT,8) * int(NPIV,8) > K79 ) .OR.
@@ -2706,8 +2868,6 @@ C
       ENDIF
  333  CONTINUE
       IF (NPIV .LE. 1 ) RETURN
-       NSTEPS  = NSTEPS + 1
-       TOT_CUT = TOT_CUT + 1
        NPIV_SON  = max(NPIV/2,1)
        NPIV_FATH = NPIV - NPIV_SON
        IF (SPLITROOT) THEN
@@ -2719,10 +2879,30 @@ C
          NPIV_SON  = NPIV - NPIV_FATH
        ENDIF
        INODE_SON = INODE
-       IN_SON = INODE
-       DO I = 1, NPIV_SON - 1
-         IN_SON = FILS( IN_SON )
-       END DO
+       IF (BLKON) THEN
+         NPIV_TEMP       = 0
+         NPIV_SON_COMPG  = 0
+         IN_SON = INODE
+         DO WHILE (IN_SON > 0) 
+           NPIV_TEMP = NPIV_TEMP + SIZEOFBLOCKS(IN_SON)
+           NPIV_SON_COMPG  = NPIV_SON_COMPG +1
+           IF (NPIV_TEMP.GE.NPIV_SON) EXIT
+           IN_SON = FILS( IN_SON )
+         END DO
+         NPIV_FATH_COMPG = NPIV_COMPG - NPIV_SON_COMPG
+         NPIV_SON        = NPIV_TEMP
+         NPIV_FATH       = NPIV - NPIV_SON 
+       ELSE
+         NPIV_SON_COMPG  = NPIV_SON
+         NPIV_FATH_COMPG = NPIV_FATH
+         IN_SON = INODE
+         DO I = 1, NPIV_SON_COMPG - 1
+           IN_SON = FILS( IN_SON )
+         END DO
+       ENDIF
+       IF (NPIV_FATH_COMPG.EQ.0)  RETURN
+       NSTEPS  = NSTEPS + 1
+       TOT_CUT = TOT_CUT + 1
        INODE_FATH = FILS( IN_SON )
        IF ( INODE_FATH .LT. 0 ) THEN
        write(*,*) 'Error: INODE_FATH < 0 ', INODE_FATH
@@ -2770,12 +2950,14 @@ C
         CALL CMUMPS_SPLIT_1NODE
      &  ( INODE_FATH, N, FRERE, FILS, NFSIZ, NSTEPS,
      &   NSLAVES, KEEP,KEEP8, TOT_CUT, STRAT, DEPTH, 
-     &   K79, SPLITROOT, MP, LDIAG )
+     &   K79, SPLITROOT, MP, LDIAG, 
+     &   BLKON, SIZEOFBLOCKS, LSIZEOFBLOCKS )
       IF (.NOT. SPLITROOT) THEN
         CALL CMUMPS_SPLIT_1NODE
      &   ( INODE_SON, N, FRERE, FILS, NFSIZ, NSTEPS,
      &   NSLAVES, KEEP,KEEP8, TOT_CUT, STRAT, DEPTH, 
-     &   K79, SPLITROOT, MP, LDIAG )
+     &   K79, SPLITROOT, MP, LDIAG, 
+     &   BLKON, SIZEOFBLOCKS, LSIZEOFBLOCKS )
       ENDIF
       RETURN
       END SUBROUTINE CMUMPS_SPLIT_1NODE
@@ -3025,13 +3207,13 @@ C
          DO K8=K1,K2
            J     = -IW(K8)
            IF (J.LE.0) EXIT
-           L     = IQ(J) 
-           IQ(J) = L + 1
            IF (FLAG(J).EQ.I) THEN
             NDUP = NDUP + 1_8
             IW(K8) = 0
            ELSE
-            IW(L)   = I
+            L     = IQ(J) 
+            IW(L) = I
+            IQ(J) = L + 1
             IW(K8)  = J
             FLAG(J) = I
            ENDIF
@@ -3271,7 +3453,7 @@ C
  4          CONTINUE
  6       CONTINUE
       ENDIF
-      IF (ICNTL(3).GE.0) THEN
+      IF (ICNTL(3).GT.0) THEN
          IF (ICNTL(4).EQ.0 .OR. ICNTL(4).EQ.1) THEN
             WRITE(ICNTL(3),9020) JOB,M,N,NE
             IF (ICNTL(4).EQ.0) THEN
@@ -3641,79 +3823,105 @@ C
       DEALLOCATE(POOL, NSTK)
       RETURN
       END SUBROUTINE CMUMPS_SORT_PERM
-      SUBROUTINE CMUMPS_ANA_N_PAR( id, PTRAR )
-      USE CMUMPS_STRUC_DEF
+      SUBROUTINE CMUMPS_EXPAND_TREE_STEPS(  ICNTL, 
+     &          N, NBLK, BLKPTR, BLKVAR,
+     &          FILS_OLD, FILS_NEW, NSTEPS,
+     &          STEP_OLD, STEP_NEW, PAR2_NODES, NB_NIV2,
+     &          DAD_STEPS, FRERE_STEPS, 
+     &          NA, LNA, LRGROUPS_OLD, LRGROUPS_NEW, 
+     &          K20, K38
+     &           ) 
       IMPLICIT NONE
-      include 'mpif.h'
-      TYPE(CMUMPS_STRUC), INTENT(INOUT), TARGET :: id
-      INTEGER(8), INTENT(OUT), TARGET        :: PTRAR(id%N,2)
-      INTEGER          :: IERR, allocok
-      INTEGER          :: IOLD, JOLD, INEW, JNEW
-      INTEGER(8)       :: K, INZ
-      INTEGER, POINTER :: IIRN(:), IJCN(:)
-      INTEGER(8), POINTER :: IWORK1(:), IWORK2(:)
-      LOGICAL          :: IDO
-      IF(id%KEEP(54) .EQ. 3) THEN
-            IIRN => id%IRN_loc
-            IJCN => id%JCN_loc
-            INZ = id%KEEP8(29)
-            IWORK1 => PTRAR(1:id%N,2)
-            allocate(IWORK2(id%N),stat=allocok)
-            IF (allocok > 0 ) THEN
-               id%INFO(1) = -7
-               id%INFO(2) = id%N
-               RETURN
-            ENDIF
-            IDO = .TRUE.
-      ELSE
-            IIRN => id%IRN
-            IJCN => id%JCN
-            INZ  =  id%KEEP8(28)
-            IWORK1 => PTRAR(1:id%N,1)
-            IWORK2 => PTRAR(1:id%N,2)
-            IDO = id%MYID .EQ. 0
-      END IF
-      DO 50 IOLD=1,id%N
-         IWORK1(IOLD) = 0_8
-         IWORK2(IOLD) = 0_8
- 50   CONTINUE
-      IF(IDO) THEN
-         DO 70 K=1_8,INZ
-            IOLD = IIRN(K)
-            JOLD = IJCN(K)
-            IF ( (IOLD.GT.id%N).OR.(JOLD.GT.id%N).OR.(IOLD.LT.1)
-     &           .OR.(JOLD.LT.1) ) GOTO 70
-            IF (IOLD.NE.JOLD) THEN
-               INEW = id%SYM_PERM(IOLD)
-               JNEW = id%SYM_PERM(JOLD)
-               IF ( id%KEEP( 50 ) .EQ. 0 ) THEN
-                  IF (INEW.LT.JNEW) THEN
-                     IWORK2(IOLD) = IWORK2(IOLD) + 1_8
-                  ELSE
-                     IWORK1(JOLD) = IWORK1(JOLD) + 1_8
-                  ENDIF
-               ELSE
-                  IF ( INEW .LT. JNEW ) THEN
-                     IWORK1( IOLD ) = IWORK1( IOLD ) + 1_8
-                  ELSE 
-                     IWORK1( JOLD ) = IWORK1( JOLD ) + 1_8
-                  END IF
-               ENDIF
-            ENDIF
- 70      CONTINUE
-      END IF
-      IF (id%KEEP(54) .EQ. 3) THEN
-         CALL MPI_ALLREDUCE(IWORK1(1), PTRAR(1,1), id%N, MPI_INTEGER8,
-     &        MPI_SUM, id%COMM, IERR )
-         CALL MPI_ALLREDUCE(IWORK2(1), PTRAR(1,2), id%N, MPI_INTEGER8,
-     &        MPI_SUM, id%COMM, IERR )
-         deallocate(IWORK2)
-      ELSE
-         CALL MPI_BCAST( PTRAR, 2*id%N, MPI_INTEGER8,
-     &        0, id%COMM, IERR )
-      END IF
+      INTEGER, INTENT(IN)    ::  N, NBLK, ICNTL(60), NSTEPS, LNA, 
+     &                           NB_NIV2
+      INTEGER, INTENT(IN)    ::  BLKPTR(NBLK+1), BLKVAR(N)
+      INTEGER, INTENT(IN)    ::  FILS_OLD(NBLK), STEP_OLD(NBLK), 
+     &                           LRGROUPS_OLD(NBLK)
+      INTEGER, INTENT(OUT)   ::  FILS_NEW(N), STEP_NEW(N), 
+     &                           LRGROUPS_NEW(N)
+      INTEGER, INTENT(INOUT) ::  DAD_STEPS(NSTEPS), FRERE_STEPS(NSTEPS)
+      INTEGER, INTENT(INOUT) ::  NA(LNA), PAR2_NODES(NB_NIV2), K20, K38
+      INTEGER :: IB, I, IBFS, IBNB, IFS, INB
+      INTEGER NBLEAF, NBROOT, ISTEP, IGROUP
+      INTEGER :: II
+      IF (K20.GT.0) K20 =  BLKVAR(BLKPTR(K20))
+      IF (K38.GT.0) K38 =  BLKVAR(BLKPTR(K38))
+      NBLEAF = NA(1)
+      NBROOT = NA(2)
+      IF (NBLK.GT.1) THEN
+       DO I= 3, 3+NBLEAF+NBROOT-1
+         IBNB  = NA(I)
+         INB   = BLKVAR(BLKPTR(IBNB))
+         NA(I) = INB
+       ENDDO
+      ENDIF
+      IF (PAR2_NODES(1).GT.0) THEN
+       DO I=1, NB_NIV2
+         IBNB = PAR2_NODES(I)
+         INB          = BLKVAR(BLKPTR(IBNB))
+         PAR2_NODES(I) = INB
+       ENDDO
+      ENDIF
+      DO I= 1, NSTEPS
+        IBNB = DAD_STEPS(I)
+        IF (IBNB.EQ.0) THEN
+         INB = 0
+        ELSE
+         INB   = BLKVAR(BLKPTR(IBNB))
+        ENDIF
+        DAD_STEPS(I) = INB
+      ENDDO
+      DO I= 1, NSTEPS
+       IBNB = FRERE_STEPS(I)
+       IF (IBNB.EQ.0) THEN
+         INB = 0
+       ELSE
+        INB  = BLKVAR(BLKPTR(abs(IBNB)))
+        IF (IBNB.LT.0) INB=-INB
+       ENDIF
+       FRERE_STEPS(I) = INB
+      ENDDO
+      DO IB=1, NBLK
+        IBFS = FILS_OLD(IB)
+        IF (IBFS.EQ.0) THEN
+         IFS = 0
+        ELSE
+         IFS  = BLKVAR(BLKPTR(abs(IBFS)))
+         IF (IBFS.LT.0) IFS=-IFS
+        ENDIF
+        IF (BLKPTR(IB+1)-BLKPTR(IB).EQ.0) CYCLE
+        DO II=BLKPTR(IB), BLKPTR(IB+1)-1
+          IF (II.LT. BLKPTR(IB+1)-1) THEN
+            FILS_NEW(BLKVAR(II))= BLKVAR(II+1)
+          ELSE
+            FILS_NEW(BLKVAR(II))= IFS
+          ENDIF
+         ENDDO
+      ENDDO
+      DO IB=1, NBLK
+        ISTEP = STEP_OLD(IB)
+        IF (BLKPTR(IB+1)-BLKPTR(IB).EQ.0) CYCLE
+        IF (ISTEP.LT.0) THEN 
+         DO II=BLKPTR(IB), BLKPTR(IB+1)-1
+           STEP_NEW(BLKVAR(II)) =  ISTEP
+         ENDDO
+        ELSE
+          I    = BLKVAR(BLKPTR(IB))
+          STEP_NEW(I) = ISTEP
+          DO II=BLKPTR(IB)+1, BLKPTR(IB+1)-1
+           STEP_NEW(BLKVAR(II)) = -ISTEP
+          ENDDO
+        ENDIF
+      ENDDO
+      DO IB=1, NBLK
+        IGROUP = LRGROUPS_OLD(IB)
+        IF (BLKPTR(IB+1)-BLKPTR(IB).EQ.0) CYCLE
+        DO II=BLKPTR(IB), BLKPTR(IB+1)-1
+           LRGROUPS_NEW(BLKVAR(II)) =  IGROUP
+        ENDDO
+      ENDDO
       RETURN
-      END SUBROUTINE CMUMPS_ANA_N_PAR
+      END SUBROUTINE CMUMPS_EXPAND_TREE_STEPS
       SUBROUTINE CMUMPS_DIST_AVOID_COPIES(N,NSLAVES,
      &     ICNTL,INFOG, NE, NFSIZ,
      &     FRERE, FILS,

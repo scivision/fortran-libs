@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -411,10 +411,10 @@ C
       RETURN
       END FUNCTION DMUMPS_LOCAL_FACTOR_SIZE_BLR
       SUBROUTINE DMUMPS_TREE_PRUN_NODES_STATS(MYID, N, KEEP28, KEEP201,
-     &           KEEP8_31,
+     &           FR_FACT,
      &           STEP, Pruned_List, nb_prun_nodes, OOC_FCT_TYPE_LOC)
       INTEGER, intent(in) :: KEEP28, KEEP201, OOC_FCT_TYPE_LOC, MYID, N
-      INTEGER(8), intent(in) :: KEEP8_31
+      INTEGER(8), intent(in) :: FR_FACT
       INTEGER, intent(in) :: nb_prun_nodes
       INTEGER, intent(in) :: Pruned_List(nb_prun_nodes)
       INTEGER, intent(in) :: STEP(N)
@@ -432,13 +432,13 @@ C
       RETURN
       END SUBROUTINE DMUMPS_TREE_PRUN_NODES_STATS
       SUBROUTINE DMUMPS_CHAIN_PRUN_NODES_STATS
-     &                (MYID, N, KEEP28, KEEP201, KEEP485, KEEP8_31,
+     &                (MYID, N, KEEP28, KEEP201, KEEP485, FR_FACT,
      &                STEP, Pruned_List, nb_prun_nodes, OOC_FCT_TYPE_LOC
      & )
       IMPLICIT NONE
       INTEGER, intent(in) :: KEEP28, KEEP201, OOC_FCT_TYPE_LOC, N,
      &                       KEEP485
-      INTEGER(8), intent(in) :: KEEP8_31
+      INTEGER(8), intent(in) :: FR_FACT
       INTEGER, intent(in) :: nb_prun_nodes, MYID
       INTEGER, intent(in) :: Pruned_List(nb_prun_nodes)
       INTEGER, intent(in) :: STEP(N)
@@ -454,7 +454,7 @@ C
         ENDIF
       ENDDO
       IF (KEEP201.GT.0) THEN
-        IF (KEEP8_31 .NE. 0_8) THEN
+        IF (FR_FACT .NE. 0_8) THEN
           PRUNED_SIZE_LOADED = PRUNED_SIZE_LOADED +Pruned_Size
         ENDIF
       ENDIF
@@ -613,7 +613,7 @@ C
      &  IPTR_WORKING, SIZE_IPTR_WORKING, WORKING, SIZE_WORKING,
      &  IRHS_PTR,
      &  STEP, SYM_PERM, N, NBRHS,
-     &  PROCNODE, NSTEPS, SLAVEF,
+     &  PROCNODE, NSTEPS, SLAVEF, KEEP199,
      &  behaviour_L0, reorder, n_select, PROKG, MPG 
      &  )
       IMPLICIT NONE
@@ -629,7 +629,7 @@ C
      &                        NBRHS,
      &                        NSTEPS,
      &                        PROCNODE(NSTEPS),
-     &                        SLAVEF,
+     &                        SLAVEF, KEEP199,
      &                        n_select, MPG
       LOGICAL, INTENT(IN) :: behaviour_L0,
      &                        reorder, PROKG
@@ -659,6 +659,7 @@ C
      &                                      PERM_PO
       LOGICAL, ALLOCATABLE, DIMENSION(:) :: USED
       LOGICAL :: allow_above_L0
+      INTEGER, EXTERNAL :: MUMPS_TYPENODE_ROUGH
       NPROCS = SIZE_IPTR_WORKING - 1
       ALLOCATE(TMP_RHS(SIZE_PERM),
      &         PTR_PROCS(NPROCS),
@@ -671,7 +672,9 @@ C
         WRITE(*,*)'Allocation error in DMUMPS_INTERLEAVE_RHS_AM1'
         CALL MUMPS_ABORT()
       END IF
-      MYTYPENODE= (PROCNODE-1+2*SLAVEF)/SLAVEF-1
+      DO I=1, NSTEPS
+        MYTYPENODE(I) = MUMPS_TYPENODE_ROUGH( PROCNODE(I), KEEP199 )
+      ENDDO
       NB_NON_EMPTY = 0
       DO I=1,SIZE_PERM
         IF(IRHS_PTR(I+1)-IRHS_PTR(I).NE.0) THEN 

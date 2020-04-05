@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -849,12 +849,12 @@ C
          DO K8=K1,K2
            J     = -IW(K8)
            IF (J.LE.0) EXIT
-           L     = IQ(J) 
-           IQ(J) = L + 1
            IF (FLAG(J).EQ.I) THEN
             NDUP = NDUP + 1_8
             IW(K8) = 0
            ELSE
+            L       = IQ(J) 
+            IQ(J)   = L + 1
             IW(L)   = I
             IW(K8)  = J
             FLAG(J) = I

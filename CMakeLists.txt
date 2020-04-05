@@ -4,22 +4,21 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 project(MUMPS
   LANGUAGES C Fortran
-  VERSION 5.2.1
+  VERSION 5.3.0
   DESCRIPTION "Sparse direct parallel solver"
-  HOMEPAGE_URL "http://mumps.enseeiht.fr/")
+  HOMEPAGE_URL "http://mumps-solver.org/")
 enable_testing()
 include(CTest)
 
 # --- user options
 option(autobuild "auto-build Lapack and/or Scalapack if missing or broken" ON)
 option(parallel "parallel or sequential (non-MPI, non-Scalapack)" ON)
+option(intsize64 "use 64-bit integers in C and Fortran" OFF)
 option(metis "use METIS" OFF)
 option(scotch "use Scotch" OFF)
-option(openmp "use OpenMP (can be much slower for some cases)" OFF)
+option(openmp "use OpenMP (can be slower for some cases)" OFF)
 option(matlab "build optional Matlab interface" OFF)
 option(ClangTest "run test for C-language" ON)
-
-set(CMAKE_CONFIGURATION_TYPES "Release;Debug" CACHE STRING "Build type selections" FORCE)
 
 if(matlab)
   set(BUILD_SHARED_LIBS true)
@@ -29,59 +28,16 @@ if(NOT DEFINED arith)
   set(arith "s;d")
 endif()
 
-# --- compiler setup
-
-# don't use LTO, the MUMPS code is not compatible for GCC at least.
-# will give link failures when used in real programs.
-# include(CheckIPOSupported)
-# check_ipo_supported(RESULT lto_supported)
-# if(lto_supported)
-#   set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-# endif()
-
-set(CDEFS "Add_")
-# "Add_" works for all modern compilers we tried.
-
-# typical projects set options too strict for MUMPS code style, so if
-# being used as external project, locally override MUMPS compile options
-if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-# MUMPS is being compiled by itself or as ExternalProject
-  if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
-    if(WIN32)
-    add_compile_options(/arch:native)
-      # /heap-arrays is necessary to avoid runtime errors in programs using this library
-      string(APPEND CMAKE_Fortran_FLAGS " /warn:declarations /heap-arrays")
-    else()
-      add_compile_options(-march=native)
-      string(APPEND CMAKE_Fortran_FLAGS " -warn declarations")
-    endif()
-  elseif(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
-    add_compile_options(-mtune=native)
-    string(APPEND CMAKE_Fortran_FLAGS " -fimplicit-none")
-  elseif(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
-    string(APPEND CMAKE_Fortran_FLAGS " -Mdclchk")
-  endif()
-else()
-  # MUMPS is being compiled via FetchContent, override options to avoid tens of megabytes of warnings
-  if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
-    if(WIN32)
-      # /heap-arrays is necessary to avoid runtime errors in programs using this library
-      set(CMAKE_Fortran_FLAGS "/nologo /fpp /libs:dll /threads /warn:declarations /heap-arrays")
-    else()
-      set(CMAKE_Fortran_FLAGS "-warn declarations")
-    endif()
-  elseif(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
-    add_compile_options(-mtune=native)
-    set(CMAKE_Fortran_FLAGS "-fimplicit-none")
-  elseif(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
-    set(CMAKE_Fortran_FLAGS "-Mdclchk")
-  endif()
+if(intsize64)
+  add_compile_definitions(INTSIZE64)
 endif()
+
+# --- compiler setup
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compilers.cmake)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 
 # problems with MPI can cause tests to hang forever, so set a default timeout [seconds]
 set(CTEST_TEST_TIMEOUT 15)
-
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 
 # --- dependencies
 find_package(Threads)
@@ -100,11 +56,11 @@ if(parallel)
     find_package(OpenMP COMPONENTS C Fortran REQUIRED)
     list(APPEND NUMERIC_LIBS OpenMP::OpenMP_Fortran OpenMP::OpenMP_C)
   endif()
-else()
+else(parallel)
   add_subdirectory(libseq)
   set(NUMERIC_INCDIRS ${CMAKE_CURRENT_SOURCE_DIR}/libseq)
   set(NUMERIC_LIBS mpiseq)
-endif()
+endif(parallel)
 list(APPEND NUMERIC_LIBS ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
 # --- build MUMPS
@@ -128,6 +84,7 @@ string(REGEX MATCH "^Visual Studio" vs_backend ${CMAKE_GENERATOR})
 if(vs_backend)
   message(STATUS "Visual Studio programs linking Fortran and C code require special configuration, see:")
   message(STATUS "https://software.intel.com/en-us/articles/configuring-visual-studio-for-mixed-language-applications")
+  message(STATUS "Consider using Ninja backend instead of VS backend if possible for your project.")
   return()
 endif()
 

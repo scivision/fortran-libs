@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.2.1, released
- *  on Fri Jun 14 14:46:05 UTC 2019
+ *  This file is part of MUMPS 5.3.0, released
+ *  on Tue Mar 31 17:14:49 UTC 2020
  *
  *
- *  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -28,3 +28,29 @@ LIBSEQ_INT LIBSEQ_CALL MPI_Finalize(void)
    return 0;
 }
 
+/* Internal: for MPI_IS_IN_PLACE tests from Fortran */
+
+void LIBSEQ_CALL MUMPS_CHECKADDREQUAL(char *a, char*b, LIBSEQ_INT *i)
+{
+  if (a - b == 0)
+   {
+     *i=1;
+   }
+ else
+   {
+     *i=0;
+   }
+}
+
+void LIBSEQ_CALL MUMPS_CHECKADDREQUAL_(char *a, char*b, LIBSEQ_INT *i)
+ {
+   MUMPS_CHECKADDREQUAL(a,b,i);
+ }
+void LIBSEQ_CALL mumps_checkaddrequal_(char *a, char*b, LIBSEQ_INT *i)
+ {
+   MUMPS_CHECKADDREQUAL(a,b,i);
+ }
+void LIBSEQ_CALL mumps_checkaddrequal__(char *a, char*b, LIBSEQ_INT *i)
+ {
+   MUMPS_CHECKADDREQUAL(a,b,i);
+ }

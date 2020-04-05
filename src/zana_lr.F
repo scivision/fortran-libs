@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -636,7 +636,7 @@ C
       RETURN
       END SUBROUTINE ZMUMPS_LR_GROUPING
       SUBROUTINE ZMUMPS_LR_GROUPING_NEW(N, NZ8, NSTEPS, IRN, JCN, FILS,
-     &     FRERE_STEPS, DAD_STEPS, NE_STEPS, STEP, NA, LNA, LRGROUPS, 
+     &     FRERE_STEPS, DAD_STEPS, STEP, NA, LNA, LRGROUPS, 
      &     SYM, ICNTL, HALO_DEPTH, GROUP_SIZE, SEP_SIZE, K38, K20,
      &     K60, IFLAG, IERROR, K264, K265, K482, K472, MAXFRONT, K469, 
      &     K10, K54, LPOK, LP)
@@ -650,7 +650,7 @@ C
       INTEGER, INTENT(IN)    :: LP
       LOGICAL, INTENT(IN)    :: LPOK
       INTEGER, POINTER, DIMENSION(:)  :: IRN, JCN
-      INTEGER, INTENT(IN)    :: NE_STEPS(:), ICNTL(60)
+      INTEGER, INTENT(IN)    :: ICNTL(60)
       INTEGER, POINTER :: FILS(:), FRERE_STEPS(:), STEP(:),
      &      NA(:), DAD_STEPS(:), LRGROUPS(:)
       INTEGER, INTENT(IN) :: K472, K469
@@ -659,7 +659,7 @@ C
      &     SYMTRY, NBQD, AD
       LOGICAL :: PVSCHANGED
       INTEGER(8) :: LW, IWFR, NRORM, NIORM
-      INTEGER :: NBGROUPS
+      INTEGER :: NBGROUPS, NBGROUPS_local
       INTEGER, ALLOCATABLE, DIMENSION (:) :: PVS, WORK
       INTEGER, ALLOCATABLE, DIMENSION (:) :: LEN, IW
       INTEGER(8), ALLOCATABLE, DIMENSION (:) :: IPE, IQ
@@ -754,7 +754,7 @@ C
 !$    OMP_NUM = OMP_GET_MAX_THREADS()
       OMP_NUM = min(OMP_NUM,8)
 !$OMP PARALLEL PRIVATE(I, NODE, PV, NV, F, GROUP_SIZE2, WORK, IERR_PRIV,
-!$OMP&         WORKH_PRV, TRACE_PRV, GEN2HALO_PRV
+!$OMP&         WORKH_PRV, TRACE_PRV, GEN2HALO_PRV, NBGROUPS_local
 !$OMP&         )
 !$OMP&         IF (K469_LOC.GT.1) NUM_THREADS(OMP_NUM)
       ALLOCATE(WORK(MAXFRONT), STAT=IERR_PRIV)
@@ -763,11 +763,12 @@ C
      *    "size: ", MAXFRONT
 !$OMP ATOMIC WRITE
         IFLAG = -7
+!$OMP END ATOMIC
 !$OMP ATOMIC WRITE
         IERROR = MAXFRONT
-        GOTO 500
+!$OMP END ATOMIC
       ENDIF
-      IF (K469_LOC.EQ.2) THEN
+      IF (IERR_PRIV .EQ. 0 .AND. K469_LOC.EQ.2) THEN
         ALLOCATE(TRACE_PRV(N), WORKH_PRV(N), GEN2HALO_PRV(N),
      &           STAT=IERR_PRIV)
         IF (IERR_PRIV.GT.0) THEN
@@ -775,10 +776,15 @@ C
      *    "size: ", 3*N
 !$OMP ATOMIC WRITE
           IFLAG = -7
+!$OMP END ATOMIC
 !$OMP ATOMIC WRITE
           IERROR = 3*N
-          GOTO 500
+!$OMP END ATOMIC
         ENDIF
+      ENDIF
+!$OMP BARRIER
+      IF (IFLAG .LT. 0 ) THEN
+        GOTO 500
       ENDIF
       IF (K469_LOC.EQ.2) THEN
         TRACE_PRV = 0
@@ -852,18 +858,19 @@ C
             ENDDO
           ENDIF
         ELSE
-!$OMP CRITICAL(lrgrouping_cri)
+!$OMP ATOMIC CAPTURE
+          NBGROUPS = NBGROUPS + 1
+          NBGROUPS_local = NBGROUPS
+!$OMP END ATOMIC 
           IF (NV .GE. SEP_SIZE) THEN
             DO I = 1, NV
-              LRGROUPS( WORK(I) ) = (NBGROUPS + 1)
+              LRGROUPS( WORK(I) ) = NBGROUPS_local
             ENDDO
           ELSE
             DO I = 1, NV
-              LRGROUPS( WORK(I) ) = -(NBGROUPS + 1)
+              LRGROUPS( WORK(I) ) = -NBGROUPS_local
             ENDDO
           ENDIF
-          NBGROUPS = NBGROUPS + 1
-!$OMP END CRITICAL(lrgrouping_cri)
         ENDIF
       ENDDO       
 !$OMP END DO

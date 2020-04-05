@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -17,10 +17,5 @@ C
       Please modify Makefile.inc and do 'make clean; make'
 #endif
 #endif
-C
-C     Research work on multithreaded tree parallelism initiated in
-C     the context of the PhD thesis of Wissam Sid-Lakhdar (ENS Lyon)
-C     might impact a future release.
-C
       RETURN
       END SUBROUTINE MUMPS_ANA_OMP_RETURN

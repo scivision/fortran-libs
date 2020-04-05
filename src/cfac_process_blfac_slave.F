@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -107,9 +107,8 @@ C
       COMPLEX, ALLOCATABLE, DIMENSION(:) :: WORK, TAU
       INTEGER, ALLOCATABLE, DIMENSION(:) :: JPVT
       COMPLEX, ALLOCATABLE, DIMENSION(:,:) :: BLOCKLR
-      INTEGER :: T1, T2, COUNT_RATE, LWORK
       REAL,ALLOCATABLE,DIMENSION(:) :: RWORK
-      INTEGER :: OMP_NUM
+      INTEGER :: OMP_NUM, LWORK
       INTEGER :: II,JJ
        INTEGER :: NFS4FATHER, NASS1, NELIM, INFO_TMP(2)
        INTEGER :: NBROWSinF
@@ -238,11 +237,8 @@ C
       ENDIF
       DO WHILE ( IPOSK + NPIV -1 .GT.
      &            IW( PTRIST(STEP( INODE )) + 3 +KEEP(IXSZ)) )
-#if defined(IBC_TEST)
-        MSGSOU = IW( PTRIST(STEP(INODE)) + 9 +  KEEP(IXSZ) )
-#else
-        MSGSOU = MUMPS_PROCNODE( PROCNODE_STEPS(STEP(INODE)), SLAVEF )
-#endif
+        MSGSOU = MUMPS_PROCNODE( PROCNODE_STEPS(STEP(INODE)),
+     &                           KEEP(199) )
         SET_IRECV = .FALSE.
         BLOCKING  = .TRUE.
         MESSAGE_RECEIVED = .FALSE.
@@ -299,7 +295,7 @@ C
       HS      = 6 + NSLAVES_TOT + KEEP(IXSZ)
       NCOL1   = LCONT1 + NPIV1
       IF (LR_ACTIVATED) THEN
-         CALL CMUMPS_BLR_RETRIEVE_PANEL_L (IW(IOLDPS+XXF), IPANEL, 
+         CALL CMUMPS_BLR_DEC_AND_RETRIEVE_L (IW(IOLDPS+XXF), IPANEL, 
      &        BEGS_BLR_LS, BLR_LS)
          NB_BLR_LS = size(BEGS_BLR_LS)-2   
 #if defined(BLR_MT)          
@@ -318,7 +314,7 @@ C
      &        0,       
      &        2,       
      &        1,
-     &        KEEP(481), DKEEP(8), KEEP(466), KEEP(477) 
+     &        KEEP(481), DKEEP(11), KEEP(466), KEEP(477) 
      &         )
 #if defined(BLR_MT)          
 !$OMP END PARALLEL
@@ -375,7 +371,7 @@ C
       IF ( IW( IOLDPS + 6  +KEEP(IXSZ)) .eq. 0 .and.
      &     KEEP(50) .ne. 0 .and. NSLAVES_FOLLOW .eq. 0 )
      &     THEN
-         DEST = MUMPS_PROCNODE( PROCNODE_STEPS(STEP(INODE)), SLAVEF )
+         DEST = MUMPS_PROCNODE( PROCNODE_STEPS(STEP(INODE)), KEEP(199) )
          CALL CMUMPS_BUF_SEND_1INT( INODE, DEST, END_NIV2_LDLT,
      &                             COMM, KEEP, IERR )
          IF ( IERR .LT. 0 ) THEN
@@ -435,7 +431,6 @@ C
                 IERROR = OMP_NUM*(LWORK + MAXI_CLUSTER*(MAXI_CLUSTER+4))
                 GOTO 700
               ENDIF
-              CALL SYSTEM_CLOCK(T1)
               NFS4FATHER = -9999
               IF ( (KEEP(219).NE.0).AND.(KEEP(50).EQ.2) ) THEN
                CALL CMUMPS_BLR_RETRIEVE_NFS4FATHER ( IW(IOLDPS+XXF),
@@ -473,7 +468,7 @@ C
      &          NPARTSASS_MASTER, 
      &          NROW1, NCOL1-NPIV1, INODE,
      &          IW(IOLDPS+XXF), 1, 2, IFLAG, IERROR,
-     &          DKEEP(8), KEEP(466), KEEP(484), KEEP(489),
+     &          DKEEP(12), KEEP(466), KEEP(484), KEEP(489),
      &          CB_LRB(1,1),
      &          WORK, TAU, JPVT, LWORK, RWORK, BLOCKLR,
      &          MAXI_CLUSTER, KEEP8, OMP_NUM,
@@ -493,9 +488,6 @@ C
                  IERROR = INFO_TMP(2) 
               ENDIF
  650          CONTINUE         
-              CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-              ACC_CB_DEMOTING_TIME = ACC_CB_DEMOTING_TIME + 
-     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
               IF (allocated(M_ARRAY)) DEALLOCATE(M_ARRAY)
               IF (allocated(BLOCKLR)) DEALLOCATE(BLOCKLR)
               IF (allocated(RWORK)) DEALLOCATE(RWORK)

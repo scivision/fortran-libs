@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -335,9 +335,7 @@ C
      &           OOC_FCT_TYPE) = INODE
             I_CUR_HBUF_NEXTPOS(OOC_FCT_TYPE) =
      &           I_CUR_HBUF_NEXTPOS(OOC_FCT_TYPE) + 1
-#if ! defined (OOC_DEBUG)
             PTRFAC(STEP_OOC(INODE))=-777777_8
-#endif
             RETURN
          ELSE
             CALL ZMUMPS_OOC_DO_IO_AND_CHBUF(OOC_FCT_TYPE,IERR)
@@ -372,9 +370,7 @@ C
          ENDIF
       END IF
       NODE=-9999
-#if ! defined (OOC_DEBUG)
       PTRFAC(STEP_OOC(INODE))=-777777_8
-#endif
       IF(STRAT_IO_ASYNC)THEN
          IERR=0
          CALL MUMPS_WAIT_REQUEST(REQUEST,IERR)
@@ -832,12 +828,12 @@ C
       IF(KEEP_OOC(38).NE.0)THEN
          MASTER_ROOT=MUMPS_PROCNODE(
      &                  PROCNODE_OOC(STEP_OOC( KEEP_OOC(38))),
-     &                  SLAVEF_OOC )
+     &                  KEEP_OOC(199) )
          SPECIAL_ROOT_NODE=KEEP_OOC(38)
       ELSEIF(KEEP_OOC(20).NE.0)THEN
          MASTER_ROOT=MUMPS_PROCNODE(
      &                  PROCNODE_OOC(STEP_OOC( KEEP_OOC(20))),
-     &                  SLAVEF_OOC )
+     &                  KEEP_OOC(199) )
          SPECIAL_ROOT_NODE=KEEP_OOC(20)
       ELSE
          MASTER_ROOT=-111111
@@ -976,15 +972,15 @@ C
      &           (((MTYPE_OOC.EQ.1).AND.(KEEP_OOC(50).EQ.0).AND.
      &           (SOLVE_STEP.EQ.1).AND.
      &           ((MUMPS_TYPENODE(PROCNODE_OOC(STEP_OOC(TMP_NODE)),
-     &           SLAVEF_OOC).EQ.2).AND.(MUMPS_PROCNODE(
-     &           PROCNODE_OOC(STEP_OOC(TMP_NODE)),SLAVEF_OOC).NE.
+     &           KEEP_OOC(199)).EQ.2).AND.(MUMPS_PROCNODE(
+     &           PROCNODE_OOC(STEP_OOC(TMP_NODE)),KEEP_OOC(199)).NE.
      &           MYID_OOC)))
      &           .OR.
      &           ((MTYPE_OOC.NE.1).AND.(KEEP_OOC(50).EQ.0).AND.
      &           (SOLVE_STEP.EQ.0).AND.
      &           ((MUMPS_TYPENODE(PROCNODE_OOC(STEP_OOC(TMP_NODE)),
-     &           SLAVEF_OOC).EQ.2).AND.(MUMPS_PROCNODE(
-     &           PROCNODE_OOC(STEP_OOC(TMP_NODE)),SLAVEF_OOC).NE.
+     &           KEEP_OOC(199)).EQ.2).AND.(MUMPS_PROCNODE(
+     &           PROCNODE_OOC(STEP_OOC(TMP_NODE)),KEEP_OOC(199)).NE.
      &           MYID_OOC)))).OR.
      &           (OOC_STATE_NODE(STEP_OOC(TMP_NODE)).EQ.ALREADY_USED)
             IF(DONT_USE)THEN
@@ -2717,9 +2713,7 @@ C
       CUR_POS_SEQUENCE=1
       MTYPE_OOC=MTYPE
       IF ( KEEP_OOC(201).NE.1 
-#if ! defined(TEMP_VERSION_TO_FORCE_DATA_REINIT)
      &  .OR. KEEP_OOC(50).NE.0
-#endif
      &  ) THEN
         CALL ZMUMPS_SOLVE_PREPARE_PREF(PTRFAC,NSTEPS,A,LA)
       ELSE 
@@ -2758,9 +2752,7 @@ C
       CUR_POS_SEQUENCE=TOTAL_NB_OOC_NODES(OOC_FCT_TYPE)
       MTYPE_OOC=MTYPE
       IF ( KEEP_OOC(201).NE.1 
-#if ! defined(TEMP_VERSION_TO_FORCE_DATA_REINIT)
      &  .OR. KEEP_OOC(50).NE.0
-#endif
      &  ) THEN
         CALL ZMUMPS_SOLVE_PREPARE_PREF(PTRFAC,NSTEPS,A,LA)
         IF (I_WORKED_ON_ROOT.AND.
@@ -3258,7 +3250,8 @@ C
         ICUR      = I_CUR_HBUF_NEXTPOS(TYPEF) - 1
         INODE_CUR = OOC_INODE_SEQUENCE(ICUR,TYPEF)
         ADDR_LAST = AddVirtLibre(TYPEF)
-        IF (INODE_CUR .NE. MonBloc%INODE) THEN
+        IF ( INODE_CUR .NE. MonBloc%INODE .AND.
+     &       OOC_VADDR(STEP_OOC(MonBloc%INODE),TYPEF) .NE. -9999 ) THEN
  10       CONTINUE
           ILAST = ICUR
           IF ( OOC_VADDR(STEP_OOC(INODE_CUR),TYPEF) .NE. -9999_8) THEN

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -54,8 +54,8 @@ C
       USE SMUMPS_STRUC_DEF
       IMPLICIT NONE
       TYPE(SMUMPS_STRUC)   :: id
-      INTEGER, POINTER     :: WORK1(:), WORK2(:),
-     &     NFSIZ(:), FILS(:), FRERE(:)
+      INTEGER, TARGET  :: WORK1(:), WORK2(:)
+      INTEGER          :: NFSIZ(:), FILS(:), FRERE(:)
       TYPE(ORD_TYPE)       :: ord
       INTEGER, POINTER     :: IPE(:), NV(:),
      &     NE(:), NA(:), NODE(:),
@@ -65,6 +65,8 @@ C
       INTEGER              :: MYID, NPROCS, IERR, NEMIN, LDIAG
       LOGICAL              :: SPLITROOT
       INTEGER(8), PARAMETER :: K79REF=12000000_8
+      INTEGER, PARAMETER :: LIDUMMY = 1
+      INTEGER :: IDUMMY(1) 
       nullify(IPE, NV, NE, NA, NODE, ND, SUBORD, NAMALG, IPS,
      &     CUMUL, SAVEIRN, SAVEJCN)
       CALL MPI_COMM_RANK (id%COMM, MYID, IERR)
@@ -142,7 +144,7 @@ C
      &        ND(1), NEMIN, SUBORD(1), id%KEEP(60), id%KEEP(20),
      &        id%KEEP(38), NAMALG(1), id%KEEP(104), CUMUL(1),
      &        id%KEEP(50), id%ICNTL(13), id%KEEP(37), id%NSLAVES,
-     &        id%KEEP(250).EQ.1)
+     &        id%KEEP(250).EQ.1, .FALSE., IDUMMY, LIDUMMY)
          CALL MUMPS_DEALLOC(CUMUL, NV, IPE, MEMCNT=MEMCNT)
          CALL SMUMPS_ANA_M(NE(1), ND(1), id%INFOG(6), id%INFOG(5),
      &        id%KEEP(2), id%KEEP(50), id%KEEP(101), id%KEEP(108),
@@ -176,8 +178,9 @@ C
           IF (id%KEEP(210).EQ.1) THEN
             SPLITROOT = .FALSE. 
             IF ( id%KEEP(62).GE.1) THEN
+               IDUMMY(1) = -1
                CALL SMUMPS_CUTNODES(id%N, FRERE(1), FILS(1),
-     &              NFSIZ(1), id%INFOG(6),
+     &              NFSIZ(1), IDUMMY, LIDUMMY, id%INFOG(6),
      &              id%NSLAVES, id%KEEP(1), id%KEEP8(1), SPLITROOT,
      &              MP, LDIAG, id%INFOG(1), id%INFOG(2))
                IF (id%INFOG(1).LT.0) RETURN
@@ -188,8 +191,10 @@ C
      &        (id%NSLAVES.GT.id%ICNTL(13))) .OR.
      &        (id%ICNTL(13).EQ.-1)) .AND. (id%KEEP(60).EQ.0)
          IF (SPLITROOT) THEN
+            IDUMMY(1) = -1
             CALL SMUMPS_CUTNODES(id%N, FRERE(1), FILS(1), NFSIZ(1),
-     &           id%INFOG(6), id%NSLAVES, id%KEEP(1), id%KEEP8(1),
+     &           IDUMMY, LIDUMMY, id%INFOG(6), 
+     &           id%NSLAVES, id%KEEP(1), id%KEEP8(1),
      &           SPLITROOT, MP, LDIAG, id%INFOG(1), id%INFOG(2))
             IF (id%INFOG(1).LT.0) RETURN
          ENDIF
@@ -342,7 +347,7 @@ C
       IMPLICIT NONE
       TYPE(SMUMPS_STRUC)            :: id
       TYPE(ORD_TYPE)                :: ord
-      INTEGER, POINTER              :: WORK(:)
+      INTEGER                       :: WORK(:)
 #if defined(parmetis) || defined(parmetis3)
       INTEGER                       :: IERR
 #endif
@@ -373,7 +378,7 @@ C
       IMPLICIT NONE
       TYPE(SMUMPS_STRUC)  :: id
       TYPE(ORD_TYPE)      :: ord
-      INTEGER, POINTER    :: WORK(:)
+      INTEGER, TARGET    :: WORK(:)
       INTEGER             :: I, MYID, NPROCS, IERR, BASE, METIS_IDX_SIZE
       INTEGER, POINTER    :: FIRST(:),
      &     LAST(:), SWORK(:)
@@ -388,7 +393,7 @@ C
       CALL MPI_COMM_RANK (id%COMM, MYID, IERR)
       CALL MPI_COMM_SIZE (id%COMM, NPROCS, IERR)
       IERR=0
-      IF(MUMPS_GETSIZE(WORK) .LT. id%N*3) THEN
+      IF(size(WORK) .LT. id%N*3) THEN
          WRITE(LP,
      &        '("Insufficient workspace inside SMUMPS_PARMETIS_ORD")')
          CALL MUMPS_ABORT()
@@ -500,7 +505,7 @@ C
       INCLUDE 'ptscotchf.h'
       TYPE(SMUMPS_STRUC)            :: id
       TYPE(ORD_TYPE)                :: ord
-      INTEGER, POINTER              :: WORK(:)
+      INTEGER, TARGET               :: WORK(:)
       INTEGER                       :: MYID, NPROCS, IERR
       INTEGER, POINTER              :: FIRST(:),
      &     LAST(:), SWORK(:)
@@ -510,7 +515,7 @@ C
       INTEGER(8), POINTER           :: VERTLOCTAB(:)
       INTEGER, POINTER              :: EDGELOCTAB(:)
       nullify(FIRST, LAST, SWORK, VERTLOCTAB, EDGELOCTAB)
-      IF(MUMPS_GETSIZE(WORK) .LT. id%N*3) THEN
+      IF (size(WORK) .LT. id%N*3) THEN
          WRITE(LP,
      &      '("Insufficient workspace inside SMUMPS_PTSCOTCH_ORD")')
          CALL MUMPS_ABORT()
@@ -840,7 +845,7 @@ C
       DO I=ANODE+1, id%NSLAVES
          ord%FIRST(BASE+I) = id%N+1
          ord%LAST(BASE+I) = id%N
-      END DO      
+      END DO            
       DEALLOCATE(LIST, ALIST, AWEIGHTS, WORK)
  90   continue
       RETURN
@@ -850,7 +855,7 @@ C
       TYPE(SMUMPS_STRUC)   :: id
       TYPE(ORD_TYPE)       :: ord
       INTEGER, POINTER     :: GPE(:), GNV(:)
-      INTEGER, POINTER     :: WORK(:)
+      INTEGER, TARGET      :: WORK(:)
       TYPE(GRAPH_TYPE)     :: top_graph
       INTEGER(8), POINTER  :: IPE(:), IPET(:),
      &     BUF_PE1(:), BUF_PE2(:), TMP1(:)
@@ -890,7 +895,7 @@ C
      &     BUF_NV1, BUF_NV2, ROOTPERM, TMP1, TMP2, BWORK)
       CALL MPI_COMM_RANK (id%COMM, MYID, IERR)
       CALL MPI_COMM_SIZE (id%COMM, NPROCS, IERR)
-      IF(MUMPS_GETSIZE(WORK) .LT. 4*id%N) THEN
+      IF(size(WORK) .LT. 4*id%N) THEN
          WRITE(LP,*)'Insufficient workspace in SMUMPS_PARSYMFACT'
          CALL MUMPS_ABORT()
       ELSE
@@ -941,7 +946,7 @@ C
          LISTVAR_SCHUR(I) = NROWS_LOC+I
       END DO
       THRESH = -1
-      AGG6   = .TRUE.
+      AGG6   = .FALSE.
       PFREES = IPE(NROWS_LOC+1)
       PFS_SAVE = PFREES
       PELEN = PFREES-1 + 2_8*int(NROWS_LOC+ord%TOPNODES(2),8)
@@ -953,8 +958,8 @@ C
          ELSE
             JOB = 1
          END IF
-         CALL MUMPS_SYMQAMD_NEW(JOB, THRESH, NDENSE(1), HIDX,
-     &        PELEN, IPE(1), PFREES, LENG(1), PE(1), NV(1), 
+         IF(HIDX .GT.0) CALL MUMPS_SYMQAMD_NEW(JOB, THRESH, NDENSE(1),
+     &        HIDX, PELEN, IPE(1), PFREES, LENG(1), PE(1), NV(1), 
      &        ELEN(1), LAST(1), NCMPA, DEGREE(1), HEAD(1), NEXT(1), 
      &        W(1), PERM(1), LISTVAR_SCHUR(1), SIZE_SCHUR, AGG6)
       MYNCLIQUES = 0
@@ -1062,8 +1067,8 @@ C
                PERM(I) = I
             END DO
             PELEN = max(PFREET+int(TGSIZE,8),1_8)
-            CALL MUMPS_SYMQAMD_NEW(2, -1, NDENSE(1), TGSIZE,
-     &           PELEN, IPET(1), PFREET, LENG(1), PE(1), 
+            IF(TGSIZE.GT.0) CALL MUMPS_SYMQAMD_NEW(2, -1, NDENSE(1),
+     &           TGSIZE, PELEN, IPET(1), PFREET, LENG(1), PE(1), 
      &           NVT(1), ELEN(1), LAST(1), NCMPA, DEGREE(1), HEAD(1), 
      &           NEXT(1), W(1), PERM(1), LISTVAR_SCHUR(1), TOTNCLIQUES, 
      &           AGG6)
@@ -1196,7 +1201,7 @@ C
       IF(MEMCNT .GT. MAXMEM) MAXMEM=MEMCNT
       LPERM = 0
       K = 1 
-      DO I=1, TOPNODES(1)
+      DO I=TOPNODES(1), 1, -1
          DO J=TOPNODES(2*I+1), TOPNODES(2*I+2)
             GIDX        = ord%PERITAB(J) 
             LPERM(GIDX) = K

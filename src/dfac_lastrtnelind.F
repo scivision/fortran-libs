@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -111,8 +111,9 @@ C
      &    IPOOL, LPOOL, LEAF,
      &    NBFIN, MYID, SLAVEF,
      &
-     &    OPASSW, OPELIW, ITLOC, RHS_MUMPS,
-     &    FILS, DAD, PTRARW, PTRAIW,
+     &    OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD,
+     &    LPTRAR, NELT, FRTPTR, FRTELT,
+     &    PTRARW, PTRAIW,
      &    INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,ND )
        IF (IFLAG < 0 ) RETURN
       HF = 6 + KEEP(IXSZ)
@@ -152,7 +153,7 @@ C
           NELIM_SENT = ILOC_ROW - IOLDPS - HF + 1
           DO ISLAVE = 0,NSLAVES_SON
             IF (ISLAVE.EQ.0) THEN
-             PDEST= MUMPS_PROCNODE(PROCNODE_STEPS(STEP(IN)),SLAVEF)
+             PDEST= MUMPS_PROCNODE(PROCNODE_STEPS(STEP(IN)),KEEP(199))
             ELSE
              PDEST = IW(IPOS_SON + 5 + ISLAVE+KEEP(IXSZ))
             ENDIF

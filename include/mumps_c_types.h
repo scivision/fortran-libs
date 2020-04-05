@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.2.1, released
- *  on Fri Jun 14 14:46:05 UTC 2019
+ *  This file is part of MUMPS 5.3.0, released
+ *  on Tue Mar 31 17:14:49 UTC 2020
  *
  *
- *  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -18,7 +18,14 @@
 #define MUMPS_C_TYPES_H
 
 #include <stdint.h>
-#ifdef INTSIZE64
+
+/* mumps_int_def.h will define either MUMPS_INTSIZE32 (default)
+   or MUMPS_INTSIZE64 (if compilation is with -DINTSIZE64 to
+   match Fortran -i8 or equivalent option). This allows one to
+   test from an external code whether MUMPS_INT is 64bits or not */
+#include "mumps_int_def.h"
+
+#ifdef MUMPS_INTSIZE64
 #define MUMPS_INT int64_t
 #else
 #define MUMPS_INT int

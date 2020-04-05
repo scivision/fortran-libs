@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -16,6 +16,7 @@ C
      &       LRLU, LRLUS, IPTRLU,
      &       IWPOSCB, LA, KEEP, KEEP8, IN_PLACE_STATS
      &     )
+!$    USE OMP_LIB
       USE SMUMPS_LOAD
       IMPLICIT NONE
       INTEGER IPOSBLOCK,
@@ -47,8 +48,14 @@ C
         SIZFR_BLOCK_EFF = SIZFR_BLOCK - SIZEHOLE
       ENDIF
       IF (.NOT. IN_PLACE_STATS) THEN
-           LRLUS   = LRLUS + SIZFR_BLOCK_EFF
+         LRLUS   = LRLUS + SIZFR_BLOCK_EFF
+         IF (KEEP(405) .EQ. 0) THEN
            KEEP8(69) = KEEP8(69) - SIZFR_BLOCK_EFF
+         ELSE
+!$OMP      ATOMIC UPDATE
+           KEEP8(69) = KEEP8(69) - SIZFR_BLOCK_EFF
+!$OMP      END ATOMIC
+         ENDIF
       ENDIF
       IF ( IPOSBLOCK .eq. IWPOSCB + 1 ) THEN
          IPTRLU  = IPTRLU  + SIZFR_BLOCK

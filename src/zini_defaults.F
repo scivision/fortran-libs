@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -803,7 +803,6 @@ C      In the symmetric case, however, INFO(27) < INFO(9).
 C      The total number of entries over all processors is
 C      available in INFOG(29).
 C
-C FIXME describe INFO(28-35)
 C
 C -------------------------------------------------------------
 C -------------------------------------------------------------
@@ -865,6 +864,37 @@ C     for the elimination process (on all fronts, BLR or not)
 C     performed when BLR option is activated on all processors.
 C     (equal to zero if BLR option not used, ICNTL(35).EQ.1)
 C
+C  RINFOG(15) - after analysis: if the user decides to perform an 
+C     out-of-core factorization (ICNTL(22)=1), then a rough 
+C     estimation of the total size of the disk space in MegaBytes of
+C     the files written by all processors is provided in RINFOG(15). 
+C
+C  RINFOG(16) - after factorization: in the case of an out-of-core 
+C     execution (ICNTL(22)=1), the total
+C     size in MegaBytes of the disk space used by the files written 
+C     by all processors is provided.
+C
+C  RINFOG(17) - after each job: sum over all processors of the sizes 
+C      (in MegaBytes) of the files used to save the instance
+C
+C  RINFOG(18) - after each job: sum over all processors of the sizes 
+C     (in MegaBytes) of the MUMPS structures.
+C
+C  RINFOG(19) - after factorization: smallest pivot in absolute 
+C             value selected during factorization of the preprocessed
+C             matrix A_pre and considering also 
+C             small pivots selected as null-pivots (see ICNTL(24)) 
+C             and pivots on which static pivoting was applied
+C
+C  RINFOG(20) - after factorization: smallest pivot in absolute 
+C             value selected during factorization of the preprocessed
+C             matrix A_pre and NOT considering
+C             small pivots selected as null-pivots (see ICNTL(24))
+C             and pivots on which static pivoting was applied
+C
+C  RINFOG(21) -  after factorization: largest pivot in absolute 
+C             value selected during factorization of the preprocessed
+C             matrix A_pre.
 C===========================
 C DESCRIPTION OF KEEP8 ARRAY
 C===========================
@@ -1017,8 +1047,6 @@ C Default values for some components
 C of KEEP array
 C===================================
       KEEP(12) = 0
-C      KEEP(11) = 2147483646
-      KEEP(11) = huge(KEEP(11))
       KEEP(24) = 18
       KEEP(68) = 0
       KEEP(30) = 2000
@@ -1112,6 +1140,10 @@ C     Forcing proportional is ok with strategy 5
       KEEP(100)=0
 C     strategy for MUMPS_BLOC2_GET_NSLAVESMIN
       KEEP(119)=0
+C     KEEP(199) for MUMPS_PROCNODE, MUMPS_TYPENODE, etc
+C     KEEP(199)=NSLAVES + 7
+      KEEP(199)=-1
+      KEEP(200)=0 ! root pre-assembled in id%S
       KEEP(204)=0
       KEEP(205)=0
       KEEP(209)=-1
@@ -1121,9 +1153,7 @@ C     strategy for MUMPS_BLOC2_GET_NSLAVESMIN
       KEEP(121)=-999999
 #endif
       KEEP(122)=150
-#if ! defined(NODYNAMICCB)
        KEEP(141)=1 ! min needed
-#endif
       KEEP(206)=1 
       KEEP(211)=2
       IF (NSLAVES .EQ. 2) THEN
@@ -1152,7 +1182,8 @@ C     strategy for MUMPS_BLOC2_GET_NSLAVESMIN
       KEEP(238)=14
       KEEP(234)= 1
       KEEP(235)=-1
-      DKEEP(3)=-5.0D0
+      DKEEP(3) =-5.0D0
+      DKEEP(18)= 1.0D12
       KEEP(242) = -9
       KEEP(243) = -1
       KEEP(249)=1
@@ -1170,6 +1201,8 @@ C     strategy for MUMPS_BLOC2_GET_NSLAVESMIN
       KEEP(362) = 4
       KEEP(363) = 512
       KEEP(364) = 32768
+C     OMP parallelization of arrowheads
+      KEEP(399) = 1
       KEEP(420) =  4*KEEP(6)   ! if KEEP(6)=32 then 128
 #if defined(GEMMT_AVAILABLE)
       KEEP(421) = -1
@@ -1183,6 +1216,8 @@ C     of size 250*sizeof(arith). (4k bytes for z)
 C     At each new block of size KEEP(424), there is
 C     probably a cache miss on the pivot.
       KEEP(424) = 250
+      KEEP(461) = 10
+      KEEP(462) = 10
       KEEP(464) = 333
       KEEP(465) = 200
       KEEP(466) = 1

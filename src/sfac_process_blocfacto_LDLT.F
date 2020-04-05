@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -138,9 +138,8 @@ C
       REAL, ALLOCATABLE, DIMENSION(:) :: WORK, TAU
       INTEGER, ALLOCATABLE, DIMENSION(:) :: JPVT
       REAL, ALLOCATABLE, DIMENSION(:,:) :: BLOCKLR
-      INTEGER T1, T2, COUNT_RATE, LWORK
       REAL,ALLOCATABLE,DIMENSION(:) :: RWORK
-      INTEGER :: OMP_NUM
+      INTEGER :: OMP_NUM, LWORK
       INTEGER :: II,JJ, SHIFT
       INTEGER MUMPS_PROCNODE
       EXTERNAL MUMPS_PROCNODE
@@ -261,7 +260,7 @@ C
      &                 MPI_INTEGER, COMM, IERR )
       IF (PTRIST(STEP( INODE )) .EQ. 0) THEN
         SRC_DESCBAND =
-     &      MUMPS_PROCNODE( PROCNODE_STEPS(STEP(INODE)), SLAVEF )
+     &      MUMPS_PROCNODE( PROCNODE_STEPS(STEP(INODE)), KEEP(199) )
           CALL SMUMPS_TREAT_DESCBAND( INODE, COMM_LOAD, ASS_IRECV,
      &      BUFR, LBUFR, LBUFR_BYTES, PROCNODE_STEPS, POSFAC,
      &      IWPOS, IWPOSCB, IPTRLU,
@@ -427,17 +426,9 @@ C
      &     IOLDPS+5+XTRA_SLAVES_SYM+KEEP(IXSZ)+NSLAVES_FOLLOW)
         END IF
         IF ((.NOT. LR_ACTIVATED).OR.KEEP(475).EQ.0) THEN
-          IF (KEEP(486).NE.0) THEN
-            CALL SYSTEM_CLOCK(T1)
-          ENDIF
           CALL strsm( 'L', 'U', 'T', 'U', NPIV, NROW1, ONE,
      &               A( POSBLOCFACTO ), LD_BLOCFACTO, 
      &               A_PTR(POSELT+int(NPIV1,8)), NCOL1 )
-          IF (KEEP(486).NE.0) THEN
-            CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-            ACC_TRSM_TIME = ACC_TRSM_TIME + 
-     &            DBLE(T2-T1)/DBLE(COUNT_RATE)
-          ENDIF
         ENDIF
         IF (.NOT.LR_ACTIVATED) THEN
          LPOS = POSELT + int(NPIV1,8)
@@ -609,7 +600,6 @@ C
              IERROR = NB_BLR_LS
              GOTO 700
           ENDIF
-          CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)          
 !$OMP PARALLEL
 #endif
@@ -632,10 +622,6 @@ C
 #if defined(BLR_MT)          
 !$OMP MASTER
 #endif
-          CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-          ACC_DEMOTING_TIME = ACC_DEMOTING_TIME + 
-     &              DBLE(T2-T1)/DBLE(COUNT_RATE)
-          CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)          
 !$OMP END MASTER
 #endif          
@@ -651,10 +637,6 @@ C
 !$OMP BARRIER
 !$OMP MASTER
 #endif          
-            CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-            ACC_TRSM_TIME = ACC_TRSM_TIME + 
-     &              DBLE(T2-T1)/DBLE(COUNT_RATE)
-            CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)          
 !$OMP END MASTER
 #endif          
@@ -669,10 +651,6 @@ C
 #if defined(BLR_MT)          
 !$OMP MASTER
 #endif          
-            CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-            ACC_PROMOTING_TIME = ACC_PROMOTING_TIME + 
-     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
-            CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)          
 !$OMP END MASTER
 #endif          
@@ -737,16 +715,12 @@ C
      &        IW(IPIV), 
      &        BLOCKLR,
      &        MAXI_CLUSTER, OMP_NUM,
-     &        KEEP(481), DKEEP(8), KEEP(466), KEEP(477) 
+     &        KEEP(481), DKEEP(11), KEEP(466), KEEP(477) 
      &        )
           IF (IFLAG.LT.0) GOTO 400
 #if defined(BLR_MT)          
 !$OMP MASTER
 #endif          
-          CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-          ACC_UPDT_TIME = ACC_UPDT_TIME + 
-     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
-          CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)          
 !$OMP END MASTER
 #endif          
@@ -755,8 +729,7 @@ C
 !$OMP END PARALLEL
 #endif          
           IF (IFLAG.LT.0) GOTO 700
-          CALL STATS_STORE_BLR_PANEL_MRY(BLR_LS,
-     &               0, NPARTSCB, 'V', 2)
+          CALL UPD_MRY_LU_LRGAIN(BLR_LS, 0, NPARTSCB, 'V')
           CALL DEALLOC_BLR_PANEL (BLR_LM, NB_BLR_LM, KEEP8)
           DEALLOCATE(BLR_LM)
           IF (NSLAVES_PREC.GT.0
@@ -958,7 +931,8 @@ C
          IF ( IW(IOLDPS+6+KEEP(IXSZ) ) .eq. 0
      &       .and. KEEP(50) .ne. 0 .and. NSLAVES_FOLLOW .eq. 0
      &       .and. NSLAVES_TOT.NE.1 ) THEN
-          DEST = MUMPS_PROCNODE( PROCNODE_STEPS(STEP(INODE)), SLAVEF )
+          DEST = MUMPS_PROCNODE( PROCNODE_STEPS(STEP(INODE)),
+     &                           KEEP(199) )
           CALL SMUMPS_BUF_SEND_1INT( INODE, DEST, END_NIV2_LDLT,
      &                              COMM, KEEP, IERR )
           IF ( IERR .LT. 0 ) THEN
@@ -987,7 +961,6 @@ C
               ENDDO
               CALL SMUMPS_BLR_SAVE_CB_LRB(IW(IOLDPS+XXF),CB_LRB)
             ENDIF
-            CALL SYSTEM_CLOCK(T1)
             IF (COMPRESS_CB) THEN
               NFS4FATHER = -9999
               IF ( (KEEP(219).NE.0).AND.(KEEP(50).EQ.2) ) THEN
@@ -1029,7 +1002,7 @@ C
      &        NPARTSASS_COL, 
      &        NROW1, NCOL1-NPIV1-NPIV, INODE,
      &        IW(IOLDPS+XXF), 1, 2, IFLAG, IERROR,
-     &        DKEEP(8), KEEP(466), KEEP(484), KEEP(489),
+     &        DKEEP(12), KEEP(466), KEEP(484), KEEP(489),
      &        CB_LRB(1,1),
      &        WORK, TAU, JPVT, LWORK, RWORK, BLOCKLR,
      &        MAXI_CLUSTER, KEEP8, OMP_NUM,
@@ -1051,10 +1024,6 @@ C
               ENDIF
               DEALLOCATE(M_ARRAY)
  650          CONTINUE         
-              CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-              ACC_CB_DEMOTING_TIME = ACC_CB_DEMOTING_TIME + 
-     &               DBLE(T2-T1)/DBLE(COUNT_RATE)
-              CALL SYSTEM_CLOCK(T1)
             ENDIF 
             IF (IFLAG.LT.0) GOTO 700
           ENDIF

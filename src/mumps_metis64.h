@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.2.1, released
- *  on Fri Jun 14 14:46:05 UTC 2019
+ *  This file is part of MUMPS 5.3.0, released
+ *  on Tue Mar 31 17:14:49 UTC 2020
  *
  *
- *  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -39,5 +39,11 @@ void MUMPS_CALL
 MUMPS_METIS_KWAY_64(MUMPS_INT8 *n,     MUMPS_INT8 *iptr,
                  MUMPS_INT8 *jcn,   MUMPS_INT8 *k,
                  MUMPS_INT8 *part);
+#define MUMPS_METIS_KWAY_AB_64 \
+  F_SYMBOL(metis_kway_ab_64,METIS_KWAY_AB_64)
+void MUMPS_CALL
+MUMPS_METIS_KWAY_AB_64(MUMPS_INT8 *n,     MUMPS_INT8 *iptr,
+                 MUMPS_INT8 *jcn,   MUMPS_INT8 *k,
+                 MUMPS_INT8 *part,  MUMPS_INT8 *vwgt);
 #endif
 #endif

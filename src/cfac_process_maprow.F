@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -120,9 +120,10 @@ C
       INTEGER, ALLOCATABLE, DIMENSION(:) :: SLAVES_PERE
       INTEGER, ALLOCATABLE, DIMENSION(:) :: MAP, PERM
       IS_ERROR_BROADCASTED = .FALSE.
-      TYPESPLIT = MUMPS_TYPESPLIT(PROCNODE_STEPS(STEP(INODE_PERE)),
-     &                  SLAVEF)
-      ITYPE_SON = MUMPS_TYPENODE(PROCNODE_STEPS(STEP(ISON)), SLAVEF)
+      TYPESPLIT = MUMPS_TYPESPLIT( PROCNODE_STEPS(STEP(INODE_PERE)),
+     &                             KEEP(199) )
+      ITYPE_SON = MUMPS_TYPENODE( PROCNODE_STEPS(STEP(ISON)),
+     &                            KEEP(199) )
       IS_ofType5or6 = ((TYPESPLIT.EQ.5).OR.(TYPESPLIT.EQ.6))
       LP = ICNTL(1)
       IF (ICNTL(4) .LE. 0) LP = -1
@@ -144,7 +145,7 @@ C
       IF (NSLAVES_PERE.GT.0) 
      &SLAVES_PERE(1:NSLAVES_PERE) = LIST_SLAVES_PERE(1:NSLAVES_PERE)
       SLAVES_PERE(0) = MUMPS_PROCNODE( PROCNODE_STEPS(STEP(INODE_PERE)),
-     &                 SLAVEF )
+     &                 KEEP(199) )
       ALLOCATE(NBROW(0:NSLAVES_PERE), stat=allocok)
       if (allocok .GT. 0) THEN
          IF (LP>0) THEN
@@ -167,7 +168,7 @@ C
       endif
       MAP( 1 : LMAP ) = TROW( 1 : LMAP )
       PDEST_MASTER_ISON = MUMPS_PROCNODE(PROCNODE_STEPS(STEP(ISON)),
-     &                    SLAVEF)
+     &                    KEEP(199))
       SLAVE_ISON = PDEST_MASTER_ISON .NE. MYID
       IF (SLAVE_ISON) THEN
         IF ( PTRIST(STEP( ISON )) .EQ. 0 ) THEN
@@ -225,23 +226,13 @@ C
      &     ( KEEP(50) .NE. 0 .AND.
      &       IW( PTRIST(STEP(ISON)) + 6 + KEEP(IXSZ) ) .NE. 0 ) )
           IF ( KEEP(50).eq.0) THEN
-#if defined(IBC_TEST)
-            MSGSOU = IW( PTRIST(STEP(ISON)) + 7 +  KEEP(IXSZ) )
-            MSGTAG = BLOC_FACTO
-#else
             MSGSOU = PDEST_MASTER_ISON
             MSGTAG = BLOC_FACTO
-#endif
           ELSE
             IF ( IW( PTRIST(STEP(ISON)) + 1 + KEEP(IXSZ) ) .NE.
      &           IW( PTRIST(STEP(ISON)) + 3 + KEEP(IXSZ) ) ) THEN
-#if defined(IBC_TEST)
-              MSGSOU = IW( PTRIST(STEP(ISON)) + 9 +  KEEP(IXSZ) )
-              MSGTAG = BLOC_FACTO_SYM
-#else
               MSGSOU = PDEST_MASTER_ISON
               MSGTAG = BLOC_FACTO_SYM
-#endif
             ELSE
               MSGSOU = MPI_ANY_SOURCE
               MSGTAG = BLOC_FACTO_SYM_SLAVE
@@ -629,9 +620,7 @@ C
       USE CMUMPS_LR_DATA_M
       USE CMUMPS_STRUC_DEF, ONLY : CMUMPS_ROOT_STRUC
       USE CMUMPS_DYNAMIC_MEMORY_M, ONLY : CMUMPS_DM_SET_DYNPTR
-#if ! defined(NODYNAMICCB)
      &                                  , CMUMPS_DM_FREE_BLOCK
-#endif
       IMPLICIT NONE
       TYPE (CMUMPS_ROOT_STRUC) :: root
       INTEGER COMM_LOAD, ASS_IRECV
@@ -689,9 +678,7 @@ C
       LOGICAL SAME_PROC, DESCLU
       INTEGER(8) :: IACHK, POSROW, ASIZE, RECSIZE
       COMPLEX, POINTER, DIMENSION(:) :: SON_A
-#if ! defined(NODYNAMICCB)
       INTEGER(8) :: DYNSIZE
-#endif
       INTEGER NSLSON, NBCOLS, NROW, NROWS_TO_SEND,
      &        NPIV, NROWS_TO_STACK, II, IROW_SON,
      &        IPOS_IN_SLAVE, DECR, ITYPE_SON
@@ -742,7 +729,7 @@ C
       SLAVES_PERE(1:NSLAVES_PERE) = LIST_SLAVES_PERE(1:NSLAVES_PERE)
       SLAVES_PERE(0) = MUMPS_PROCNODE( 
      &                       PROCNODE_STEPS(STEP(INODE_PERE)),
-     &                       SLAVEF )
+     &                       KEEP(199) )
       LMAP_LOC = LMAP
       ALLOCATE(MAP(LMAP_LOC), stat=allocok)
       if (allocok .GT. 0) THEN
@@ -891,7 +878,6 @@ C
              IFLAG  = -13
             GOTO 700
           ENDIF
-          CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)             
 !$OMP PARALLEL             
 #endif
@@ -906,9 +892,6 @@ C
 #if defined(BLR_MT)             
 !$OMP END PARALLEL             
 #endif
-          CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-          ACC_DEC_MAPLIG1_TIME = ACC_DEC_MAPLIG1_TIME +
-     &                  dble(T2-T1)/dble(COUNT_RATE)
         ENDIF
         CALL CMUMPS_DM_SET_DYNPTR(
      &                   IW(PTRIST(STEP(ISON))+XXS), 
@@ -1048,7 +1031,7 @@ C
      &       ) THEN
             CALL CMUMPS_INSERT_POOL_N( N, IPOOL, LPOOL,
      &        PROCNODE_STEPS,
-     &        SLAVEF, KEEP(28), KEEP(76), KEEP(80),
+     &        SLAVEF, KEEP(199), KEEP(28), KEEP(76), KEEP(80),
      &        KEEP(47), STEP, INODE_PERE+N )
             IF (KEEP(47) .GE. 3) THEN
               CALL CMUMPS_LOAD_POOL_UPD_NEW_POOL(
@@ -1071,7 +1054,8 @@ C
              NROWS_TO_SEND=NBROW(I+1)-NBROW(I)
            ENDIF
            IF ( NROWS_TO_SEND .EQ. 0) CYCLE
-           ITYPE_SON = MUMPS_TYPENODE(PROCNODE_STEPS(STEP(ISON)),SLAVEF)
+           ITYPE_SON = MUMPS_TYPENODE( PROCNODE_STEPS(STEP(ISON)),
+     &                                 KEEP(199) )
            IF (CB_IS_LR) THEN
              CALL CMUMPS_BUF_SEND_CONTRIB_TYPE2(NBROWS_ALREADY_SENT,
      &               DESCLU, INODE_PERE,
@@ -1167,18 +1151,15 @@ C
          WRITE(*,*) 'error 3 in CMUMPS_MAPLIG_FILS_NIV1'
          CALL MUMPS_ABORT()
       ENDIF
-#if ! defined(NODYNAMICCB)
       CALL MUMPS_GETI8(DYNSIZE,IW(ISTCHK+XXD))
-#endif
       CALL CMUMPS_FREE_BLOCK_CB_STATIC(.FALSE., MYID, N, ISTCHK,
      &     IW, LIW, LRLU, LRLUS, IPTRLU,
      &     IWPOSCB, LA, KEEP,KEEP8, .FALSE.
      &     )
-#if ! defined(NODYNAMICCB)
       IF (DYNSIZE .GT. 0_8) THEN
-        CALL CMUMPS_DM_FREE_BLOCK(SON_A, DYNSIZE, KEEP8)
+        CALL CMUMPS_DM_FREE_BLOCK( SON_A, DYNSIZE,
+     &                             KEEP(405).EQ.1, KEEP8 )
       ENDIF
-#endif
       GOTO 600 
  700  CONTINUE
       CALL CMUMPS_BDC_ERROR(MYID, SLAVEF, COMM, KEEP )
@@ -1220,9 +1201,7 @@ C
       USE CMUMPS_FAC_LR, ONLY: CMUMPS_DECOMPRESS_PANEL
       USE CMUMPS_LOAD, ONLY : CMUMPS_LOAD_POOL_UPD_NEW_POOL
       USE CMUMPS_DYNAMIC_MEMORY_M, ONLY : CMUMPS_DM_SET_DYNPTR
-#if ! defined(NODYNAMICCB)
      &                 , CMUMPS_DM_FREE_BLOCK
-#endif
       INTEGER ICNTL(60)
       INTEGER, intent(in) :: I, PDEST, MYID, PDEST_MASTER, IFATH, ISON
       INTEGER, intent(in) :: N, SLAVEF
@@ -1273,9 +1252,7 @@ C
       INTEGER(8) :: IACHK
       INTEGER :: SON_XXS
       COMPLEX, DIMENSION(:), POINTER :: SON_A
-#if ! defined(NODYNAMICCB)
       INTEGER(8) :: DYN_SIZE
-#endif
       INTEGER    :: IERR, LP
       INTEGER INDICE_PERE_ARRAY_ARG(1)
 #if ! defined(NO_XXNBPR)
@@ -1284,7 +1261,6 @@ C
       LOGICAL :: CB_IS_LR
       REAL, POINTER, DIMENSION(:) :: M_ARRAY
       LOGICAL :: M_ARRAY_RETRIEVED
-      INTEGER T1, T2, COUNT_RATE
       INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR_ROW, BEGS_BLR_COL,
      &                    BEGS_BLR_STA
       INTEGER :: NB_BLR_COLS, NB_BLR_ROWS,
@@ -1454,7 +1430,6 @@ C
                 IFLAG  = -13
                 RETURN
               ENDIF
-              CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)             
 !$OMP PARALLEL             
 #endif
@@ -1469,9 +1444,6 @@ C
 #if defined(BLR_MT)             
 !$OMP END PARALLEL             
 #endif
-              CALL SYSTEM_CLOCK(T2,COUNT_RATE)
-              ACC_DEC_LOCASM2_TIME = ACC_DEC_LOCASM2_TIME +
-     &                  dble(T2-T1)/dble(COUNT_RATE)
             ENDIF
             DO II = NROWS_ALREADY_STACKED+1,
      &              NROWS_ALREADY_STACKED+NROWS_TO_STACK_LOC
@@ -1729,19 +1701,16 @@ C
                  ELSE
                    PIMASTER(STEP( ISON )) = -99999999
                  ENDIF
-#if ! defined(NODYNAMICCB)
                  CALL MUMPS_GETI8(DYN_SIZE, IW(ISTCHK_LOC+XXD))
-#endif
                  CALL CMUMPS_FREE_BLOCK_CB_STATIC(.FALSE., MYID, N,
      &            ISTCHK_LOC,
      &            IW, LIW, LRLU, LRLUS, IPTRLU, IWPOSCB,
      &            LA, KEEP,KEEP8, .FALSE.
      &            )
-#if ! defined(NODYNAMICCB)
                  IF (DYN_SIZE .GT. 0_8) THEN
-                   CALL CMUMPS_DM_FREE_BLOCK(SON_A, DYN_SIZE, KEEP8)
+                   CALL CMUMPS_DM_FREE_BLOCK( SON_A, DYN_SIZE,
+     &                                        KEEP(405).EQ.1, KEEP8 )
                  ENDIF
-#endif
                ENDIF
 #if ! defined(NO_XXNBPR)
              CALL CHECK_EQUAL( NBPROCFILS(STEP(IFATH)),
@@ -1753,7 +1722,7 @@ C
      &       ) THEN
                CALL CMUMPS_INSERT_POOL_N( N, IPOOL, LPOOL,
      &           PROCNODE_STEPS,
-     &           SLAVEF, KEEP(28), KEEP(76), KEEP(80),
+     &           SLAVEF, KEEP(199), KEEP(28), KEEP(76), KEEP(80),
      &           KEEP(47), STEP, IFATH+N )
                IF (KEEP(47) .GE. 3) THEN
                  CALL CMUMPS_LOAD_POOL_UPD_NEW_POOL(

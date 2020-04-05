@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -34,11 +34,7 @@ C
        INTEGER, INTENT(IN) :: LD_WCBPIV, LD_WCBCB, NRHS, JBDEB, JBFIN
        REAL, INTENT(INOUT) :: WCB(LWCB)
        INTEGER, INTENT(INOUT) :: IFLAG, IERROR
-#if defined(RHSCOMP_BYROWS)
-       REAL, INTENT(INOUT) :: RHSCOMP(NRHS, LRHSCOMP)
-#else
        REAL, INTENT(INOUT) :: RHSCOMP(LRHSCOMP, NRHS)
-#endif
        LOGICAL, INTENT(IN)    :: OOCWRITE_COMPATIBLE_WITH_BLR
         INTEGER :: I, NPARTSASS, NB_BLR , NELIM, LDADIAG,
      &             DIAGSIZ_DYN, DIAGSIZ_STA, IBEG_BLR, IEND_BLR,

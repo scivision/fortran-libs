@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -102,7 +102,7 @@ C
       DOUBLE PRECISION:: cost_root_node
       DOUBLE PRECISION,dimension(:),allocatable:: work_per_proc
       integer,dimension(:),allocatable::id_son
-      logical::cont
+      logical :: cont
       character (len=48):: err_rep,subname
       DOUBLE PRECISION peak
       istat=-1
@@ -424,7 +424,7 @@ C
       return
       end subroutine MUMPS_ARRANGEL0
       subroutine MUMPS_ASSIGN_TYPES( layernmb,thislayer,nmb_thislayer,
-     &                                 istat)
+     &                                 istat )
       implicit none
       integer,intent(in)::layernmb,thislayer(:), 
      &                    nmb_thislayer
@@ -474,8 +474,8 @@ C
             in = inode
             npiv = 0
             do while (in.gt.0)
+                 npiv = npiv + 1
                in = cv_fils(in)
-               npiv = npiv + 1
             end do
             nfront = cv_nfsiz(inode)
             if(cv_nodetype(inode).ne.cv_invalid) cycle 
@@ -846,7 +846,7 @@ C
             npiv=0
             in=inode
             do while(in.gt.0)
-               npiv=npiv+1
+                 npiv=npiv+1
                in=cv_fils(in)
             end do
             ncb=nfront-npiv
@@ -999,7 +999,7 @@ C
             npiv=0
             in=inode
             do while(in.gt.0)
-               npiv=npiv+1
+                 npiv=npiv+1
                in=cv_fils(in)
             end do
             ncb=nfront-npiv
@@ -1158,7 +1158,7 @@ C
       end subroutine MUMPS_COSTS_LAYER_T2PM
       subroutine MUMPS_SPLIT_DURING_MAPPING(
      &     layernmb,thislayer,nmb_thislayer,
-     &     istat)
+     &     istat )
       implicit none
       integer,intent(in)::layernmb,nmb_thislayer
       integer,intent(in)::thislayer(:) 
@@ -1168,6 +1168,7 @@ C
       logical doit
       integer, allocatable, dimension(:) :: npivsplit
       integer :: lnpivsplit
+      integer :: bsize
       character (len=48):: err_rep,subname
       istat=-1
       subname='SPLIT_DURING_MAPPING'
@@ -1196,8 +1197,8 @@ C
         inode_tmp=inode
         npiv=0
         do while (inode_tmp.gt.0)
+            npiv=npiv+1
            inode_tmp=cv_fils(inode_tmp)
-           npiv=npiv+1
         end do
         if (inode_tmp .eq. 0) cycle
         npropmap=0
@@ -1232,10 +1233,11 @@ C
             write(*,*) 'error in', subname, lnpivsplit, k1, cv_keep(108)
             call MUMPS_ABORT()
           endif
-          do j = 1, k1-1
-            npivsplit(j)=npiv/k1
-          enddo
-          npivsplit(k1)=npiv-(npiv/k1)*(k1-1)
+          bsize   = max(npiv/k1,1)
+            do j = 1, k1-1
+              npivsplit(j)= bsize
+            enddo
+            npivsplit(k1) = npiv-bsize*(k1-1)
         endif
  200    CONTINUE
         if(ierr.ne.0) then
@@ -1251,7 +1253,8 @@ C
      &        lnpivsplit, npivsplit, cv_keep(1), n, cv_fils(1),
      &        cv_frere(1),
      &        cv_nfsiz(1), cv_ne(1), cv_info(5), 
-     &        cv_nsteps, cv_nodetype(1), ierr)
+     &        cv_nsteps, cv_nodetype(1), ierr
+     &      )
          if(ierr.ne.0) then
             if(cv_lp.gt.0)
      &      write(cv_lp,*)'Error reported by ',err_rep,
@@ -1569,6 +1572,7 @@ C
       integer, intent(out)::istat
       integer i,in,inode
       character (len=48):: subname
+      integer, external :: MUMPS_ENCODE_TPN_IPROC
       istat=-1
       subname='ENCODE_PROCNODE'
       do i=1,cv_nbsa
@@ -1596,7 +1600,8 @@ C
                  cv_nodetype(i)=3
                endif
             endif
-            cv_procnode(i)=(cv_nodetype(i)-1)*cv_slavef+cv_procnode(i)
+            cv_procnode(i)=MUMPS_ENCODE_TPN_IPROC( cv_nodetype(i),
+     &           cv_procnode(i)-1, cv_keep(199))
             in=cv_fils(i)
             do while (in>0)
                cv_procnode(in)=cv_procnode(i)
@@ -3479,7 +3484,7 @@ C
             in_tmp=in_tmp
             do while(in_tmp.gt.0)
                npiv=npiv+1
-               in_tmp=cv_fils(in_tmp)
+              in_tmp=cv_fils(in_tmp)
             end do
             ncb=nfront-npiv
             if (force_cand) then
@@ -4043,13 +4048,9 @@ C
       nfront=cv_nfsiz(pos)
       npiv=1
       nextpos=cv_fils(pos)
-      do
-         if(nextpos.le.0) then
-            exit
-         else
-            npiv=npiv+1
-            nextpos=cv_fils(nextpos)
-         end if
+      do while (nextpos.gt.0)
+           npiv=npiv+1
+         nextpos=cv_fils(nextpos)
       end do
       call MUMPS_CALCNODECOSTS(npiv,nfront,
      &     cv_ncostw(pos), cv_ncostm(pos))
@@ -4669,7 +4670,8 @@ C
       SUBROUTINE MUMPS_SPLITNODE_INTREE(inode,nfront,npiv,k,
      &     lnpivsplit, npivsplit, keep, n, fils, frere,
      &     nfsiz, ne, info5_nfrmax, k28_nsteps, nodetype,
-     &     istat)
+     &     istat
+     &      )
       implicit none
       integer, intent(in)::nfront,npiv
       integer, intent(in):: k
@@ -4701,9 +4703,9 @@ C
       d1 = inode
       f1 = d1
       e1 = frere(d1)
-      do i=1,npiv_son-1
-         f1 = fils(f1)
-      enddo
+         do i=1,npiv_son-1
+           f1 = fils(f1)
+         enddo
       ison = d1
       in_son = f1
       next_father = fils(in_son)
@@ -4712,9 +4714,9 @@ C
          in_father = ifather
          npiv_son=   abs(npivsplit(lev))
          npiv_father=abs(npivsplit(lev+1))
-         do i=1,npiv_father-1
-            in_father=fils(in_father)
-         enddo
+            do i=1,npiv_father-1
+               in_father=fils(in_father)
+            enddo
          frere(ison)=-ifather
          next_father = fils(in_father)
          fils(in_father)=-ison
@@ -4911,11 +4913,10 @@ C
             call MUMPS_ABORT()
           endif
         endif
-        nass = nass + npiv2
         kk = kk + 1
         npivsplit(kk) = npiv2
-        if (keep(79) .ge. 1  
-     &    .and. kk .ne. 1) then  
+        if (keep(79) .ge. 1       
+     &    .and. kk .ne. 1) then   
           if (optimization_strategy .eq. 0) then 
             npivOld = min(npiv - nass,
      &                npiv4equilibreRows(nfront - nass, nproc ))
@@ -4935,7 +4936,7 @@ C
           timeFacOld = timeFacto(int(nfront-nass,8), int(npivOld,8),
      &                           nproc)
           timeFacNew = timeFacto(int(nfront-nass,8),int(npivNew,8),
-     &                           nproc2)
+     &                           nproc2-1)
           if ( (flopsFactoPanel(int(npivOld,8),int(nfront-nass,8))+
      &          flopsUpdate(int(nfront-nass-npivOld,8),
      &          int(nfront-nass-npivOld,8), int(npivOld,8)))/
@@ -4948,8 +4949,11 @@ C
             nproc2 = nproc
           else
             nproc2 = nproc2 - 1.0d0
+            npiv2 = npivNew
+            npivsplit(kk)=npivNew
           endif
         endif
+        nass = nass + npiv2
       enddo
       k = kk
       istat=0

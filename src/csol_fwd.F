@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -14,9 +14,10 @@ C
      &    NRHS,
      &    PTRICB, IWCB, LIWCB, 
      &    RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD, 
-     &    NE_STEPS, NA, LNA, STEP,
+     &    STEP,
      &    FRERE, DAD, FILS,
-     &    NSTK_S, IPOOL, LPOOL, PTRIST, PTRFAC, MYLEAF, INFO,
+     &    NSTK, IPOOL, LPOOL, PTRIST, PTRFAC, MYLEAF, MYROOT,
+     &    INFO,
      &    KEEP, KEEP8, DKEEP,
      &    PROCNODE_STEPS,
      &    SLAVEF, COMM, MYID, BUFR, LBUFR, LBUFR_BYTES,
@@ -25,12 +26,13 @@ C
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE
      &    , RHS_BOUNDS, LRHS_BOUNDS, DO_NBSPARSE, FROM_PP
      &    )
-      USE CMUMPS_OOC
+      USE CMUMPS_STATIC_PTR_M, ONLY : CMUMPS_SET_STATIC_PTR,
+     &                                CMUMPS_GET_TMP_PTR
       IMPLICIT NONE
       INTEGER MTYPE
       INTEGER(8), INTENT(IN) :: LA, LWCB
-      INTEGER, INTENT(IN) :: N, LIW, LPOOL, LIWCB, LNA
-      INTEGER SLAVEF, MYLEAF, COMM, MYID
+      INTEGER, INTENT(IN) :: N, LIW, LPOOL, LIWCB
+      INTEGER, INTENT(IN) :: SLAVEF, MYLEAF, MYROOT, COMM, MYID
       INTEGER INFO( 80 ), KEEP(500)
       INTEGER(8) KEEP8(150)
       REAL, INTENT(INOUT) :: DKEEP(230)
@@ -41,10 +43,9 @@ C
       COMPLEX RHS_ROOT( LRHS_ROOT )
       INTEGER LBUFR, LBUFR_BYTES
       INTEGER BUFR( LBUFR )
-      INTEGER NA( LNA ), NE_STEPS( KEEP(28) )
       INTEGER STEP( N ), FRERE( KEEP(28) ), FILS( N ),
      &        DAD( KEEP(28) )
-      INTEGER NSTK_S(KEEP(28)), IPOOL( LPOOL )
+      INTEGER NSTK(KEEP(28)), IPOOL( LPOOL )
       INTEGER PTRIST(KEEP(28))
       INTEGER(8) :: PTRFAC(KEEP(28))
       INTEGER PTRICB( KEEP(28) ) 
@@ -55,49 +56,39 @@ C
       INTEGER ISTEP_TO_INIV2(KEEP(71)), 
      &        TAB_POS_IN_PERE(SLAVEF+2,max(1,KEEP(56)))
       INTEGER, intent(in) ::  POSINRHSCOMP_FWD(N), LRHSCOMP 
-#if defined(RHSCOMP_BYROWS)
-      COMPLEX, intent(inout) :: RHSCOMP(NRHS,LRHSCOMP)
-#else
       COMPLEX, intent(inout) :: RHSCOMP(LRHSCOMP,NRHS)
-#endif
       LOGICAL, intent(in) :: FROM_PP
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
-      INTEGER MSGTAG, MSGSOU, DUMMY(1)
+      INTEGER DUMMY(1)
       LOGICAL FLAG
-      INTEGER NBFIN, MYROOT
+      COMPLEX, DIMENSION(:), POINTER :: A_PTR
+      INTEGER(8) :: LA_PTR
+      INTEGER NBFIN, MYROOT_LEFT
       INTEGER POSIWCB
       INTEGER(8) :: POSWCB, PLEFTWCB
-      INTEGER INODE
-      INTEGER I
-      INTEGER III, NBROOT,LEAF
+      INTEGER INODE, IFATH
+      INTEGER III, LEAF
       LOGICAL BLOQ
       EXTERNAL MUMPS_PROCNODE
       INTEGER MUMPS_PROCNODE
+      LOGICAL ERROR_WAS_BROADCASTED
       DUMMY(1) = 1
       KEEP(266)=0
       POSIWCB = LIWCB
       POSWCB  = LWCB
       PLEFTWCB= 1_8
-      DO I = 1, KEEP(28)
-        NSTK_S(I)   = NE_STEPS(I)
-      ENDDO
       PTRICB = 0
-      CALL MUMPS_INIT_POOL_DIST(N, LEAF, MYID,
-     &     SLAVEF, NA, LNA, KEEP,KEEP8, STEP,
-     &     PROCNODE_STEPS, IPOOL, LPOOL)
-      CALL MUMPS_INIT_NROOT_DIST(N, NBROOT, MYROOT, MYID,
-     &     SLAVEF, NA, LNA, KEEP, STEP,
-     &     PROCNODE_STEPS)
+      LEAF = MYLEAF + 1
+      III    = 1
       NBFIN = SLAVEF
-      IF ( MYROOT .EQ. 0 ) THEN
+      MYROOT_LEFT = MYROOT
+      IF ( MYROOT_LEFT .EQ. 0 ) THEN
         NBFIN = NBFIN - 1
         CALL CMUMPS_MCAST2(DUMMY, 1, MPI_INTEGER, MYID, COMM,
      &       RACINE_SOLVE, SLAVEF, KEEP)
         IF (NBFIN.EQ.0) GOTO 260
       END IF
-      MYLEAF = LEAF - 1
-      III    = 1
    50 CONTINUE
       IF (SLAVEF .EQ. 1) THEN
          CALL CMUMPS_GET_INODE_FROM_POOL
@@ -110,8 +101,8 @@ C
       CALL CMUMPS_SOLVE_RECV_AND_TREAT( BLOQ, FLAG,
      &     BUFR, LBUFR, LBUFR_BYTES,
      &     MYID, SLAVEF, COMM,
-     &     N, NRHS, IPOOL, LPOOL, III, LEAF,
-     &     NBFIN, NSTK_S, IW, LIW, A, LA, PTRIST, PTRFAC,
+     &     N, NRHS, IPOOL, LPOOL, LEAF,
+     &     NBFIN, NSTK, IW, LIW, A, LA, PTRIST, PTRFAC,
      &     IWCB, LIWCB,
      &     WCB, LWCB, POSWCB,
      &     PLEFTWCB, POSIWCB,
@@ -131,21 +122,63 @@ C
       ENDIF                     
       GOTO 50
  60   CONTINUE
-      CALL CMUMPS_SOLVE_NODE( INODE, BUFR, LBUFR, LBUFR_BYTES,
-     &        MSGTAG, MSGSOU, MYID, SLAVEF, COMM,  N,
-     &        IPOOL, LPOOL, III, LEAF, NBFIN, NSTK_S,
-     &        IWCB, LIWCB, WCB, LWCB, A, LA,
+        CALL CMUMPS_SET_STATIC_PTR(A)
+        CALL CMUMPS_GET_TMP_PTR(A_PTR)
+        LA_PTR = LA
+      CALL CMUMPS_SOLVE_NODE_FWD( INODE,
+     &        huge(INODE), huge(INODE), 
+     &        BUFR, LBUFR, LBUFR_BYTES,
+     &        MYID, SLAVEF, COMM,  N,
+     &        IPOOL, LPOOL, LEAF, NBFIN, NSTK,
+     &        IWCB, LIWCB, WCB, LWCB, A_PTR(1), LA_PTR,
      &        IW, LIW, NRHS, 
      &        POSWCB, PLEFTWCB, POSIWCB,
      &        PTRICB, PTRIST, PTRFAC, PROCNODE_STEPS,
      &        FILS, STEP, FRERE, DAD,
-     &        MYROOT, INFO, KEEP,KEEP8, DKEEP, RHS_ROOT, MTYPE, 
+     &        INFO, KEEP,KEEP8, DKEEP, RHS_ROOT, LRHS_ROOT, MTYPE,
      &        RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD,
      &        ISTEP_TO_INIV2, TAB_POS_IN_PERE
      &        , RHS_BOUNDS, LRHS_BOUNDS, DO_NBSPARSE 
-     &     , FROM_PP
+     &        , FROM_PP
+     &        , ERROR_WAS_BROADCASTED
      & )
-      IF ( INFO( 1 ) .LT. 0 .OR. NBFIN .EQ. 0 ) GOTO 260
+      IF ( INFO(1) .LT. 0 ) THEN
+        IF (.NOT. ERROR_WAS_BROADCASTED) THEN
+          CALL CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
+        ENDIF
+        GOTO 260
+      ENDIF
+      IFATH = DAD(STEP(INODE))
+      IF ( IFATH .EQ. 0 ) THEN
+        MYROOT_LEFT = MYROOT_LEFT - 1
+        IF (MYROOT_LEFT .EQ. 0) THEN
+          NBFIN = NBFIN - 1
+          IF (SLAVEF .GT. 1) THEN
+            CALL CMUMPS_MCAST2(DUMMY, 1, MPI_INTEGER, MYID,
+     &           COMM, RACINE_SOLVE, SLAVEF, KEEP)
+          ENDIF
+        END IF
+      ELSE
+        IF ( MUMPS_PROCNODE(PROCNODE_STEPS(STEP(IFATH)), KEEP(199))
+     &       .EQ. MYID ) THEN
+           IF ( PTRICB(STEP(INODE)) .EQ. 1 .OR.
+     &          PTRICB(STEP(INODE)) .EQ. -1 ) THEN
+             NSTK(STEP(IFATH)) = NSTK(STEP(IFATH)) - 1
+             IF (NSTK(STEP(IFATH)) .EQ. 0) THEN
+               IPOOL(LEAF) = IFATH
+               LEAF = LEAF + 1
+               IF (LEAF .GT. LPOOL) THEN
+                  WRITE(*,*)
+     &            'Internal error CMUMPS_TRAITER_MESSAGE_SOLVE',
+     &            LEAF, LPOOL
+                  CALL MUMPS_ABORT()
+               ENDIF
+             ENDIF
+             PTRICB(STEP(INODE)) = 0
+           ENDIF
+        ENDIF
+      ENDIF
+      IF ( NBFIN .EQ. 0 ) GOTO 260
       GOTO 50
   260 CONTINUE
       CALL CMUMPS_CLEAN_PENDING(INFO(1), KEEP, BUFR, LBUFR,LBUFR_BYTES,

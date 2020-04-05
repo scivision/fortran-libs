@@ -1,8 +1,8 @@
 project('MUMPS', 'c', 'fortran',
-  version : '5.2.1',
+  version : '5.3.0',
   meson_version: '>=0.50',
   default_options : ['default_library=static', 'buildtype=release', 'warning_level=0',
-    'libdir=mumps-5.2.1', 'includedir=mumps-5.2.1/include'])
+    'libdir=mumps-5.3.0', 'includedir=mumps-5.3.0/include'])
 
 arith = get_option('arith')
 parallel = get_option('parallel')
@@ -14,6 +14,11 @@ scalapack = declare_dependency(dependencies: [scalapack, lapack, blas, openmp, t
 
 
 cargs = ['-DAdd_']
+
+if get_option('intsize64')
+  add_project_arguments('-DINTSIZE64')
+endif
+subdir('include')
 # if os == 'windows'
 #   cargs += '-DMUMPS_WIN32'
 # endif

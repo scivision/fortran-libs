@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.2.1, released
-C  on Fri Jun 14 14:46:05 UTC 2019
+C  This file is part of MUMPS 5.3.0, released
+C  on Tue Mar 31 17:14:49 UTC 2020
 C
 C
-C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -97,7 +97,7 @@ C
      &   LRLU, IPTRLU,IWPOS,IWPOSCB, SLAVEF, PROCNODE_STEPS, DAD,
      &   PTRIST,PTRAST,STEP, PIMASTER, PAMASTER,
      &   NOINT, NOREAL, ISON, S_NOTFREE, .TRUE.,
-     &   COMP, LRLUS, IFLAG, IERROR
+     &   COMP, LRLUS, KEEP8(67), IFLAG, IERROR
      &     )
         IF ( IFLAG .LT. 0 ) THEN
           RETURN
@@ -147,11 +147,12 @@ C
       ENDIF
       IF ( NBROWS_ALREADY_SENT + NBROWS_PACKET .EQ. NROW ) THEN
         PERETYPE2 = ( MUMPS_TYPENODE(PROCNODE_STEPS(STEP(IFATH)),
-     &              SLAVEF) .EQ. 2 )
+     &                KEEP(199)) .EQ. 2 )
         NSTK_S( STEP(IFATH ))       = NSTK_S( STEP(IFATH) ) - 1
         IF ( NSTK_S( STEP(IFATH)) .EQ. 0 ) THEN
           CALL SMUMPS_INSERT_POOL_N(N, IPOOL, LPOOL, PROCNODE_STEPS,
-     &         SLAVEF, KEEP(28), KEEP(76), KEEP(80), KEEP(47),
+     &         SLAVEF, KEEP(199),
+     &         KEEP(28), KEEP(76), KEEP(80), KEEP(47),
      &         STEP, IFATH )
           IF (KEEP(47) .GE. 3) THEN
              CALL SMUMPS_LOAD_POOL_UPD_NEW_POOL(
@@ -160,7 +161,7 @@ C
      &            MYID, STEP, N, ND, FILS )
           ENDIF
           CALL MUMPS_ESTIM_FLOPS( IFATH, N, PROCNODE_STEPS,
-     &                            SLAVEF, ND,
+     &                            KEEP(199), ND,
      &                            FILS,FRERE, STEP, PIMASTER,
      &                            KEEP(28), KEEP(50), KEEP(253),
      &                            FLOP1,IW, LIW, KEEP(IXSZ) )
