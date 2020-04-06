@@ -148,15 +148,20 @@ if(LAPACK95 IN_LIST LAPACK_FIND_COMPONENTS)
   endif()
 endif(LAPACK95 IN_LIST LAPACK_FIND_COMPONENTS)
 
+if(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
+  get_filename_component(_pgi_path ${CMAKE_Fortran_COMPILER} DIRECTORY)
+  set(_lapack_hints ${_pgi_path}/../)
+endif()
+
 pkg_check_modules(LAPACK lapack-netlib QUIET)
 if(NOT LAPACK_FOUND)
   pkg_check_modules(LAPACK lapack QUIET)  # Netlib on Cygwin, Homebrew and others
 endif()
 find_library(LAPACK_LIB
   NAMES lapack
-  PATHS /usr/local/opt
-  HINTS ${LAPACK_LIBRARY_DIRS} ${LAPACK_LIBDIR}
-  PATH_SUFFIXES lapack lapack/lib)
+  PATHS /usr/local/opt  # homebrew
+  HINTS ${_lapack_hints} ${LAPACK_LIBRARY_DIRS} ${LAPACK_LIBDIR}
+  PATH_SUFFIXES lib lapack lapack/lib)
 if(LAPACK_LIB)
   list(APPEND LAPACK_LIBRARY ${LAPACK_LIB})
 else()
@@ -199,8 +204,8 @@ endif()
 find_library(BLAS_LIBRARY
   NAMES refblas blas
   PATHS /usr/local/opt
-  HINTS ${BLAS_LIBRARY_DIRS} ${BLAS_LIBDIR}
-  PATH_SUFFIXES lapack lapack/lib blas)
+  HINTS ${_lapack_hints} ${BLAS_LIBRARY_DIRS} ${BLAS_LIBDIR}
+  PATH_SUFFIXES lib lapack lapack/lib blas)
 
 if(BLAS_LIBRARY)
   list(APPEND LAPACK_LIBRARY ${BLAS_LIBRARY})
