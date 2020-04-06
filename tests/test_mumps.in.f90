@@ -2,7 +2,7 @@
 use, intrinsic:: iso_fortran_env, only: output_unit, error_unit
 use mpi, only: mpi_init, mpi_comm_world
 
-implicit none (external)
+implicit none @impext@
 
 external :: mpi_finalize, dmumps
 

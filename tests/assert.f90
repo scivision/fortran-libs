@@ -2,7 +2,7 @@ module assert
 
 use, intrinsic:: iso_fortran_env, only: sp=>real32, dp=>real64, qp=>real128, stderr=>error_unit
 use, intrinsic:: ieee_arithmetic
-implicit none
+implicit none (external)
 private
 
 integer,parameter :: wp = dp

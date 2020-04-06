@@ -1,17 +1,18 @@
-program s_simple_seq
+program d_simple_seq
 !  This file is part of MUMPS 5.2.1, released
 !  on Fri Jun 14 14:46:05 UTC 2019
 
 use, intrinsic :: iso_fortran_env, only: stderr=>error_unit, stdout=>output_unit, int64
 
-implicit none (external)
+implicit none @impext@
 
-external :: smumps
+external :: dmumps
 
-INCLUDE 'smumps_struc.h'
-TYPE (sMUMPS_STRUC) mumps_par
-INTEGER :: IERR, I, num_mpi
+INCLUDE 'dmumps_struc.h'
+TYPE (DMUMPS_STRUC) mumps_par
+INTEGER :: IERR, I
 INTEGER(int64) :: I8
+
 
 !  Initialize an instance of the package
 !  for L U factorization (sym = 0, with working host)
@@ -19,7 +20,7 @@ mumps_par%JOB = -1
 mumps_par%SYM = 0
 mumps_par%PAR = 1
 
-CALL sMUMPS(mumps_par)
+CALL DMUMPS(mumps_par)
 
 mumps_par%icntl(1) = stderr  ! error messages
 mumps_par%icntl(2) = stdout !  diagnosic, statistics, and warning messages
@@ -50,7 +51,7 @@ IF ( mumps_par%MYID == 0 ) THEN
 END IF
 !  Call package for solution
 mumps_par%JOB = 6
-CALL sMUMPS(mumps_par)
+CALL DMUMPS(mumps_par)
 IF (mumps_par%INFOG(1) < 0) THEN
   WRITE(stderr,'(A,A,I6,A,I9)') " ERROR RETURN: ", &
   "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1), &
@@ -75,7 +76,7 @@ IF ( mumps_par%MYID == 0 )THEN
 END IF
 !  Destroy the instance (deallocate internal data structures)
 mumps_par%JOB = -2
-CALL sMUMPS(mumps_par)
+CALL DMUMPS(mumps_par)
 IF (mumps_par%INFOG(1) < 0) THEN
   WRITE(stderr,'(A,A,I6,A,I9)') " ERROR RETURN: ", &
   "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1), &
@@ -84,4 +85,4 @@ IF (mumps_par%INFOG(1) < 0) THEN
  error stop
 END IF
 
-end program
+END program

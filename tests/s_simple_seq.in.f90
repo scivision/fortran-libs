@@ -1,34 +1,25 @@
-program d_simple
+program s_simple_seq
 !  This file is part of MUMPS 5.2.1, released
 !  on Fri Jun 14 14:46:05 UTC 2019
-!
-use mpi, only : mpi_init, mpi_comm_size, mpi_comm_world
+
 use, intrinsic :: iso_fortran_env, only: stderr=>error_unit, stdout=>output_unit, int64
 
-implicit none (external)
+implicit none @impext@
 
-external :: mpi_finalize, dmumps
+external :: smumps
 
-INCLUDE 'dmumps_struc.h'
-TYPE (DMUMPS_STRUC) mumps_par
+INCLUDE 'smumps_struc.h'
+TYPE (sMUMPS_STRUC) mumps_par
 INTEGER :: IERR, I, num_mpi
 INTEGER(int64) :: I8
 
-CALL MPI_INIT(IERR)
-if(ierr/=0) error stop 'problem initializing MPI'
-
-call MPI_COMM_size(MPI_COMM_WORLD, num_mpi, ierr)
-if(ierr/=0) error stop 'problem getting number of MPI processes'
-print '(A,I3,A)', 'using ',num_mpi,' MPI processes'
-! Define a communicator for the package.
-mumps_par%COMM = MPI_COMM_WORLD
 !  Initialize an instance of the package
 !  for L U factorization (sym = 0, with working host)
 mumps_par%JOB = -1
 mumps_par%SYM = 0
 mumps_par%PAR = 1
 
-CALL DMUMPS(mumps_par)
+CALL sMUMPS(mumps_par)
 
 mumps_par%icntl(1) = stderr  ! error messages
 mumps_par%icntl(2) = stdout !  diagnosic, statistics, and warning messages
@@ -59,7 +50,7 @@ IF ( mumps_par%MYID == 0 ) THEN
 END IF
 !  Call package for solution
 mumps_par%JOB = 6
-CALL DMUMPS(mumps_par)
+CALL sMUMPS(mumps_par)
 IF (mumps_par%INFOG(1) < 0) THEN
   WRITE(stderr,'(A,A,I6,A,I9)') " ERROR RETURN: ", &
   "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1), &
@@ -84,7 +75,7 @@ IF ( mumps_par%MYID == 0 )THEN
 END IF
 !  Destroy the instance (deallocate internal data structures)
 mumps_par%JOB = -2
-CALL DMUMPS(mumps_par)
+CALL sMUMPS(mumps_par)
 IF (mumps_par%INFOG(1) < 0) THEN
   WRITE(stderr,'(A,A,I6,A,I9)') " ERROR RETURN: ", &
   "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1), &
@@ -93,6 +84,4 @@ IF (mumps_par%INFOG(1) < 0) THEN
  error stop
 END IF
 
-call mpi_finalize(ierr)
-
-END program
+end program

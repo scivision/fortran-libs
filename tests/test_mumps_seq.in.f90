@@ -1,7 +1,7 @@
 ! we do "use mpi" to be compatible with Windows Intel 2019
 use, intrinsic:: iso_fortran_env, only: output_unit, error_unit
 
-implicit none (external)
+implicit none @impext@
 
 external :: dmumps
 

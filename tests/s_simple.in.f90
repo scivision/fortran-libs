@@ -5,7 +5,7 @@ program s_simple
 use mpi, only : mpi_init, mpi_comm_size, mpi_comm_world
 use, intrinsic :: iso_fortran_env, only: stderr=>error_unit, stdout=>output_unit, int64
 
-implicit none (external)
+implicit none @impext@
 
 external :: mpi_finalize, smumps
 
