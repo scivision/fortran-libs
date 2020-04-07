@@ -72,7 +72,6 @@ if("d" IN_LIST arith)
   endif()
   target_link_libraries(Csimple PRIVATE dmumps mumps::mumps ${NUMERIC_LIBS})
   target_include_directories(Csimple PRIVATE ${NUMERIC_INCDIRS})
-  target_compile_options(Csimple PRIVATE ${CFLAGS})
 
   set_tests_properties(mumps:CsimpleReal64 PROPERTIES RUN_SERIAL true)
 endif()

@@ -148,6 +148,7 @@ if(LAPACK95 IN_LIST LAPACK_FIND_COMPONENTS)
   endif()
 endif(LAPACK95 IN_LIST LAPACK_FIND_COMPONENTS)
 
+set(_lapack_hints)
 if(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
   get_filename_component(_pgi_path ${CMAKE_Fortran_COMPILER} DIRECTORY)
   set(_lapack_hints ${_pgi_path}/../)

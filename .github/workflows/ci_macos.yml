@@ -22,17 +22,3 @@ jobs:
       env:
         FC: gfortran-9
         CC: gcc-9
-
-  cmakeSequential:
-    if: false
-
-    runs-on: macos-latest
-    steps:
-    - uses: actions/checkout@v2
-
-    - run: brew install ninja lapack
-
-    - run: ctest -S setup.cmake -VV
-      env:
-        FC: gfortran-9
-        CC: gcc-9

@@ -52,7 +52,8 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
 
 add_library(mumps_common ${COMM_SRC} ${COMM_OTHER_SRC})
 target_link_libraries(mumps_common PRIVATE ${ORDERING_LIBS} ${NUMERIC_LIBS})
-target_include_directories(mumps_common PRIVATE ${PROJECT_SOURCE_DIR}/include ${NUMERIC_INCDIRS} ${ORDERING_INCDIRS}
+target_include_directories(mumps_common
+  PRIVATE ${PROJECT_SOURCE_DIR}/include ${NUMERIC_INCDIRS} ${ORDERING_INCDIRS}
   INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>

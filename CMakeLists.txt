@@ -46,11 +46,15 @@ find_package(Threads)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/lapack.cmake)
 
 # -- Scalapack / MPI
+
 if(parallel)
   find_package(MPI COMPONENTS Fortran C REQUIRED)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/scalapack.cmake)
 
-  set(NUMERIC_INCDIRS ${SCALAPACK_INCLUDE_DIRS})
+  set(NUMERIC_INCDIRS "") # to avoid uninitialized warning
+  if(SCALAPACK_INCLUDE_DIRS)
+    set(NUMERIC_INCDIRS ${SCALAPACK_INCLUDE_DIRS})
+  endif()
   set(NUMERIC_LIBS ${SCALAPACK_LIBRARIES} MPI::MPI_Fortran MPI::MPI_C)
   if(openmp)
     find_package(OpenMP COMPONENTS C Fortran REQUIRED)

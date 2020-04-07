@@ -28,7 +28,7 @@ jobs:
         sudo apt update -yq
         sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libmetis-dev libscotch-dev
 
-    - run: cmake -B build -Dmetis=true -Dscotch=true
+    - run: cmake --warn-uninitialized -B build -Dmetis=true -Dscotch=true
     - run: ctest -S setup.cmake -VV
       env:
         FC: gfortran
