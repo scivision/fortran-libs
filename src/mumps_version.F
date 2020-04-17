@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.0, released
-C  on Tue Mar 31 17:14:49 UTC 2020
+C  This file is part of MUMPS 5.3.1, released
+C  on Fri Apr 10 13:52:30 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -14,7 +14,7 @@ C
       IMPLICIT NONE
       CHARACTER(LEN=*) :: VERSION_STR
       CHARACTER(LEN=*) :: V;
-      PARAMETER (V = "5.3.0" )
+      PARAMETER (V = "5.3.1" )
       IF ( len(V) .GT. 30 ) THEN
          WRITE(*,*) "Version string too long ( >30 characters )"
          CALL MUMPS_ABORT()

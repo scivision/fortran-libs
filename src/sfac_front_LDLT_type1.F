@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.0, released
-C  on Tue Mar 31 17:14:49 UTC 2020
+C  This file is part of MUMPS 5.3.1, released
+C  on Fri Apr 10 13:52:30 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -764,7 +764,7 @@ C
               KEEP8(68)    = max(KEEP8TMPCOPY, KEEP8(68))
               KEEP8(71)    = KEEP8(71) + int(MEM_TOT,8) 
               KEEP8TMPCOPY = KEEP8(71)
-              KEEP8(70)    = max(KEEP8TMPCOPY, KEEP8(71))
+              KEEP8(70)    = max(KEEP8TMPCOPY, KEEP8(70))
               KEEP8(73)    = KEEP8(73) + int(MEM_TOT,8)
               KEEP873COPY  = KEEP8(73)
               KEEP8(74)    = max(KEEP8(74), KEEP873COPY)
@@ -781,7 +781,7 @@ C
               KEEP8TMPCOPY = KEEP8(71)
 !$OMP         END ATOMIC
 !$OMP         ATOMIC UPDATE
-              KEEP8(70)    = max(KEEP8TMPCOPY, KEEP8(71))
+              KEEP8(70)    = max(KEEP8TMPCOPY, KEEP8(70))
 !$OMP         END ATOMIC
 !$OMP         ATOMIC CAPTURE
               KEEP8(73) = KEEP8(73) + int(MEM_TOT,8)

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.0, released
-C  on Tue Mar 31 17:14:49 UTC 2020
+C  This file is part of MUMPS 5.3.1, released
+C  on Fri Apr 10 13:52:30 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -2468,8 +2468,10 @@ C
 C         ----------------
 C         Elemental matrix
 C         ----------------
-          DEALLOCATE( id%INTARR)
-          NULLIFY( id%INTARR )
+          IF (associated(id%INTARR)) THEN
+            DEALLOCATE( id%INTARR)
+            NULLIFY( id%INTARR )
+          ENDIF
 C         ------------------------------------
 C         For the master from an hybrid host
 C         execution without scaling, then real
@@ -2480,8 +2482,6 @@ C         -------------------------------------
      &      .AND.   KEEP(52)   .eq. 0 ) THEN
             NULLIFY( id%DBLARR )
           ELSE
-C           next line should be enough but ... 
-C           DEALLOCATE( id%DBLARR ) 
             IF (associated( id%DBLARR)) THEN
               DEALLOCATE(id%DBLARR)
               NULLIFY(id%DBLARR)
@@ -3266,6 +3266,20 @@ C  MUMPS_FMRD_INIT
 C  are all called.
 C
  500  CONTINUE
+C     Redo free DBLARR (as in end_driver.F)
+C     in case an error occurred after allocating
+C     DBLARR and before freeing it above.
+      IF (id%KEEP(46).EQ.1 .AND.
+     &    id%KEEP(55).NE.0 .AND.
+     &    id%MYID.EQ.MASTER .AND.
+     &    id%KEEP(52) .EQ. 0) THEN
+        NULLIFY(id%DBLARR)
+      ELSE
+        IF (associated(id%DBLARR)) THEN
+          DEALLOCATE(id%DBLARR)
+          NULLIFY(id%DBLARR)
+        ENDIF
+      ENDIF
 #if ! defined(NO_FDM_DESCBAND)
       IF (I_AM_SLAVE) THEN
         CALL MUMPS_FDBD_END(id%INFO(1))  ! INFO(1): input only

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.0, released
-C  on Tue Mar 31 17:14:49 UTC 2020
+C  This file is part of MUMPS 5.3.1, released
+C  on Fri Apr 10 13:52:30 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -177,7 +177,12 @@ C
              NROOT = NROOT + 1
          END IF
       END IF
-      KEEP(405) = 0  
+      PTRIST(1:KEEP(28))=0
+      PTLUST_S(1:KEEP(28))=0
+      PTRFAC(1:KEEP(28))=-99999_8
+      IW2(PTRAST:PTRAST+KEEP(28)-1)=0_8
+      IW1(PIMASTER:PIMASTER+KEEP(28)-1)=-99999_8
+      KEEP(405) = 0
       IF (associated(S_IS_POINTERS%IW)) THEN
         WRITE(*,*) " Internal error CMUMPS_FAC_B IW"
         CALL MUMPS_ABORT()

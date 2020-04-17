@@ -2,6 +2,11 @@
 = ChangeLog =
 -------------
 
+Changes from 5.3.0 to 5.3.1
+* Improved multithreaded performance of BLR backward solve
+* Fixed return code in build_mumps_int_def.c + openmp compilation (pgi)
+* Forbid a loop vectorization in [sdcz]sol_c.F (segfault with ifort)
+
 Changes from 5.2.1 to 5.3.0
 * New feature: distributed right-hand sides
 * Improved time for arrowheads construction (single MPI case, mainly)
@@ -618,6 +623,8 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.3.1            : April 2020
+Release 5.3.0            : April 2020
 Release 5.2.1            : June 2019
 Release 5.2.0            : April 2019
 Release 5.1.2            : October 2017

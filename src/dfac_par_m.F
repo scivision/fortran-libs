@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.0, released
-C  on Tue Mar 31 17:14:49 UTC 2020
+C  This file is part of MUMPS 5.3.1, released
+C  on Fri Apr 10 13:52:30 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -144,11 +144,6 @@ C
       INTEGER :: I
       ITLOC(1:N+KEEP(253)) =0
       ASS_IRECV = MPI_REQUEST_NULL
-      PTRIST(1:KEEP(28))=0
-      PTLUST(1:KEEP(28))=0
-      PTRAST(1:KEEP(28))=0_8
-      PTRFAC(1:KEEP(28))=-99999_8
-      PIMASTER(1:KEEP(28))=-99999_8
       MP = ICNTL(2)
       LP = ICNTL(1)
       IWPOSCB = LIW

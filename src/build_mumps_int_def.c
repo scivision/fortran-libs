@@ -1,7 +1,7 @@
 /*
  *
- *  This file is part of MUMPS 5.3.0, released
- *  on Tue Mar 31 17:14:49 UTC 2020
+ *  This file is part of MUMPS 5.3.1, released
+ *  on Fri Apr 10 13:52:30 UTC 2020
  *
  *
  *  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -23,4 +23,5 @@ printf("#   define MUMPS_INTSIZE64\n");
 printf("#   define MUMPS_INTSIZE32\n");
 #endif
 printf("#endif\n");
+return 0;
 }

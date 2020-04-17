@@ -1,8 +1,8 @@
 ===========================================
-MUMPS 5.3.0
+MUMPS 5.3.1
 ===========================================
 
-MUMPS 5.3.0 solves a sparse system of linear equations A x = b
+MUMPS 5.3.1 solves a sparse system of linear equations A x = b
 using Gaussian elimination. Please read this README file and
 the documentation (in ./doc/) for a complete list of
 functionalities. Documentation and publications related

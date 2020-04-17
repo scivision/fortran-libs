@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.0, released
-C  on Tue Mar 31 17:14:49 UTC 2020
+C  This file is part of MUMPS 5.3.1, released
+C  on Fri Apr 10 13:52:30 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -1176,6 +1176,7 @@ C
               DO II=1,NPIV
                 I=IW(J1+II-1)
                 IPOSINRHSCOMP= POSINRHSCOMP(I)
+!DIR$ NOVECTOR
                 DO J=1, NRHS
                   RHS(I,PERM_RHS(J+JBEG_RHS-1)) =
      &               RHSCOMP(IPOSINRHSCOMP,J)*SCALING(I)
@@ -1185,6 +1186,7 @@ C
               DO II=1,NPIV
                 I=IW(J1+II-1)
                 IPOSINRHSCOMP= POSINRHSCOMP(I)
+!DIR$ NOVECTOR
                 DO J=1, NRHS
                   RHS(I,PERM_RHS(J+JBEG_RHS-1)) =
      &               RHSCOMP(IPOSINRHSCOMP,J)

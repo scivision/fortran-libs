@@ -1,12 +1,15 @@
 cmake_minimum_required(VERSION 3.14)
+
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Debug or Release")
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "default build type")
 endif()
+
 project(MUMPS
-  LANGUAGES C Fortran
-  VERSION 5.3.0
-  DESCRIPTION "Sparse direct parallel solver"
-  HOMEPAGE_URL "http://mumps-solver.org/")
+LANGUAGES C Fortran
+VERSION 5.3.1
+DESCRIPTION "Sparse direct parallel solver"
+HOMEPAGE_URL "http://mumps-solver.org/")
+
 enable_testing()
 include(CTest)
 
@@ -16,7 +19,7 @@ option(parallel "parallel or sequential (non-MPI, non-Scalapack)" ON)
 option(intsize64 "use 64-bit integers in C and Fortran" OFF)
 option(metis "use METIS" OFF)
 option(scotch "use Scotch" OFF)
-option(openmp "use OpenMP (can be slower for some cases)" OFF)
+option(openmp "use OpenMP" OFF)
 option(matlab "build optional Matlab interface" OFF)
 option(ClangTest "run test for C-language" ON)
 
@@ -49,6 +52,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/lapack.cmake)
 
 if(parallel)
   find_package(MPI COMPONENTS Fortran C REQUIRED)
+
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/scalapack.cmake)
 
   set(NUMERIC_INCDIRS "") # to avoid uninitialized warning
