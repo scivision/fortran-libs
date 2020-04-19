@@ -1,10 +1,10 @@
 # testing what we just built
 
 include(CheckFortranSourceCompiles)
-check_fortran_source_compiles("implicit none (external); end" impNoneExt SRC_EXT f90)
+check_fortran_source_compiles("implicit none (type, external); end" impNoneExt SRC_EXT f90)
 set(impext)
 if(impNoneExt)
-  set(impext "(external)")
+  set(impext "(type, external)")
 endif()
 
 if("d" IN_LIST arith)
