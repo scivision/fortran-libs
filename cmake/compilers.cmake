@@ -11,6 +11,12 @@ set(CMAKE_CONFIGURATION_TYPES "Release;RelWithDebInfo;Debug" CACHE STRING "Build
 set(CDEFS "Add_")
 # "Add_" works for all modern compilers we tried.
 
+set(_gcc10opts)
+if(CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL 10)
+  set(_gcc10opts "-fallow-argument-mismatch -fallow-invalid-boz")
+  message(STATUS " Enabled argument mismatch workaround flags for ${CMAKE_Fortran_COMPILER_ID} ${CMAKE_Fortran_COMPILER_VERSION}:  ${_gcc10opts}")
+endif()
+
 # typical projects set options too strict for MUMPS code style, so if
 # being used as external project, locally override MUMPS compile options
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
@@ -26,7 +32,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     endif()
   elseif(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
     add_compile_options(-mtune=native)
-    string(APPEND CMAKE_Fortran_FLAGS " -fimplicit-none")
+    string(APPEND CMAKE_Fortran_FLAGS " -fimplicit-none ${_gcc10opts}")
   elseif(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
     string(APPEND CMAKE_Fortran_FLAGS " -Mdclchk")
     if(NOT (MPI_ROOT OR ENV{MPI_ROOT}))
@@ -45,7 +51,7 @@ else()
     endif()
   elseif(CMAKE_Fortran_COMPILER_ID STREQUAL GNU)
     add_compile_options(-mtune=native)
-    set(CMAKE_Fortran_FLAGS "-fimplicit-none")
+    set(CMAKE_Fortran_FLAGS "-fimplicit-none ${_gcc10opts}")
   elseif(CMAKE_Fortran_COMPILER_ID STREQUAL PGI)
     set(CMAKE_Fortran_FLAGS "-Mdclchk")
     if(NOT (MPI_ROOT OR ENV{MPI_ROOT}))
