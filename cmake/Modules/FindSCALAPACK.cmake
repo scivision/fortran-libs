@@ -139,12 +139,6 @@ endif()
 
 if(MKL IN_LIST SCALAPACK_FIND_COMPONENTS)
 
-  if(WIN32)
-    set(_impi impi)
-  else()
-    unset(_impi)
-  endif()
-
   if(OpenMPI IN_LIST SCALAPACK_FIND_COMPONENTS)
     mkl_scala(mkl_scalapack_lp64 mkl_blacs_openmpi_lp64)
     set(SCALAPACK_OpenMPI_FOUND ${SCALAPACK_MKL_FOUND})
@@ -158,7 +152,7 @@ if(MKL IN_LIST SCALAPACK_FIND_COMPONENTS)
     endif()
     set(SCALAPACK_MPICH_FOUND ${SCALAPACK_MKL_FOUND})
   else()
-    mkl_scala(mkl_scalapack_lp64 mkl_blacs_intelmpi_lp64 ${_impi})
+    mkl_scala(mkl_scalapack_lp64 mkl_blacs_intelmpi_lp64)
   endif()
 
 elseif(OpenMPI IN_LIST SCALAPACK_FIND_COMPONENTS)
