@@ -1,6 +1,6 @@
 !
-!  This file is part of MUMPS 5.3.1, released
-!  on Fri Apr 10 13:52:30 UTC 2020
+!  This file is part of MUMPS 5.3.3, released
+!  on Mon Jun 15 09:57:25 UTC 2020
 !
 !
 !  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@
 !
 !  This version of MUMPS is provided to you free of charge. It is
 !  released under the CeCILL-C license:
-!  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+!  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 !
       INCLUDE 'smumps_root.h'
       TYPE SMUMPS_STRUC
@@ -252,7 +252,7 @@
         CHARACTER, DIMENSION(:), POINTER :: BLRARRAY_ENCODING
 !    Multicore
         TYPE(SMUMPS_L0OMPFAC_T),DIMENSION(:),POINTER :: L0_OMP_FACTORS
-        INTEGER :: LPOOL_AFTER_L0_OMP, LPOOL_BEFORE_L0_OMP
+        INTEGER :: LPOOL_A_L0_OMP, LPOOL_B_L0_OMP
         INTEGER :: L_PHYS_L0_OMP
         INTEGER :: L_VIRT_L0_OMP                                    
         INTEGER :: LL0_OMP_MAPPING, LL0_OMP_FACTORS
@@ -261,9 +261,9 @@
         INTEGER, DIMENSION(:,:), POINTER    :: I4_L0_OMP
         INTEGER(8), DIMENSION(:,:), POINTER :: I8_L0_OMP
 ! Pool before L0_OMP
-        INTEGER, DIMENSION(:), POINTER :: IPOOL_BEFORE_L0_OMP
+        INTEGER, DIMENSION(:), POINTER :: IPOOL_B_L0_OMP
 ! Pool after L0_OMP
-        INTEGER, DIMENSION(:), POINTER :: IPOOL_AFTER_L0_OMP
+        INTEGER, DIMENSION(:), POINTER :: IPOOL_A_L0_OMP
 ! Subtrees
         INTEGER, DIMENSION(:), POINTER :: PHYS_L0_OMP
 ! Amalgamated subtrees

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       MODULE SMUMPS_LR_STATS
       USE SMUMPS_LR_TYPE
@@ -33,8 +33,8 @@ C
      &                    FLOP_UPDATE_LRLR2,
      &                    FLOP_UPDATE_LRLR3,
      &                    FLOP_UPDATE_FRLR,
-     &                    FLOP_UPDATE_FRFR,
-     &                    FLOP_COMPRESS,
+     &                    FLOP_UPDATE_FRFR
+      DOUBLE PRECISION :: FLOP_COMPRESS,
      &                    FLOP_CB_COMPRESS,
      &                    FLOP_MIDBLK_COMPRESS,
      &                    FLOP_FRSWAP_COMPRESS,
@@ -168,23 +168,29 @@ C
 !$OMP   ATOMIC UPDATE
         FLOP_COMPRESS = FLOP_COMPRESS + HR_AND_BUILDQ_COST
 !$OMP   END ATOMIC
-        IF (present(REC_ACC).AND.REC_ACC) THEN
-!$OMP     ATOMIC UPDATE
-          FLOP_ACCUM_COMPRESS = FLOP_ACCUM_COMPRESS +
-     &                          HR_AND_BUILDQ_COST
-!$OMP     END ATOMIC
+        IF (present(REC_ACC)) THEN
+          IF (REC_ACC) THEN
+!$OMP       ATOMIC UPDATE
+            FLOP_ACCUM_COMPRESS = FLOP_ACCUM_COMPRESS +
+     &                            HR_AND_BUILDQ_COST
+!$OMP       END ATOMIC
+          ENDIF
         ENDIF
-        IF (present(CB_COMPRESS).AND.CB_COMPRESS) THEN
-!$OMP     ATOMIC UPDATE
-          FLOP_CB_COMPRESS = FLOP_CB_COMPRESS +
-     &                       HR_AND_BUILDQ_COST 
-!$OMP     END ATOMIC
+        IF (present(CB_COMPRESS)) THEN
+          IF (CB_COMPRESS) THEN
+!$OMP       ATOMIC UPDATE
+            FLOP_CB_COMPRESS = FLOP_CB_COMPRESS +
+     &                         HR_AND_BUILDQ_COST 
+!$OMP       END ATOMIC
+          ENDIF
         ENDIF
-        IF (present(FRSWAP).AND.FRSWAP) THEN
-!$OMP     ATOMIC UPDATE
-          FLOP_FRSWAP_COMPRESS = FLOP_FRSWAP_COMPRESS +
-     &                           HR_AND_BUILDQ_COST
-!$OMP     END ATOMIC
+        IF (present(FRSWAP)) THEN
+          IF (FRSWAP) THEN
+!$OMP       ATOMIC UPDATE
+            FLOP_FRSWAP_COMPRESS = FLOP_FRSWAP_COMPRESS +
+     &                             HR_AND_BUILDQ_COST
+!$OMP       END ATOMIC
+          ENDIF
         ENDIF
       RETURN
       END SUBROUTINE UPD_FLOP_COMPRESS
@@ -224,6 +230,7 @@ C
      &                      COST_LRLR3, COST_FRLR, COST_FRFR, 
      &                      COST_COMPRESS, COST_LR_AND_COMPRESS, LR_GAIN
         DOUBLE PRECISION :: M1,N1,K1,M2,N2,K2,RANK
+        LOGICAL :: REC_ACC_LOC
         M1 = dble(LRB1%M)
         N1 = dble(LRB1%N)
         K1 = dble(LRB1%K)
@@ -237,6 +244,11 @@ C
         COST_FRLR = 0.0D0
         COST_FRFR = 0.0D0
         COST_COMPRESS = 0.0D0
+        IF (present(REC_ACC)) THEN
+          REC_ACC_LOC = REC_ACC
+        ELSE
+          REC_ACC_LOC = .FALSE.
+        ENDIF
         IF ((.NOT.LRB1%ISLR).AND.(.NOT.LRB2%ISLR)) THEN
           COST_FRFR = 2.0D0*M1*M2*N1
           COST_LR = 2.0D0*M1*M2*N1
@@ -285,14 +297,14 @@ C
         IF (LUA_ACTIVATED) THEN
           COST_LR = COST_LR - COST_LRLR3
           COST_LRLR3 = 0.0D0
-          IF (present(REC_ACC).AND.REC_ACC) THEN
-              COST_LR_AND_COMPRESS = COST_LR + COST_COMPRESS
-!$OMP         ATOMIC UPDATE
-              FLOP_COMPRESS  = FLOP_COMPRESS + COST_LR_AND_COMPRESS
-!$OMP         END ATOMIC
+          IF (REC_ACC_LOC) THEN
+            COST_LR_AND_COMPRESS = COST_LR + COST_COMPRESS
+!$OMP       ATOMIC UPDATE
+            FLOP_COMPRESS  = FLOP_COMPRESS + COST_LR_AND_COMPRESS
+!$OMP       END ATOMIC
           ENDIF
         ENDIF
-        IF (.NOT.present(REC_ACC).OR..NOT.REC_ACC) THEN
+        IF (.NOT.REC_ACC_LOC) THEN
 !$OMP     ATOMIC UPDATE
           FLOP_COMPRESS  = FLOP_COMPRESS  + COST_COMPRESS
 !$OMP     END ATOMIC

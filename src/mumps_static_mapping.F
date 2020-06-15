@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       MODULE MUMPS_STATIC_MAPPING
       USE MUMPS_LR_COMMON
@@ -1211,7 +1211,9 @@ C
            err_rep='GET_SPLIT_4_PERF'
            CALL MUMPS_GET_SPLIT_4_PERF(inode, nfront, npiv,
      &     dble(npropmap),
-     &     k1, lnpivsplit, npivsplit, n, cv_frere(1), cv_keep(1), istat)
+     &     k1, lnpivsplit, npivsplit, n, cv_frere(1), 
+     &     cv_keep(1),
+     &     istat)
            k3=k1
            doit = .true.
            GOTO 200
@@ -4859,7 +4861,8 @@ C
       end subroutine MUMPS_SETUP_CAND_CHAIN
       subroutine MUMPS_GET_SPLIT_4_PERF(inode, nfront, npiv, nproc,
      &                                  k, lnpivsplit, npivsplit,
-     &                                  n, frere, keep, istat)
+     &                                  n, frere, keep,
+     &                                  istat)
       implicit none
       integer,intent(in)::inode, nfront, npiv, lnpivsplit, n
       integer,intent(in)::frere(n)
@@ -4867,6 +4870,7 @@ C
       double precision, intent(in):: nproc
       integer,intent(out)::k, npivsplit(lnpivsplit), istat
       logical :: nosplit
+      integer :: inode_tmp
       integer :: kk, optimization_strategy, nass, npiv2
       double precision :: nproc2
       integer :: npivOld, npivNew
@@ -4891,6 +4895,7 @@ C
       nproc2 = nproc
       nass = 0
       kk = 0
+      inode_tmp = inode
       do while (nass .lt. npiv)
         if ((nproc2 .eq. 2.0d0) .or.
      &           (nfront - nass .le. 6*keep(9))) then
@@ -4914,7 +4919,7 @@ C
           endif
         endif
         kk = kk + 1
-        npivsplit(kk) = npiv2
+          npivsplit(kk) = npiv2
         if (keep(79) .ge. 1       
      &    .and. kk .ne. 1) then   
           if (optimization_strategy .eq. 0) then 
@@ -4927,7 +4932,7 @@ C
      &              npiv4equilibreFlops(nfront - nass, nproc ))
             npivNew = min(npiv - nass,
      &              npiv4equilibreRows(nfront - nass, nproc2 - 1.0d0))
-         else
+          else
             write(*,*) "Internal error in MUMPS_GET_SPLIT_4_PERF,"
             write(*,*) "optimization_strategy not implemented"
             call MUMPS_ABORT()

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE SMUMPS_END_DRIVER( id )
       USE SMUMPS_OOC
@@ -394,13 +394,13 @@ C Mapping information used during solve
         DEALLOCATE(id%WORKING)
         NULLIFY(id%WORKING)
       END IF
-      IF (associated(id%IPOOL_BEFORE_L0_OMP)) THEN
-        DEALLOCATE(id%IPOOL_BEFORE_L0_OMP)
-        NULLIFY(id%IPOOL_BEFORE_L0_OMP)
+      IF (associated(id%IPOOL_B_L0_OMP)) THEN
+        DEALLOCATE(id%IPOOL_B_L0_OMP)
+        NULLIFY(id%IPOOL_B_L0_OMP)
       END IF
-      IF (associated(id%IPOOL_AFTER_L0_OMP)) THEN
-        DEALLOCATE(id%IPOOL_AFTER_L0_OMP)
-        NULLIFY(id%IPOOL_AFTER_L0_OMP)
+      IF (associated(id%IPOOL_A_L0_OMP)) THEN
+        DEALLOCATE(id%IPOOL_A_L0_OMP)
+        NULLIFY(id%IPOOL_A_L0_OMP)
       END IF
       IF (associated(id%PHYS_L0_OMP)) THEN
         DEALLOCATE(id%PHYS_L0_OMP)

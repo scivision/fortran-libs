@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE ZMUMPS_ANA_DIST_ARROWHEADS( MYID, SLAVEF, N,
      &           PROCNODE, STEP, PTRAIW, PTRARW, ISTEP_TO_INIV2,
@@ -249,8 +249,8 @@ C
       COMPLEX(kind=8) ZERO
       PARAMETER( ZERO = (0.0D0,0.0D0) )
       INTEGER, ALLOCATABLE, DIMENSION(:,:) :: IW4
-      LOGICAL :: DOIT, OMP_FLAG
-      INTEGER NOMP, IOMP, P2
+      LOGICAL :: DOIT, OMP_FLAG, OMP_FLAG_P
+      INTEGER NOMP, NOMP_P, IOMP, P2
       ARROW_ROOT = 0
       EARLYT3ROOTINS = KEEP(200) .EQ. 0
       I_AM_SLAVE=(MYID.NE.0.OR.KEEP(46).EQ.1)
@@ -305,26 +305,8 @@ C
       END DO
       NOMP = 1
 !$    NOMP=omp_get_max_threads()
-      IOMP = 0
       OMP_FLAG = KEEP(399).EQ.1 .AND. NOMP.GE.2 .AND. SLAVEF.EQ.1
      &           .AND. KEEP(46) .EQ. 1
-      IF (OMP_FLAG) THEN
-        IF ( NOMP .GE. 16 ) THEN
-          NOMP=16
-          P2 = 4
-        ELSE IF (NOMP.GE.8) THEN
-          NOMP=8
-          P2 = 3
-        ELSE IF (NOMP.GE.4) THEN
-          NOMP=4
-          P2 = 2
-        ELSE IF (NOMP.GE.2) THEN
-          NOMP=2
-          P2 = 1
-        ENDIF
-      ELSE
-        P2 = 0
-      ENDIF
 !$OMP PARALLEL PRIVATE(K, I, DEST, I_AM_CAND_LOC,
 !$OMP&          T4MASTER, T4_MASTER_CONCERNED,
 !$OMP&          INIV2, NCAND, IROW_GRID, JCOL_GRID,
@@ -332,17 +314,41 @@ C
 !$OMP&          TYPE_NODE, TYPESPLIT, MASTER_NODE,
 !$OMP&          IA, ISHIFT, IS1, IS, IAS, TAILLE, VAL,
 !$OMP&          IARR, JARR, ISTEP, ISEND, JSEND,
-!$OMP&          IOLD, JOLD, IOMP, DOIT )
+!$OMP&          IOLD, JOLD, IOMP, DOIT, P2, NOMP_P, OMP_FLAG_P)
 !$OMP& REDUCTION(+: ARROW_ROOT) IF (OMP_FLAG)
+      IOMP=0
 !$    IOMP=omp_get_thread_num()
-      DO K=1, NZ
+      NOMP_P=1
+!$    NOMP_P=omp_get_num_threads()
+      OMP_FLAG_P = .FALSE.
+!$    OMP_FLAG_P = OMP_FLAG .AND. NOMP_P .GT. 1
+      IF (OMP_FLAG_P) THEN
+        IF ( NOMP_P .GE. 16 ) THEN
+          NOMP_P=16
+          P2 = 4
+        ELSE IF (NOMP_P.GE.8) THEN
+          NOMP_P=8
+          P2 = 3
+        ELSE IF (NOMP_P.GE.4) THEN
+          NOMP_P=4
+          P2 = 2
+        ELSE IF (NOMP_P.GE.2) THEN
+          NOMP_P=2
+          P2 = 1
+        ENDIF
+      ELSE
+        NOMP_P = 1
+        P2 = 0
+      ENDIF
+      IF ( IOMP .LT. NOMP_P ) THEN
+       DO K=1, NZ
         IOLD = IRN(K)
         JOLD = ICN(K)
         IF ( (IOLD.GT.N).OR.(JOLD.GT.N).OR.(IOLD.LT.1)
      &                 .OR.(JOLD.LT.1) ) THEN
           CYCLE
         END IF
-        IF (OMP_FLAG) THEN
+        IF (OMP_FLAG_P) THEN
           IF (IOLD.EQ.JOLD) THEN
             IARR = IOLD
           ELSE IF (PERM(IOLD).LT.PERM(JOLD)) THEN
@@ -567,7 +573,8 @@ C
             ENDDO
           ENDIF
         ENDIF 
-      ENDDO
+       ENDDO
+      ENDIF
 !$OMP END PARALLEL
        KEEP(49) = ARROW_ROOT
        IF (NBUFS.GT.0) THEN

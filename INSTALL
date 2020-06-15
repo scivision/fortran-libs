@@ -1,5 +1,5 @@
 ===========================================
-MUMPS 5.3.1 INSTALLATION
+MUMPS 5.3.3 INSTALLATION
 ===========================================
 
 Pre-requisites
@@ -35,8 +35,8 @@ Installation
 
 The following steps can be applied.
 
-% tar zxvf MUMPS_5.3.1.tar.gz
-% cd MUMPS_5.3.1
+% tar zxvf MUMPS_5.3.3.tar.gz
+% cd MUMPS_5.3.3
 
 You then need to build a file called Makefile.inc corresponding
 to your architecture. A few examples are available in the
@@ -270,8 +270,8 @@ same as the one described at
 https://software.intel.com/en-us/mkl-developer-reference-fortran-gemmt.
 
 
-Platform dependencies
----------------------
+Platform and software dependencies
+----------------------------------
 
 Versions of MUMPS have been tested on a large range of platforms.
 MUMPS is potentially portable to any platform having a C and
@@ -282,8 +282,8 @@ Fortran 90 compiler as well as MPI, BLACS, and ScaLAPACK installed.
 
 Although the MUMPS development team is not using Windows, you
 may be interested by discussions on this topic in the archives
-of MUMPS users, by the WINMUMPS project, or by visual studio project
-files provided by Free Fields Technologies (see main MUMPS website).
+of MUMPS users, or by links to contributions from users (see the
+MUMPS website, and follow "Links").
 
 
 * FREEBSD AND SOLARIS
@@ -298,12 +298,18 @@ See the example Makefile.FREEBSD10 in the Make.inc/ directory.
 Note that the absence of space in the main Makefile
 is motivated by portability on Windows environments.
 
+* gfortran-10
+  -----------
+
+For MUMPS to compile with gfortran-10, the option '-fallow-argument-mismatch'
+should be added to OPTF in your Makefile.inc
+
 * MAC OSX
   -------
 
-Dominique Orban has developed an Homebrew formula for MUMPS.
-Please check the links page at http://mumps-solver.org and
-https://github.com/Homebrew/homebrew-science
+Dominique Orban has developed a Homebrew formula for MUMPS.
+Please check the "Links" page at http://mumps-solver.org and
+http://brew.sh
 
 
 * IBM SP
@@ -322,14 +328,13 @@ then be used in place of PESSL.
 
 * LAM
   ---
-lam version 6.5.6 or later is required for the double complex
+lam version 6.5.6 or greater is required for the double complex
 version of MUMPS to work correctly.
 
 * MPICH
   -----
 The double complex version does not work correctly with MPICH2 v 1.0.3,
 due to truncated messages when using double complex types.
-See the FAQ for compatibility issues between mpich and gfortran.
 
 * CRAY
   ----

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE SMUMPS_FAC_DRIVER( id)
       USE SMUMPS_BUF
@@ -1584,6 +1584,7 @@ C
         CALL MUMPS_FDM_INIT('A',NB_ACTIVE_FRONTS_ESTIM, id%INFO)
 C
         IF ( (KEEP(486).EQ.2) 
+     &     .OR. (KEEP(489).NE.0)
      &    ) THEN
 C         In case of LRSOLVE, initialize nb of handlers to nb of BLR
 C         nodes estimated at analysis
@@ -2417,23 +2418,18 @@ C       structure S_IS_POINTERS. IS will be allocated
 C       during SMUMPS_FAC_B.
         S_IS_POINTERS%IW => id%IS; NULLIFY(id%IS)
         S_IS_POINTERS%A  => id%S ; NULLIFY(id%S)
-        CALL SMUMPS_FAC_B( id%N,  S_IS_POINTERS, MAXS, MAXIS,
-     &     id%SYM_PERM(1),id%NA(1),id%LNA,id%NE_STEPS(1),
-     &     id%ND_STEPS(1),id%FILS(1),id%STEP(1),id%FRERE_STEPS(1),
-     &     id%DAD_STEPS(1),id%CANDIDATES(1,1),id%ISTEP_TO_INIV2(1),
-     &     id%TAB_POS_IN_PERE(1,1),
-     &     id%PTRAR(1),
-     &     LDPTRAR,IWK(PTRIST),
-     &     id%PTLUST_S(1), id%PTRFAC(1), IWK(PTRWB), IWK8, IWK(ITLOC),
-     &     RHS_MUMPS(1), IWK(IPOOL), LPOOL, CNTL1, ICNTL(1), id%INFO(1),
-     &     RINFO(1),KEEP(1),id%KEEP8(1), id%PROCNODE_STEPS(1),
-     &     id%NSLAVES,
-     &     id%COMM_NODES, id%MYID, id%MYID_NODES, BUFR, SMUMPS_LBUFR,
-     &     SMUMPS_LBUFR_BYTES, SMUMPS_LBUF, id%INTARR(1),id%DBLARR(1),
-     &     id%root, NELT_arg, id%FRTPTR(1), id%FRTELT(1),id%COMM_LOAD,
-     &     id%ASS_IRECV,SEUIL, SEUIL_LDLT_NIV2, id%MEM_DIST(0),
-     &     id%DKEEP(1), id%PIVNUL_LIST(1), LPN_LIST
-     &      ,id%LRGROUPS(1)
+        CALL SMUMPS_FAC_B(id%N,S_IS_POINTERS,MAXS,MAXIS,id%SYM_PERM(1),
+     &  id%NA(1),id%LNA,id%NE_STEPS(1),id%ND_STEPS(1), id%FILS(1),
+     &  id%STEP(1),id%FRERE_STEPS(1),id%DAD_STEPS(1),id%CANDIDATES(1,1),
+     &  id%ISTEP_TO_INIV2(1),id%TAB_POS_IN_PERE(1,1), id%PTRAR(1),
+     &  LDPTRAR,IWK(PTRIST),id%PTLUST_S(1),id%PTRFAC(1),IWK(PTRWB),IWK8,
+     &  IWK(ITLOC),RHS_MUMPS(1),IWK(IPOOL),LPOOL,CNTL1,ICNTL(1),
+     &  id%INFO(1), RINFO(1),KEEP(1),id%KEEP8(1),id%PROCNODE_STEPS(1),
+     &  id%NSLAVES,id%COMM_NODES,id%MYID,id%MYID_NODES,BUFR,SMUMPS_LBUFR
+     &  , SMUMPS_LBUFR_BYTES, SMUMPS_LBUF, id%INTARR(1),id%DBLARR(1),
+     &  id%root, NELT_arg, id%FRTPTR(1), id%FRTELT(1),id%COMM_LOAD,
+     &  id%ASS_IRECV, SEUIL, SEUIL_LDLT_NIV2, id%MEM_DIST(0),
+     &  id%DKEEP(1), id%PIVNUL_LIST(1), LPN_LIST, id%LRGROUPS(1)
      &     )
         id%IS => S_IS_POINTERS%IW; NULLIFY(S_IS_POINTERS%IW)
         id%S  => S_IS_POINTERS%A ; NULLIFY(S_IS_POINTERS%A)
@@ -3437,7 +3433,7 @@ C
 99986 FORMAT( ' INFOG(25)  Number of tiny pivots(static)   =',I16)
 99987 FORMAT( ' INFOG(12)  Number of negative pivots       =',I16)
 99988 FORMAT( ' Number of 2x2 pivots in type 1 nodes       =',I16)
-99989 FORMAT( ' Number of 2X2 pivots in type 2 nodes       =',I16)
+99989 FORMAT( ' Number of 2x2 pivots in type 2 nodes       =',I16)
       END SUBROUTINE SMUMPS_FAC_DRIVER
 C
       SUBROUTINE SMUMPS_PRINT_ALLOCATED_MEM( PROK, PROKG, PRINT_MAXAVG,

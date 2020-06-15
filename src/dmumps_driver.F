@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
 C  ===========================
 C  FORTRAN 90 Driver for DMUMPS
@@ -1237,8 +1237,8 @@ C         ---------------------------------------------------
 #if defined(MUMPS_F2003)
               ELSE IF ( size( id%IRN, KIND=8 ) < id%KEEP8(28) ) THEN
 #else
-C             size with kind=8 output not available. One can still
-C             check that if NZ can be stored in a 32-bit integer,
+C             size with kind=8 output not available before f2002. One can
+C             still check that if NZ can be stored in a 32-bit integer,
 C             the 32-bit size(id%IRN) is large enough
               ELSE IF ( id%KEEP8(28) .LE. int(huge(id%NZ),8) .AND.
      &                  size(id%IRN) < int(id%KEEP8(28)) ) THEN
@@ -2104,7 +2104,7 @@ C
       PARAMETER (MASTER=0)
 C
 C
-      IF ( INFO(1) .ge. 0  .and. INFO(2) .ge. 0 ) THEN
+      IF ( INFO(1) .ge. 0 ) THEN
 C
 C       This can only happen if the phase was successful
 C       on all procs. If one proc failed, then all other

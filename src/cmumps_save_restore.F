@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       MODULE CMUMPS_SAVE_RESTORE
       USE CMUMPS_STRUC_DEF
@@ -719,8 +719,8 @@ C
       VARIABLES(177)="VIRT_L0_OMP_MAPPING"
       VARIABLES(176)="VIRT_L0_OMP"
       VARIABLES(175)="PHYS_L0_OMP"
-      VARIABLES(174)="IPOOL_AFTER_L0_OMP"
-      VARIABLES(173)="IPOOL_BEFORE_L0_OMP"
+      VARIABLES(174)="IPOOL_A_L0_OMP"
+      VARIABLES(173)="IPOOL_B_L0_OMP"
       VARIABLES(172)="I8_L0_OMP"
       VARIABLES(171)="I4_L0_OMP"
       VARIABLES(170)="THREAD_LA"
@@ -728,8 +728,8 @@ C
       VARIABLES(168)="LL0_OMP_MAPPING"
       VARIABLES(167)="L_VIRT_L0_OMP"
       VARIABLES(166)="L_PHYS_L0_OMP"
-      VARIABLES(165)="LPOOL_BEFORE_L0_OMP"
-      VARIABLES(164)="LPOOL_AFTER_L0_OMP"
+      VARIABLES(165)="LPOOL_B_L0_OMP"
+      VARIABLES(164)="LPOOL_A_L0_OMP"
       VARIABLES(163)="L0_OMP_FACTORS"
       VARIABLES(162)="BLRARRAY_ENCODING"
       VARIABLES(161)="FDM_F_ENCODING"
@@ -7973,12 +7973,12 @@ C
             endif
          CASE("L0_OMP_FACTORS")
          CASE("SCHED_SBTR")
-         CASE("LPOOL_AFTER_L0_OMP")
+         CASE("LPOOL_A_L0_OMP")
             NbRecords(i1)=1
             if(trim(mode).EQ."memory_save") then
                SIZE_VARIABLES(i1)=SIZE_INT
             elseif(trim(mode).EQ."save") then
-               write(unit,iostat=err) id%LPOOL_AFTER_L0_OMP
+               write(unit,iostat=err) id%LPOOL_A_L0_OMP
                if(err.ne.0) then
                   id%INFO(1) = -72
                   CALL MUMPS_SETI8TOI4(TOTAL_FILE_SIZE-size_written,
@@ -7989,7 +7989,7 @@ C
                IF ( id%INFO(1) .LT. 0 ) GOTO 100
             elseif(trim(mode).EQ."restore") then
                SIZE_VARIABLES(i1)=SIZE_INT
-               read(unit,iostat=err) id%LPOOL_AFTER_L0_OMP
+               read(unit,iostat=err) id%LPOOL_A_L0_OMP
                if(err.ne.0) THEN
                   id%INFO(1) = -75
                   CALL MUMPS_SETI8TOI4(TOTAL_FILE_SIZE-size_read
@@ -7999,12 +7999,12 @@ C
      &              id%COMM, id%MYID )
                IF ( id%INFO(1) .LT. 0 ) GOTO 100
             endif
-         CASE("LPOOL_BEFORE_L0_OMP")
+         CASE("LPOOL_B_L0_OMP")
             NbRecords(i1)=1
             if(trim(mode).EQ."memory_save") then
                SIZE_VARIABLES(i1)=SIZE_INT
             elseif(trim(mode).EQ."save") then
-               write(unit,iostat=err) id%LPOOL_BEFORE_L0_OMP
+               write(unit,iostat=err) id%LPOOL_B_L0_OMP
                if(err.ne.0) then
                   id%INFO(1) = -72
                   CALL MUMPS_SETI8TOI4(TOTAL_FILE_SIZE-size_written,
@@ -8015,7 +8015,7 @@ C
                IF ( id%INFO(1) .LT. 0 ) GOTO 100
             elseif(trim(mode).EQ."restore") then
                SIZE_VARIABLES(i1)=SIZE_INT
-               read(unit,iostat=err) id%LPOOL_BEFORE_L0_OMP
+               read(unit,iostat=err) id%LPOOL_B_L0_OMP
                if(err.ne.0) THEN
                   id%INFO(1) = -75
                   CALL MUMPS_SETI8TOI4(TOTAL_FILE_SIZE-size_read
@@ -8155,8 +8155,8 @@ C
      &              id%COMM, id%MYID )
                IF ( id%INFO(1) .LT. 0 ) GOTO 100
             endif
-         CASE("IPOOL_AFTER_L0_OMP")
-         CASE("IPOOL_BEFORE_L0_OMP")
+         CASE("IPOOL_A_L0_OMP")
+         CASE("IPOOL_B_L0_OMP")
          CASE("PHYS_L0_OMP")
          CASE("VIRT_L0_OMP")
          CASE("VIRT_L0_OMP_MAPPING")

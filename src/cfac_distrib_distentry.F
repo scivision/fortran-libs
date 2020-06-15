@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE CMUMPS_BUILD_MAPPING
      & ( N, MAPPING, NNZ, IRN, JCN, PROCNODE, STEP,
@@ -157,8 +157,8 @@ C
       LOGICAL :: FLAG
       INTEGER(8), INTENT(OUT) :: NSEND8, NLOCAL8
       INTEGER MASTER_NODE, ISTEP
-      LOGICAL :: OMP_FLAG, DOIT
-      INTEGER NOMP, IOMP, P2
+      LOGICAL :: DOIT, OMP_FLAG, OMP_FLAG_P
+      INTEGER NOMP, NOMP_P, IOMP, P2
       NSEND8  = 0_8
       NLOCAL8 = 0_8
       LP = ICNTL(1)
@@ -286,25 +286,7 @@ C
       IF (SLAVEF .EQ. 1) FREQPROBE = huge(FREQPROBE)
       NOMP = 1
 !$    NOMP=omp_get_max_threads()
-      IOMP = 0
       OMP_FLAG = KEEP(399).EQ.1 .AND. NOMP .GE.2 .AND. SLAVEF.EQ.1
-      IF (OMP_FLAG) THEN
-        IF ( NOMP .GE. 16 ) THEN
-          NOMP=16
-          P2 = 4
-        ELSE IF (NOMP.GE.8) THEN
-          NOMP=8
-          P2 = 3
-        ELSE IF (NOMP.GE.4) THEN
-          NOMP=4
-          P2 = 2
-        ELSE IF (NOMP.GE.2) THEN
-          NOMP=2
-          P2 = 1
-        ENDIF
-      ELSE
-        P2 = 0
-      ENDIF
 !$OMP PARALLEL PRIVATE( K8, I, DEST,
 !$OMP&          T4MASTER, T4_MASTER_CONCERNED,
 !$OMP&          INIV2, NCAND, IROW_GRID, JCOL_GRID, IPOSROOT, JPOSROOT,
@@ -312,10 +294,34 @@ C
 !$OMP&          TYPE_NODE, TYPESPLIT, MASTER_NODE,
 !$OMP&          IA8, ISHIFT, IIW8, IS18, IS8, IAS8, VAL,
 !$OMP&          IARR, ISTEP, ISEND, JSEND,
-!$OMP&          IOLD, JOLD, IOMP, DOIT )
+!$OMP&          IOLD, JOLD, IOMP, DOIT, P2, NOMP_P, OMP_FLAG_P )
 !$OMP& REDUCTION(+:NSEND8, NLOCAL8, ARROW_ROOT) IF (OMP_FLAG)
+      IOMP=0
 !$    IOMP=omp_get_thread_num()
-      DO K8 = 1_8, NZ_loc8
+      NOMP_P=1
+!$    NOMP_P=omp_get_num_threads()
+      OMP_FLAG_P = .FALSE.
+!$    OMP_FLAG_P = OMP_FLAG .AND. NOMP_P .GT. 1
+      IF (OMP_FLAG_P) THEN
+        IF ( NOMP_P .GE. 16 ) THEN
+          NOMP_P=16
+          P2 = 4
+        ELSE IF (NOMP_P.GE.8) THEN
+          NOMP_P=8
+          P2 = 3
+        ELSE IF (NOMP_P.GE.4) THEN
+          NOMP_P=4
+          P2 = 2
+        ELSE IF (NOMP_P.GE.2) THEN
+          NOMP_P=2
+          P2 = 1
+        ENDIF
+      ELSE
+        NOMP_P = 1
+        P2 = 0
+      ENDIF
+      IF ( IOMP .LT. NOMP_P ) THEN
+       DO K8 = 1_8, NZ_loc8
         IF ( SLAVEF .GT. 1 ) THEN
 !$OMP     MASTER
           KPROBE = KPROBE + 1
@@ -349,7 +355,7 @@ C
      &                 .OR.(JOLD.LT.1) ) THEN
           CYCLE
         ENDIF
-        IF (OMP_FLAG) THEN
+        IF (OMP_FLAG_P) THEN
           IF (IOLD.EQ.JOLD) THEN
             IARR  = IOLD
           ELSE IF (PERM(IOLD).LT.PERM(JOLD)) THEN
@@ -448,7 +454,7 @@ C
             ELSE
               DEST = -2
             ENDIF
-            IF ( OMP_FLAG ) THEN
+            IF ( OMP_FLAG_P ) THEN
               IF ( EARLYT3ROOTINS ) THEN
                      ILOCROOT = root%MBLOCK * ( ( IPOSROOT - 1 ) /
      &                            ( root%MBLOCK * root%NPROW ) )
@@ -593,7 +599,8 @@ C
             ENDDO
           ENDIF
         ENDIF 
-      END DO
+       END DO
+      ENDIF
 !$OMP END PARALLEL
       DEST = -3
       CALL CMUMPS_DIST_FILL_BUFFER( DEST, ISEND, JSEND, VAL,

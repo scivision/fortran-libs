@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE CMUMPS_SCATTER_DIST_RHS(
      &           NSLAVES, N,
@@ -175,7 +175,6 @@ C
       RETURN
       CONTAINS
         SUBROUTINE CMUMPS_DR_BUILD_NBROWSTORECV()
-        INCLUDE 'mpif.h'
         INTEGER :: IPROC
         DO IPROC = 0, NSLAVES-1
           CALL MPI_REDUCE( NBROWSTOSEND(IPROC+1), NBROWSTORECV,
@@ -185,7 +184,6 @@ C
         END SUBROUTINE CMUMPS_DR_BUILD_NBROWSTORECV
         SUBROUTINE CMUMPS_DR_TRY_RECV()
         IMPLICIT NONE
-        INCLUDE 'mpif.h'
         INCLUDE 'mumps_tags.h'
         INTEGER :: MPI_STATUS(MPI_STATUS_SIZE), MSGSOU
         INTEGER :: NBRECORDS
@@ -343,7 +341,6 @@ C
         END SUBROUTINE CMUMPS_DR_ASSEMBLE_LOCAL
         SUBROUTINE CMUMPS_DR_GET_NEW_BUF( IBUF )
         INTEGER, INTENT(OUT) :: IBUF
-        INCLUDE 'mpif.h'
         INTEGER :: I
         IBUF = -1
         IF (NB_ACTIVE_SENDS .NE. MAX_ACTIVE_SENDS) THEN
@@ -357,7 +354,6 @@ C
         RETURN
         END SUBROUTINE CMUMPS_DR_GET_NEW_BUF
         SUBROUTINE CMUMPS_DR_TRY_FREE_SEND()
-        INCLUDE 'mpif.h'
         INTEGER :: MPI_STATUS(MPI_STATUS_SIZE)
         INTEGER :: I
         LOGICAL :: FLAG
@@ -381,7 +377,6 @@ C
         SUBROUTINE CMUMPS_DR_TRY_SEND(IPROC_ARG)
         IMPLICIT NONE
         INTEGER, INTENT(IN)    :: IPROC_ARG
-        INCLUDE 'mpif.h'
         INCLUDE 'mumps_tags.h'
         INTEGER :: NBRECORDS, IBUF, I, K
         INTEGER(8) :: IPOSRHS 

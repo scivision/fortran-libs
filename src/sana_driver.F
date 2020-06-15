@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
 C
       SUBROUTINE SMUMPS_ANA_DRIVER(id)
@@ -71,7 +71,7 @@ C     Other locals
       INTEGER(8) ::  MAX_FRONT_SURFACE_LOCAL_L0, 
      &               MAX_SIZE_FACTOR_L0,
      &               ENTRIES_IN_FACTORS_UNDER_L0, 
-     &               ENTRIES_IN_FACTORS_MASTERS_UNDER_LO
+     &               ENTRIES_IN_FACTORS_MASTERS_LO
       INTEGER             :: MAXFR_UNDER_L0
       DOUBLE PRECISION    :: COST_SUBTREES_UNDER_L0, OPSA_UNDER_L0
 C     to store the size of the sequencial peak of stack
@@ -106,6 +106,8 @@ C     Element matrix entry
       INTEGER, TARGET    :: IDUMMY_ARRAY(1)
       INTEGER, POINTER, DIMENSION(:) :: IRN_loc_PTR
       INTEGER, POINTER, DIMENSION(:) :: JCN_loc_PTR
+      INTEGER, POINTER, DIMENSION(:) :: IRN_PTR
+      INTEGER, POINTER, DIMENSION(:) :: JCN_PTR
       INTEGER, POINTER, DIMENSION(:) :: SIZEOFBLOCKS_PTR
       INTEGER, POINTER, DIMENSION(:) :: UNS_PERM_PTR
       INTEGER :: LSIZEOFBLOCKS_PTR
@@ -187,6 +189,7 @@ C
      &     FREREPTR, NE_STEPSPTR,
      &     IKEEP1, IKEEP2, IKEEP3, STEPPTR, LRGROUPSPTR, 
      &     SSARBR, SIZEOFBLOCKS_PTR, IRN_loc_PTR, JCN_loc_PTR,
+     &     IRN_PTR, JCN_PTR,
      &     PAR2_NODESPTR )
       IF (associated(id%UNS_PERM)) DEALLOCATE(id%UNS_PERM)
       nullify(id%UNS_PERM)
@@ -2362,41 +2365,31 @@ C            Initialize IPOOL with leaves of complete tree
              MAX_FRONT_SURFACE_LOCAL_L0 = 0_8
              MAX_SIZE_FACTOR_L0         = 0_8
              ENTRIES_IN_FACTORS_UNDER_L0= 0_8
-             ENTRIES_IN_FACTORS_MASTERS_UNDER_LO = 0_8
+             ENTRIES_IN_FACTORS_MASTERS_LO = 0_8
              MAXFR_UNDER_L0             = 0
              COST_SUBTREES_UNDER_L0     = 0.0D0
              OPSA_UNDER_L0              = 0.0D0
 C
              NE_STEPSPTR => id%NE_STEPS
-           CALL SMUMPS_ANA_DISTM( locMYID_NODES, id%N,
-     &          id%STEP(1), id%FRERE_STEPS(1), id%FILS(1),
-     &          IPOOL, LIPOOL, NE_STEPSPTR(1), id%DAD_STEPS(1),
-     &          id%ND_STEPS(1), id%PROCNODE_STEPS(1),  id%NSLAVES,
-     &          ABOVE_L0,SIZECB_UNDER_L0,SIZECB_UNDER_L0_IF_LRCB,
-     &          MAXFR_UNDER_L0, 
-     &          MAX_FRONT_SURFACE_LOCAL_L0, MAX_SIZE_FACTOR_L0, 
-     &          ENTRIES_IN_FACTORS_UNDER_L0,
-     &          ENTRIES_IN_FACTORS_MASTERS_UNDER_LO,
-     &          COST_SUBTREES_UNDER_L0, OPSA_UNDER_L0,
-     &          KEEP8(53), KEEP8(54),
-     &          KEEP8(11), KEEP(26), KEEP(15),
-     &          KEEP8(12),  KEEP8(14),  
-     &          KEEP8(32), KEEP8(33), KEEP8(34), 
-     &          KEEP8(35), KEEP8(50), 
-     &          KEEP8(36), KEEP8(47), KEEP8(37),
-     &          KEEP8(38), KEEP8(39),
-     &          KEEP8(40), KEEP8(41), KEEP8(42), 
-     &          KEEP8(43), KEEP8(44), KEEP8(45), KEEP8(46), 
-     &          KEEP8(51), KEEP8(52),
-     &          KEEP(224),KEEP(225),KEEP(27),RINFO(1),id%CNTL(1),
-     &          KEEP(1), KEEP8(1), LOCAL_M, LOCAL_N, SBUF_RECOLD8,
-     &          SBUF_SEND_FR, SBUF_REC_FR, SBUF_SEND_LR, SBUF_REC_LR, 
-     &          id%COST_SUBTREES, KEEP(28),
-     &          locI_AM_CAND(1), max(KEEP(56),1),
-     &          id%ISTEP_TO_INIV2(1), id%CANDIDATES(1,1), 
-     &          INFO(1), INFO(2), KEEP8(15),MAX_SIZE_FACTOR_TMP, 
-     &          KEEP8(9), ENTRIES_IN_FACTORS_LOC_MASTERS,
-     &          id%root%yes, id%root%NPROW, id%root%NPCOL
+           CALL SMUMPS_ANA_DISTM( locMYID_NODES, id%N, id%STEP(1),
+     & id%FRERE_STEPS(1), id%FILS(1), IPOOL, LIPOOL, NE_STEPSPTR(1),
+     & id%DAD_STEPS(1), id%ND_STEPS(1), id%PROCNODE_STEPS(1),
+     & id%NSLAVES, ABOVE_L0,SIZECB_UNDER_L0,SIZECB_UNDER_L0_IF_LRCB,
+     & MAXFR_UNDER_L0, MAX_FRONT_SURFACE_LOCAL_L0, MAX_SIZE_FACTOR_L0, 
+     & ENTRIES_IN_FACTORS_UNDER_L0, ENTRIES_IN_FACTORS_MASTERS_LO,
+     & COST_SUBTREES_UNDER_L0, OPSA_UNDER_L0, KEEP8(53), KEEP8(54),
+     & KEEP8(11), KEEP(26), KEEP(15), KEEP8(12),  KEEP8(14),  
+     & KEEP8(32), KEEP8(33), KEEP8(34), KEEP8(35), KEEP8(50), 
+     & KEEP8(36), KEEP8(47), KEEP8(37), KEEP8(38), KEEP8(39),
+     & KEEP8(40), KEEP8(41), KEEP8(42), KEEP8(43), KEEP8(44), KEEP8(45),
+     & KEEP8(46), KEEP8(51), KEEP8(52), KEEP(224),KEEP(225),KEEP(27),
+     & RINFO(1),id%CNTL(1), KEEP(1), KEEP8(1), LOCAL_M, LOCAL_N,
+     & SBUF_RECOLD8, SBUF_SEND_FR, SBUF_REC_FR, SBUF_SEND_LR,
+     & SBUF_REC_LR, id%COST_SUBTREES, KEEP(28), locI_AM_CAND(1),
+     & max(KEEP(56),1), id%ISTEP_TO_INIV2(1), id%CANDIDATES(1,1), 
+     & INFO(1), INFO(2), KEEP8(15),MAX_SIZE_FACTOR_TMP, 
+     & KEEP8(9), ENTRIES_IN_FACTORS_LOC_MASTERS,
+     & id%root%yes, id%root%NPROW, id%root%NPCOL
      &           )
            IF (ALLOCATED(IPOOL)) DEALLOCATE(IPOOL)
            NULLIFY(NE_STEPSPTR)
@@ -2514,6 +2507,10 @@ C     ---------------------
          KEEP(26) = 0
          KEEP(27) = 0
          RINFO(1) = 0.0E0
+         K8_33relaxed = 0_8
+         K8_34relaxed = 0_8
+         K8_35relaxed = 0_8
+         K8_50relaxed = 0_8
       END IF
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &     id%COMM, id%MYID )
@@ -2726,9 +2723,16 @@ C     -------------------------
             END IF
             GOTO 92
          END IF
+         IF ( id%KEEP8(28) .EQ. 0_8 ) THEN
+           IRN_PTR => IDUMMY_ARRAY
+           JCN_PTR => IDUMMY_ARRAY
+         ELSE
+           IRN_PTR => id%IRN
+           JCN_PTR => id%JCN
+         ENDIF
          CALL SMUMPS_BUILD_MAPPING(
      &        id%N, id%MAPPING(1), id%KEEP8(28),
-     &        id%IRN(1),id%JCN(1), id%PROCNODE_STEPS(1),
+     &        IRN_PTR(1),JCN_PTR(1), id%PROCNODE_STEPS(1),
      &        id%STEP(1),
      &        id%NSLAVES, id%SYM_PERM(1),
      &        id%FILS(1), IWtemp, id%KEEP(1),id%KEEP8(1),
@@ -2783,6 +2787,10 @@ C     MP     : INFO
       PROK  = (( MP  .GT. 0 ).AND.(id%ICNTL(4).GE.2))
       PROKG = ( MPG .GT. 0 .and. id%MYID .eq. MASTER )
       PROKG = (PROKG.AND.(id%ICNTL(4).GE.2))
+C     Re-intialize few KEEPs entries corresponding
+C     to stat that are incremented such
+C     the number of split nodes:
+      id%KEEP(61)=0
       IF (id%MYID.eq.MASTER) THEN
         id%KEEP(256) = id%ICNTL(7) ! copy ordering option
         id%KEEP(252) = id%ICNTL(32)
@@ -2812,6 +2820,10 @@ C       Case of solve not needed:
           id%KEEP(201) = -1
 C         In that case, id%ICNTL(22) will
 C         be ignored in future phases
+        ELSE
+C         Reset id%KEEP(201) -- typically for the case
+C         of a previous analysis with KEEP(201)=-1
+          id%KEEP(201) = 0
         ENDIF
         IF (id%KEEP(252).EQ.1) THEN
           id%KEEP(253) = id%NRHS

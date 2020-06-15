@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       MODULE SMUMPS_FAC_LR
       USE SMUMPS_LR_CORE
@@ -1450,7 +1450,11 @@ C
      &                                FSorCB
       INTEGER, intent(inout)         :: IFLAG, IERROR
       INTEGER, DIMENSION(:) :: BEGS_BLR, BEGS_BLR_U
+#if defined(MUMPS_F2003)
       TYPE(LRB_TYPE), POINTER, intent(inout) :: CB_LRB(:,:)
+#else
+      TYPE(LRB_TYPE), POINTER :: CB_LRB(:,:)
+#endif
       TYPE(LRB_TYPE), POINTER :: ACC_LUA(:), BLR_U_COL(:)
       INTEGER(8) :: KEEP8(150)
       INTEGER,intent(in) :: MIDBLK_COMPRESS, KPERCENT_RMB, TOL_OPT

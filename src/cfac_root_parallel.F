@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE CMUMPS_FACTO_ROOT( 
      &           MPP, MYID, MASTER_OF_ROOT,
@@ -159,7 +159,7 @@ C
           KEEP8(10)=KEEP8(10) +
      &    mod(ENTRIES_ROOT, int(root%NPROW*root%NPCOL,8))
         ENDIF
-        CALL CMUMPS_PAR_ROOT_MINMAX_PIVOT_UPDATE (
+        CALL CMUMPS_PAR_ROOT_MINMAX_PIV_UPD (
      &         root%MBLOCK, root%IPIV(1),root%MYROW,
      &         root%MYCOL, root%NPROW, root%NPCOL, A(IAPOS), LOCAL_M,
      &         LOCAL_N, root%TOT_ROOT_SIZE, MYID, DKEEP, KEEP, LDLT)

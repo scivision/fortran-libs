@@ -1,7 +1,7 @@
 /*
  *
- *  This file is part of MUMPS 5.3.1, released
- *  on Fri Apr 10 13:52:30 UTC 2020
+ *  This file is part of MUMPS 5.3.3, released
+ *  on Mon Jun 15 09:57:25 UTC 2020
  *
  */
 /* Example program using the C interface to the 
@@ -19,11 +19,10 @@
 
 #if defined(MAIN_COMP)
 /*
- * Some Fortran compilers (COMPAQ fort) define main inside
+ * Some Fortran compilers (COMPAQ fort) define "main" in
  * their runtime library while a Fortran program translates
- * to MAIN_ or MAIN__ which is then called from "main". This
- * is annoying because MAIN__ has no arguments and we must
- * define argc/argv arbitrarily !!
+ * to MAIN_ or MAIN__ which is then called from "main".
+ * We defined argc/argv arbitrarily in that case.
  */
 int MAIN__();
 int MAIN_()
@@ -34,7 +33,7 @@ int MAIN_()
 int MAIN__()
 {
   int argc=1;
-  char * name = "c_example";
+  char * name = "c_example_save_restore";
   char ** argv ;
 #else
 int main(int argc, char ** argv)
@@ -49,7 +48,10 @@ int main(int argc, char ** argv)
   double rhs[2];
 
   int error = 0;
-  MUMPS_INT myid, ierr;
+/* When compiling with -DINTSIZE64, MUMPS_INT is 64-bit but MPI
+   ilp64 versions may still require standard int for C interface. */
+/* MUMPS_INT myid, ierr; */
+  int myid, ierr;
 #if defined(MAIN_COMP)
   argv = &name;
 #endif

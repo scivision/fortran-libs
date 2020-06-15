@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,26 +8,20 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE SMUMPS_SOL_C(root, N, A, LA, IW, LIW, W, LWC, 
-     & IWCB, LIWW, NRHS, NA, LNA, NE_STEPS, W2,
-     & MTYPE, ICNTL, FROM_PP, STEP, FRERE, DAD, FILS, PTRIST, PTRFAC,
-     & IW1, LIW1, PTRACB, LIWK_PTRACB, PROCNODE_STEPS, SLAVEF,
-     & INFO, KEEP,KEEP8, DKEEP, COMM_NODES, MYID,
-     & MYID_NODES, BUFR, LBUFR, LBUFR_BYTES, ISTEP_TO_INIV2,
-     & TAB_POS_IN_PERE, IBEG_ROOT_DEF, IEND_ROOT_DEF,
-     & IROOT_DEF_RHS_COL1, RHS_ROOT, LRHS_ROOT,
-     & SIZE_ROOT, MASTER_ROOT,
-     & RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD, POSINRHSCOMP_BWD
-     & , NZ_RHS, NBCOL_INBLOC, NRHS_ORIG, JBEG_RHS
-     & , Step2node, LStep2node       
-     & , IRHS_SPARSE                 
-     & , IRHS_PTR                    
-     & , SIZE_PERM_RHS, PERM_RHS     
-     & , SIZE_UNS_PERM_INV, UNS_PERM_INV    
-     & , NB_FS_IN_RHSCOMP_F, NB_FS_IN_RHSCOMP_TOT
-     & , DO_NBSPARSE , RHS_BOUNDS, LRHS_BOUNDS
+     & IWCB, LIWW, NRHS, NA, LNA, NE_STEPS, W2, MTYPE, ICNTL, FROM_PP,
+     & STEP, FRERE, DAD, FILS, PTRIST, PTRFAC, IW1, LIW1, PTRACB,
+     & LIWK_PTRACB, PROCNODE_STEPS, SLAVEF, INFO, KEEP,KEEP8, DKEEP,
+     & COMM_NODES, MYID, MYID_NODES, BUFR, LBUFR, LBUFR_BYTES,
+     & ISTEP_TO_INIV2, TAB_POS_IN_PERE, IBEG_ROOT_DEF, IEND_ROOT_DEF,
+     & IROOT_DEF_RHS_COL1, RHS_ROOT, LRHS_ROOT, SIZE_ROOT, MASTER_ROOT,
+     & RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD, POSINRHSCOMP_BWD,
+     & NZ_RHS, NBCOL_INBLOC, NRHS_ORIG, JBEG_RHS, Step2node, LStep2node,
+     & IRHS_SPARSE, IRHS_PTR, SIZE_PERM_RHS, PERM_RHS,
+     & SIZE_UNS_PERM_INV, UNS_PERM_INV, NB_FS_IN_RHSCOMP_F,
+     & NB_FS_IN_RHSCOMP_TOT, DO_NBSPARSE , RHS_BOUNDS, LRHS_BOUNDS
      & )
       USE SMUMPS_OOC
       USE SMUMPS_SOL_ES
@@ -392,7 +386,7 @@ C
             IW1(NSTK_S+ISTEP-1) = NE_STEPS(ISTEP)
           ENDDO
         ELSE
-          CALL MUMPS_GET_NBLOCAL_ROOTS_OR_LEAVES( N,
+          CALL MUMPS_NBLOCAL_ROOTS_OR_LEAVES( N,
      &         nb_prun_roots, Pruned_Roots,
      &         MYROOT, MYID_NODES, SLAVEF, KEEP, STEP,
      &         PROCNODE_STEPS )
@@ -778,7 +772,7 @@ C
      &          NA, LNA, KEEP, KEEP8, STEP, PROCNODE_STEPS,
      &          IW1(IPOOL), LPOOL )
              IF (MYLEAF .EQ. -1) THEN
-               CALL MUMPS_GET_NBLOCAL_ROOTS_OR_LEAVES( N,
+               CALL MUMPS_NBLOCAL_ROOTS_OR_LEAVES( N,
      &         NA(1), 
      &         NA(3), 
      &         MYLEAF, MYID_NODES, SLAVEF, KEEP, STEP,
@@ -789,7 +783,7 @@ C
      &      Pruned_Roots,
      &      MYROOT, MYID_NODES, KEEP, KEEP8, STEP, PROCNODE_STEPS,
      &      IW1(IPOOL), LPOOL)
-            CALL MUMPS_GET_NBLOCAL_ROOTS_OR_LEAVES( N,
+            CALL MUMPS_NBLOCAL_ROOTS_OR_LEAVES( N,
      &       nb_prun_leaves, Pruned_Leaves,
      &       MYLEAF, MYID_NODES, SLAVEF, KEEP, STEP,
      &       PROCNODE_STEPS )

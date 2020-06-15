@@ -5,7 +5,7 @@
 
 // -- MUMPS:
 
-MUMPS_DIR = home + "/MUMPS_5.3.1";
+MUMPS_DIR = home + "/MUMPS_5.3.3";
 MUMPS_INC_DIR = MUMPS_DIR+"/include"; //path until dmumps_c.h and zmumps_c.h
 MUMPS_LIB_DIR = MUMPS_DIR+"/lib";     //path until libdmumps.a, libzmumps.a and libpord.a
 MUMPS_LIB  = MUMPS_LIB_DIR+"/libmumps_common.a";

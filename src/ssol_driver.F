@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       SUBROUTINE SMUMPS_SOLVE_DRIVER(id)
       USE SMUMPS_STRUC_DEF
@@ -184,8 +184,8 @@ C     arrays only used for distributed matrix input
 C     (KEEP(54) .NE. 0).
       REAL,    ALLOCATABLE, DIMENSION(:) :: R_LOCWK54
       REAL, ALLOCATABLE, DIMENSION(:) :: C_LOCWK54
-      INTEGER   :: NBENT_RHSCOMP, NB_FS_IN_RHSCOMP_F,
-     &             NB_FS_IN_RHSCOMP_TOT
+      INTEGER   :: NBENT_RHSCOMP, NB_FS_RHSCOMP_F,
+     &             NB_FS_RHSCOMP_TOT
       INTEGER, DIMENSION(:), ALLOCATABLE :: UNS_PERM_INV
       LOGICAL :: UNS_PERM_INV_NEEDED_INMAINLOOP,
      &           UNS_PERM_INV_NEEDED_BEFMAINLOOP
@@ -373,10 +373,10 @@ C     Not needed anymore (since new version of gather)
 C     LD_RHSCOMP = max(KEEP(89),1)  ! at the nb of pivots eliminated on
                                     ! that proc
       LD_RHSCOMP = 1
-      NB_FS_IN_RHSCOMP_TOT = KEEP(89)
+      NB_FS_RHSCOMP_TOT = KEEP(89)
 !     number of FS var of the pruned tree
 !     mapped on this proc
-      NB_FS_IN_RHSCOMP_F = NB_FS_IN_RHSCOMP_TOT
+      NB_FS_RHSCOMP_F = NB_FS_RHSCOMP_TOT
 C     Save value of KEEP(350), in case of LR solve
 C     KEEP(350) may be overwritten and restored
 C     Old unoptimized version before 5.0.2 not available anymore
@@ -3223,8 +3223,8 @@ C           -- compute POSINRHSCOMP
      &           id%POSINRHSCOMP_ROW(1), id%POSINRHSCOMP_COL(1),
      &           id%POSINRHSCOMP_COL_ALLOC,
      &           MTYPE_LOC,
-     &           NBENT_RHSCOMP, NB_FS_IN_RHSCOMP_TOT )
-                NB_FS_IN_RHSCOMP_F = NB_FS_IN_RHSCOMP_TOT
+     &           NBENT_RHSCOMP, NB_FS_RHSCOMP_TOT )
+                NB_FS_RHSCOMP_F = NB_FS_RHSCOMP_TOT
             ELSE
               CALL SMUMPS_BUILD_POSINRHSCOMP_AM1(
      &           id%NSLAVES,id%N,
@@ -3238,7 +3238,7 @@ C           -- compute POSINRHSCOMP
      &           IRHS_PTR_COPY(1), NBCOL_INBLOC, IRHS_SPARSE_COPY(1),
      &           NZ_THIS_BLOCK,PERM_RHS, size(PERM_RHS) , JBEG_RHS,
      &           NBENT_RHSCOMP,
-     &           NB_FS_IN_RHSCOMP_F, NB_FS_IN_RHSCOMP_TOT,
+     &           NB_FS_RHSCOMP_F, NB_FS_RHSCOMP_TOT,
      &            UNS_PERM_INV, size(UNS_PERM_INV) ! size 1 if not used
      &            )
             ENDIF
@@ -3376,7 +3376,7 @@ C               =========
                 IF ( allocok .GT. 0 ) THEN
                   INFO(1)=-13
                   INFO(2)=id%N
-                  IF ( LPOK) THEN
+                  IF (LPOK) THEN
                     WRITE(LP,*) id%MYID,
      &              ':Error allocating C_RW2 in SMUMPS_SOLVE_DRIVE'
                   END IF
@@ -3600,7 +3600,7 @@ C               -- Master not working
      &          MTYPE, PTR_RHS(IBEG_loc),LD_RHS_loc,NCOL_RHS_loc,
      &          NBRHS_EFF,
      &          id%RHSCOMP(IBEG_RHSCOMP), LD_RHSCOMP, NBRHS_EFF,
-     &          id%POSINRHSCOMP_ROW(1), NB_FS_IN_RHSCOMP_F,
+     &          id%POSINRHSCOMP_ROW(1), NB_FS_RHSCOMP_F,
 C
      &          id%PTLUST_S(1), id%KEEP(1), id%KEEP8(1),
      &          id%PROCNODE_STEPS(1),
@@ -3627,7 +3627,7 @@ C
      &          idRHS_loc(RHS_loc_shift),
      &          RHS_loc_size,
      &          id%RHSCOMP(IBEG_RHSCOMP), LD_RHSCOMP,
-     &          id%POSINRHSCOMP_ROW(1), NB_FS_IN_RHSCOMP_F,
+     &          id%POSINRHSCOMP_ROW(1), NB_FS_RHSCOMP_F,
      &          LSCAL, scaling_data_dr,
      &          LP, LPOK, KEEP(1), NB_BYTES_LOC, INFO(1))
 C               NB_BYTES_LOC were allocated and freed above
@@ -3671,7 +3671,7 @@ C                 - to build Ej and store it in RHSCOMP
                         J = PERM_RHS(J)
                       ENDIF
                       IPOSRHSCOMP = id%POSINRHSCOMP_ROW(J)
-C                     IF ( (IPOSRHSCOMP.LE.NB_FS_IN_RHSCOMP_F)
+C                     IF ( (IPOSRHSCOMP.LE.NB_FS_RHSCOMP_F)
 C     &               .AND.(IPOSRHSCOMP.GT.0) ) THEN
                       IF (IPOSRHSCOMP.GT.0)  THEN
 C                       Columns J corresponds to ej and thus to variable j
@@ -3730,8 +3730,8 @@ C                     of RHSCOMP, we can compare to KEEP(89)
 C                     to know if RHSCOMP should be initialized
 C                     So far the tree has not been pruned to exploit
 C                     sparsity to compress RHSCOMP so we compare to
-C                     NB_FS_IN_RHSCOMP_TOT
-                      IF ( (IPOSRHSCOMP.LE.NB_FS_IN_RHSCOMP_TOT)
+C                     NB_FS_RHSCOMP_TOT
+                      IF ( (IPOSRHSCOMP.LE.NB_FS_RHSCOMP_TOT)
      &                .AND.(IPOSRHSCOMP.GT.0) ) THEN
 C                        ! I is fully summed var mapped on my proc
                         id%RHSCOMP(KDEC+IPOSRHSCOMP)=
@@ -4017,24 +4017,20 @@ C
             FROM_PP = .FALSE.
             NBSPARSE_LOC = (DO_NBSPARSE.AND.NBRHS_EFF.GT.1)
             PRUNED_SIZE_LOADED = 0_8  ! From SMUMPS_SOL_ES module
-            CALL SMUMPS_SOL_C(id%root, id%N, id%S(1), LA_PASSED,
-     &    IS(1), LIW_PASSED, WORK_WCB(1), LWCB8_SOL_C, IWCB, LIWCB,
-     &    NBRHS_EFF, id%NA(1),id%LNA,id%NE_STEPS(1), SRW3, MTYPE,
-     &    ICNTL(1), FROM_PP, id%STEP(1), id%FRERE_STEPS(1),
-     &    id%DAD_STEPS(1), id%FILS(1), id%PTLUST_S(1), id%PTRFAC(1),
-     &    IWK_SOLVE, LIWK_SOLVE, PTRACB, LIWK_PTRACB, 
-     &    id%PROCNODE_STEPS(1),
-     &    id%NSLAVES, INFO(1), KEEP(1), KEEP8(1), id%DKEEP(1),
-     &    id%COMM_NODES, id%MYID, id%MYID_NODES,
-     &    BUFR(1), LBUFR, LBUFR_BYTES,
-     &    id%ISTEP_TO_INIV2(1), id%TAB_POS_IN_PERE(1,1),
-     &    IBEG_ROOT_DEF, IEND_ROOT_DEF, IROOT_DEF_RHS_COL1,
-     &    PTR_RHS_ROOT(1), LPTR_RHS_ROOT, SIZE_ROOT, MASTER_ROOT,
-     &    id%RHSCOMP(IBEG_RHSCOMP), LD_RHSCOMP,
-     &    id%POSINRHSCOMP_ROW(1), id%POSINRHSCOMP_COL(1)
-     &    , 1            , 1       ,  1       , 1
-     &    , IDUMMY, 1, JDUMMY, KDUMMY, 1, LDUMMY, 1, MDUMMY
-     &    , 1 , 1 , NBSPARSE_LOC, PTR_RHS_BOUNDS(1), LPTR_RHS_BOUNDS
+            CALL SMUMPS_SOL_C(id%root, id%N, id%S(1), LA_PASSED, IS(1),
+     & LIW_PASSED, WORK_WCB(1), LWCB8_SOL_C, IWCB, LIWCB, NBRHS_EFF,
+     & id%NA(1),id%LNA,id%NE_STEPS(1), SRW3, MTYPE, ICNTL(1), FROM_PP,
+     & id%STEP(1), id%FRERE_STEPS(1), id%DAD_STEPS(1), id%FILS(1),
+     & id%PTLUST_S(1), id%PTRFAC(1), IWK_SOLVE, LIWK_SOLVE, PTRACB,
+     & LIWK_PTRACB, id%PROCNODE_STEPS(1), id%NSLAVES, INFO(1),KEEP(1),
+     & KEEP8(1), id%DKEEP(1), id%COMM_NODES, id%MYID, id%MYID_NODES,
+     & BUFR(1), LBUFR, LBUFR_BYTES, id%ISTEP_TO_INIV2(1),
+     & id%TAB_POS_IN_PERE(1,1), IBEG_ROOT_DEF, IEND_ROOT_DEF,
+     & IROOT_DEF_RHS_COL1, PTR_RHS_ROOT(1), LPTR_RHS_ROOT, SIZE_ROOT,
+     & MASTER_ROOT, id%RHSCOMP(IBEG_RHSCOMP), LD_RHSCOMP,
+     & id%POSINRHSCOMP_ROW(1), id%POSINRHSCOMP_COL(1)
+     & , 1, 1, 1, 1, IDUMMY, 1, JDUMMY, KDUMMY, 1, LDUMMY, 1, MDUMMY
+     & , 1, 1, NBSPARSE_LOC, PTR_RHS_BOUNDS(1), LPTR_RHS_BOUNDS
      &    )
           ELSE
 C           Exploit sparsity of the RHS (all cases)
@@ -4043,24 +4039,20 @@ C
             FROM_PP = .FALSE.
             NBSPARSE_LOC = (DO_NBSPARSE.AND.NBRHS_EFF.GT.1)
             CALL SMUMPS_SOL_C(id%root, id%N, id%S(1), LA_PASSED,IS(1),
-     & LIW_PASSED, WORK_WCB(1), LWCB8_SOL_C, IWCB, LIWCB, NBRHS_EFF,
-     & id%NA(1),id%LNA, id%NE_STEPS(1), SRW3, MTYPE, ICNTL(1),
-     & FROM_PP, id%STEP(1), id%FRERE_STEPS(1), id%DAD_STEPS(1),
-     & id%FILS(1), id%PTLUST_S(1), id%PTRFAC(1), 
-     & IWK_SOLVE, LIWK_SOLVE, PTRACB, LIWK_PTRACB,
-     & id%PROCNODE_STEPS(1),id%NSLAVES,INFO(1),KEEP(1),
-     & KEEP8(1), id%DKEEP(1), id%COMM_NODES, id%MYID, id%MYID_NODES,
-     & BUFR(1), LBUFR, LBUFR_BYTES, id%ISTEP_TO_INIV2(1),
-     & id%TAB_POS_IN_PERE(1,1), IBEG_ROOT_DEF, IEND_ROOT_DEF,
-     & IROOT_DEF_RHS_COL1, PTR_RHS_ROOT(1), LPTR_RHS_ROOT, SIZE_ROOT,
-     & MASTER_ROOT, id%RHSCOMP(IBEG_RHSCOMP), LD_RHSCOMP,
-     & id%POSINRHSCOMP_ROW(1), id%POSINRHSCOMP_COL(1),
-     & NZ_THIS_BLOCK, NBCOL_INBLOC, id%NRHS, JBEG_RHS ,
-     & id%Step2node(1), id%KEEP(28), IRHS_SPARSE_COPY(1),
-     & IRHS_PTR_COPY(1), size(PERM_RHS), PERM_RHS, size(UNS_PERM_INV),
-C size 1 if not used
-     & UNS_PERM_INV, NB_FS_IN_RHSCOMP_F, NB_FS_IN_RHSCOMP_TOT,
-     & NBSPARSE_LOC, PTR_RHS_BOUNDS(1), LPTR_RHS_BOUNDS
+     & LIW_PASSED,WORK_WCB(1),LWCB8_SOL_C,IWCB,LIWCB,NBRHS_EFF,id%NA(1),
+     & id%LNA,id%NE_STEPS(1),SRW3,MTYPE,ICNTL(1),FROM_PP,id%STEP(1),
+     & id%FRERE_STEPS(1), id%DAD_STEPS(1), id%FILS(1), id%PTLUST_S(1),
+     & id%PTRFAC(1), IWK_SOLVE, LIWK_SOLVE, PTRACB, LIWK_PTRACB,
+     & id%PROCNODE_STEPS(1),id%NSLAVES,INFO(1),KEEP(1), KEEP8(1),
+     & id%DKEEP(1),id%COMM_NODES,id%MYID,id%MYID_NODES,BUFR(1),LBUFR,
+     & LBUFR_BYTES, id%ISTEP_TO_INIV2(1), id%TAB_POS_IN_PERE(1,1),
+     & IBEG_ROOT_DEF,IEND_ROOT_DEF,IROOT_DEF_RHS_COL1,PTR_RHS_ROOT(1),
+     & LPTR_RHS_ROOT, SIZE_ROOT, MASTER_ROOT, id%RHSCOMP(IBEG_RHSCOMP),
+     & LD_RHSCOMP, id%POSINRHSCOMP_ROW(1), id%POSINRHSCOMP_COL(1),
+     & NZ_THIS_BLOCK, NBCOL_INBLOC, id%NRHS, JBEG_RHS, id%Step2node(1),
+     & id%KEEP(28),IRHS_SPARSE_COPY(1),IRHS_PTR_COPY(1), size(PERM_RHS),
+     & PERM_RHS, size(UNS_PERM_INV), UNS_PERM_INV, NB_FS_RHSCOMP_F,
+     & NB_FS_RHSCOMP_TOT,NBSPARSE_LOC,PTR_RHS_BOUNDS(1),LPTR_RHS_BOUNDS
      &       )
           ENDIF   ! end of exploit sparsity (pruning nodes of the tree)
         END IF
@@ -4288,7 +4280,7 @@ C               --- A-1 related entries
      &          IRHS_SPARSE_COPY(1), size(IRHS_SPARSE_COPY),
      &          RHS_SPARSE_COPY(1), size(RHS_SPARSE_COPY),
      &          UNS_PERM_INV, size(UNS_PERM_INV),
-     &          id%POSINRHSCOMP_COL(1), id%N, NB_FS_IN_RHSCOMP_TOT
+     &          id%POSINRHSCOMP_COL(1), id%N, NB_FS_RHSCOMP_TOT
      &          )
               ENDIF
             ENDIF
@@ -5694,7 +5686,7 @@ C           system (ie, col indices of A or A^T)
      &      SOLVET,  C_Y(1), id%N, 1,
      &      1,
      &      id%RHSCOMP(IBEG_RHSCOMP), LD_RHSCOMP, 1,
-     &      PTR_POSINRHSCOMP_FWD(1), NB_FS_IN_RHSCOMP_F,
+     &      PTR_POSINRHSCOMP_FWD(1), NB_FS_RHSCOMP_F,
 C
      &      id%PTLUST_S(1), id%KEEP(1), id%KEEP8(1),
      &      id%PROCNODE_STEPS(1),
@@ -5718,26 +5710,20 @@ C
           ENDIF
           FROM_PP=.TRUE.
           NBSPARSE_LOC = .FALSE.
-          CALL SMUMPS_SOL_C( id%root, id%N, id%S(1), LA_PASSED,
-     & id%IS(1), LIW_PASSED, WORK_WCB(1), LWCB8_SOL_C, IWCB, LIWCB,
-     & NBRHS_EFF, id%NA(1), id%LNA, id%NE_STEPS(1), SRW3, SOLVET,
-     & ICNTL(1), FROM_PP, id%STEP(1), id%FRERE_STEPS(1),
-     & id%DAD_STEPS(1), id%FILS(1), id%PTLUST_S(1), id%PTRFAC(1), 
-     & IWK_SOLVE(1), LIWK_SOLVE, PTRACB, LIWK_PTRACB,
+          CALL SMUMPS_SOL_C(id%root, id%N, id%S(1), LA_PASSED, id%IS(1),
+     & LIW_PASSED,WORK_WCB(1),LWCB8_SOL_C,IWCB,LIWCB,NBRHS_EFF,id%NA(1),
+     & id%LNA,id%NE_STEPS(1),SRW3,SOLVET,ICNTL(1),FROM_PP,id%STEP(1),
+     & id%FRERE_STEPS(1),id%DAD_STEPS(1),id%FILS(1),id%PTLUST_S(1),
+     & id%PTRFAC(1), IWK_SOLVE(1), LIWK_SOLVE, PTRACB, LIWK_PTRACB,
      & id%PROCNODE_STEPS(1), id%NSLAVES, INFO(1), KEEP(1), KEEP8(1),
-     & id%DKEEP(1), 
-     & id%COMM_NODES, id%MYID, id%MYID_NODES, BUFR(1), LBUFR,
+     & id%DKEEP(1),id%COMM_NODES,id%MYID,id%MYID_NODES, BUFR(1), LBUFR,
      & LBUFR_BYTES, id%ISTEP_TO_INIV2(1), id%TAB_POS_IN_PERE(1,1),
-C         Next 3 arguments are not used in this call
-     & IBEG_ROOT_DEF, IEND_ROOT_DEF, IROOT_DEF_RHS_COL1,
-C         Case of special root node
-     &    PTR_RHS_ROOT(1), LPTR_RHS_ROOT, SIZE_ROOT, MASTER_ROOT,
-     &    id%RHSCOMP(IBEG_RHSCOMP), LD_RHSCOMP,
-     &    PTR_POSINRHSCOMP_FWD(1), PTR_POSINRHSCOMP_BWD(1)
-     &    , 1            , 1       ,  1    , 1
-     &    , IDUMMY, 1, JDUMMY, KDUMMY, 1, LDUMMY, 1, MDUMMY
-     &    , 1, 1
-     &    , NBSPARSE_LOC, PTR_RHS_BOUNDS(1), LPTR_RHS_BOUNDS
+C      Next 3 arguments are not used in this call
+     & IBEG_ROOT_DEF,IEND_ROOT_DEF,IROOT_DEF_RHS_COL1, PTR_RHS_ROOT(1),
+     & LPTR_RHS_ROOT, SIZE_ROOT, MASTER_ROOT, id%RHSCOMP(IBEG_RHSCOMP),
+     & LD_RHSCOMP,PTR_POSINRHSCOMP_FWD(1),PTR_POSINRHSCOMP_BWD(1),
+     & 1,1,1,1, IDUMMY, 1, JDUMMY, KDUMMY, 1, LDUMMY, 1, MDUMMY, 1,1,
+     & NBSPARSE_LOC, PTR_RHS_BOUNDS(1), LPTR_RHS_BOUNDS
      &    )
         END IF
 C       ------------------

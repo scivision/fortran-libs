@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       RECURSIVE SUBROUTINE ZMUMPS_TRAITER_MESSAGE_SOLVE
      &     ( BUFR, LBUFR, LBUFR_BYTES,
@@ -748,10 +748,11 @@ C
               IF ( LASTFSL0DYN .EQ. 0 ) THEN
                 IPOSINRHSCOMPLASTFSDYN = 0
               ELSE
-                IPOSINRHSCOMPLASTFSDYN = POSINRHSCOMP_FWD(LASTFSL0DYN) 
+                IPOSINRHSCOMPLASTFSDYN =
+     &                          abs(POSINRHSCOMP_FWD(LASTFSL0DYN))
               ENDIF
               DO I = 1, NUPDATE
-                IF ( POSINRHSCOMP_FWD( IW(J3+I) ) .GT. 
+                IF ( abs(POSINRHSCOMP_FWD( IW(J3+I) )) .GT. 
      &               IPOSINRHSCOMPLASTFSDYN ) THEN
                   IF (abs(STEP(IW(J3+I))) .GT.
      &                abs(STEP( LASTFSL0STA))
@@ -767,15 +768,13 @@ C
 !$OMP PARALLEL DO PRIVATE(I,IFR8,IPOSINRHSCOMP_TMP) IF(OMP_FLAG)
             DO K = JBDEB, JBFIN
               IFR8 = PCB_COURANT + int(K-JBDEB,8)*int(LD_WCBCB,8)
-!$OMP CRITICAL
-              DO I = 1, NUPDATE_NONCRITICAL
+               DO I = 1, NUPDATE_NONCRITICAL
                 IPOSINRHSCOMP_TMP = 
      &          abs(POSINRHSCOMP_FWD(IW(J3 + I)))
                 RHSCOMP( IPOSINRHSCOMP_TMP, K ) = 
      &          RHSCOMP( IPOSINRHSCOMP_TMP, K )
      &          + WCB(IFR8 + int(I-1,8))
-              ENDDO
-!$OMP END CRITICAL
+               ENDDO
             ENDDO
 !$OMP END PARALLEL DO
             IF ( CBINITZERO ) THEN
@@ -787,7 +786,7 @@ C
                 ENDIF
                 DO K = JBDEB, JBFIN
                   IFR8 = PCB_COURANT + int(K-JBDEB,8)*int(LD_WCBCB,8)
-!$OMP CRITICAL
+!$OMP CRITICAL(ZMUMPS_RHSCOMP_CRI)
                   DO I = NUPDATE_NONCRITICAL+1, NUPDATE
                     IPOSINRHSCOMP_TMP = 
      &                abs(POSINRHSCOMP_FWD(IW(J3 + I)))
@@ -795,7 +794,7 @@ C
      &                   RHSCOMP( IPOSINRHSCOMP_TMP, K )
      &                   + WCB(IFR8 + int(I-1,8))
                   ENDDO
-!$OMP END CRITICAL
+!$OMP END CRITICAL(ZMUMPS_RHSCOMP_CRI)
                 ENDDO
               ENDIF
             ENDIF

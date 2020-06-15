@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.1, released
-C  on Fri Apr 10 13:52:30 UTC 2020
+C  This file is part of MUMPS 5.3.3, released
+C  on Mon Jun 15 09:57:25 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -8,7 +8,7 @@ C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
-C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       MODULE CMUMPS_LR_CORE
       USE MUMPS_LR_COMMON
@@ -208,7 +208,6 @@ C
         INTEGER :: I, INEW, MINSIZE, NEW_NPARTSASS, allocok
         LOGICAL :: ONLYCB, TRACE
         INTEGER, INTENT(IN) :: K472
-C FIXME: return IFLAG and IERROR 
         INTEGER :: IBCKSZ2,IFLAG,IERROR
         ALLOCATE(NEW_CUT(max(NPARTSASS,1)+NPARTSCB+1),stat=allocok)
         IF (allocok > 0) THEN
@@ -1454,9 +1453,6 @@ C
      &        IBIS, IBIS_END, FIRST_ROW, LAST_ROW, FIRST_COL, LAST_COL,
      &        SON_LDA
         DOUBLE PRECISION :: PROMOTE_COST
-#if defined(BLR_MT)         
-!$      INTEGER :: OMP_NUM
-#endif
         COMPLEX :: ONE, ZERO
         PARAMETER (ONE=(1.0E0,0.0E0))
         PARAMETER (ZERO=(0.0E0,0.0E0))
@@ -1476,13 +1472,10 @@ C
 #if defined(BLR_MT)         
 !$OMP PARALLEL         
 !$OMP DO PRIVATE(IBIS, I, J, M, N, SON_LA, SON_LDA, FIRST_ROW,
-!$OMP&           LAST_ROW, FIRST_COL, LAST_COL, LRB, SON_A, II, KK,
-!$OMP&           APOS, IACHK, KK1, JJ2, PROMOTE_COST)
+!$OMP&         LAST_ROW, FIRST_COL, LAST_COL, LRB, SON_A, II, KK,
+!$OMP&         APOS, IACHK, KK1, JJ2, PROMOTE_COST, allocok, SON_APOS)
 #endif
         DO IBIS = 1,IBIS_END
-#if defined(BLR_MT)
-!$        OMP_NUM = OMP_GET_THREAD_NUM()
-#endif
 C         Determining I,J from IBIS
           IF (SYM.EQ.0) THEN
             I = (IBIS-1)/NB_INCB+1
@@ -1508,7 +1501,6 @@ C           first CB block, add NELIM because FIRST_ROW starts at NELIM+1
           SON_LA    = M*N
           SON_LDA   = N
           LRB => CB_LRB(I-NB_INASM,J-NB_INASM)
-C FIXME allocate only once of size MAXI_CLUSTER ?
           IF (LRB%ISLR.AND.LRB%K.EQ.0) THEN
 C           No need to perform extend-add              
             CALL DEALLOC_LRB(LRB, KEEP8)
@@ -1517,7 +1509,6 @@ C           No need to perform extend-add
           ENDIF
           allocate(SON_A(SON_LA),stat=allocok)
           IF (allocok.GT.0) THEN
-C     FIXME propagate error
             write(*,*) 'Not enough memory in CMUMPS_BLR_ASM_NIV1',
      &     ", Memory requested = ", SON_LA
             CALL MUMPS_ABORT()
@@ -1529,8 +1520,6 @@ C         decompress block
             PROMOTE_COST = 2.0D0*M*N*LRB%K
             CALL UPD_FLOP_DECOMPRESS(PROMOTE_COST, .TRUE.)
           ELSE
-C FIXME copy from 2D array LRB%Q to 1D array SON_A could be skipped with
-C a bit of work ...
             IF (I.EQ.J.AND.SYM.NE.0) THEN
 C             Diag block and LDLT, copy only lower half              
              IF (J-NB_INASM.EQ.1.AND.NELIM.GT.0) THEN

@@ -2,6 +2,17 @@
 = ChangeLog =
 -------------
 
+Changes from 5.3.1 to 5.3.3
+* Assume ilp64 MPI interface only applies to Fortran in c_example.c
+* Note on gfortran-10 compilation added
+* Avoid intent on pointers (F2003-only)
+* More robust multithreading for matrix reformatting (arrowheads)
+* Fixed ICNTL(31) interpretation in case of repeated analysis
+* Fixed multiple mpif.h inclusion (distributed rhs, ifort+openmpi)
+* Fixed computation of effectively used memory statistics
+* Minor fix in userguide
+* Suppressed a !$OMP CRITICAL from solve phase (introduced in 5.3.0)
+
 Changes from 5.3.0 to 5.3.1
 * Improved multithreaded performance of BLR backward solve
 * Fixed return code in build_mumps_int_def.c + openmp compilation (pgi)
@@ -623,6 +634,8 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.3.3            : June 2020
+Release 5.3.2[.x]        : May 2020, internal/experimental
 Release 5.3.1            : April 2020
 Release 5.3.0            : April 2020
 Release 5.2.1            : June 2019
