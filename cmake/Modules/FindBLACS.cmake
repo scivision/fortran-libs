@@ -193,12 +193,6 @@ if(MKL IN_LIST BLACS_FIND_COMPONENTS)
     set(_mkltype static)
   endif()
 
-  if(WIN32)
-    set(_impi impi)
-  else()
-    unset(_impi)
-  endif()
-
   pkg_check_modules(MKL mkl-${_mkltype}-lp64-iomp QUIET)
 
   if(OpenMPI IN_LIST BLACS_FIND_COMPONENTS)
@@ -214,7 +208,7 @@ if(MKL IN_LIST BLACS_FIND_COMPONENTS)
     endif()
     set(BLACS_MPICH_FOUND ${BLACS_MKL_FOUND})
   else()
-    mkl_scala(mkl_blacs_intelmpi_lp64 ${_impi})
+    mkl_scala(mkl_blacs_intelmpi_lp64)
   endif()
 
 else(MKL IN_LIST BLACS_FIND_COMPONENTS)
