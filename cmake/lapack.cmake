@@ -7,8 +7,17 @@ endif()
 find_package(LAPACK)
 
 if(NOT LAPACK_FOUND)
+  if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
+    message(FATAL_ERROR "Intel compiler not finding MKL library.")
+  endif()
+
   include(${CMAKE_CURRENT_LIST_DIR}/lapack_external.cmake)
   set(lapack_external true CACHE BOOL "autobuild Lapack")
+endif()
+
+if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
+  # CMake has some bugs with Intel compiler and testing Lapack library
+  return()
 endif()
 
 if(lapack_external)

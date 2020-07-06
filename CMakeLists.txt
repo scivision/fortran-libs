@@ -36,6 +36,8 @@ if(intsize64)
   add_compile_definitions(INTSIZE64)
 endif()
 
+message(STATUS "CMake ${CMAKE_VERSION}")
+
 # --- compiler setup
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compilers.cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
