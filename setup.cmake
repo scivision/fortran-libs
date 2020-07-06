@@ -79,6 +79,10 @@ if(NOT EXISTS ${CTEST_BINARY_DIRECTORY}/CMakeCache.txt)
     OPTIONS "${_opts}"
     RETURN_VALUE return_code
     CAPTURE_CMAKE_ERROR cmake_err)
+else()
+  set(return_code 0)
+  set(cmake_err 0)
+  message(STATUS "SKIP: ctest_configure()")
 endif()
 
 if(return_code EQUAL 0 AND cmake_err EQUAL 0)
@@ -89,6 +93,8 @@ if(return_code EQUAL 0 AND cmake_err EQUAL 0)
     NUMBER_ERRORS Nerror
     CAPTURE_CMAKE_ERROR cmake_err
     )
+else()
+  message(STATUS "SKIP: ctest_build(): returncode: ${return_code}; CMake error code: ${cmake_err}")
 endif()
 
 if(return_code EQUAL 0 AND Nerror EQUAL 0 AND cmake_err EQUAL 0)
@@ -97,6 +103,8 @@ if(return_code EQUAL 0 AND Nerror EQUAL 0 AND cmake_err EQUAL 0)
   RETURN_VALUE return_code
   CAPTURE_CMAKE_ERROR ctest_err
   )
+else()
+  message(STATUS "SKIP: ctest_test(): returncode: ${return_code}; CMake error code: ${cmake_err}")
 endif()
 
 ctest_submit()
