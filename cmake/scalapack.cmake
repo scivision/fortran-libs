@@ -7,21 +7,12 @@ endif()
 find_package(SCALAPACK)
 
 if(NOT SCALAPACK_FOUND)
-  if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
-    message(FATAL_ERROR "Intel compiler not finding MKL library.")
-  endif()
-
   include(${CMAKE_CURRENT_LIST_DIR}/scalapack_external.cmake)
   set(scalapack_external true CACHE BOOL "autobuild Scalapack")
 endif()
 
 if(scalapack_external OR lapack_external)
 # can't run prebuild test with external libraries not yet built.
-  return()
-endif()
-
-if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
-  # CMake has some bugs with Intel compiler and testing Scalapack library
   return()
 endif()
 
