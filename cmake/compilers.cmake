@@ -1,5 +1,10 @@
 set(CMAKE_CONFIGURATION_TYPES "Release;RelWithDebInfo;Debug" CACHE STRING "Build type selections" FORCE)
 
+if(NOT CMAKE_Fortran_COMPILER_ID STREQUAL ${CMAKE_C_COMPILER_ID})
+message(FATAL_ERROR "C compiler ${CMAKE_C_COMPILER_ID} does not match Fortran compiler ${CMAKE_Fortran_COMPILER_ID}.
+Set environment variables CC and FC to control compiler selection in general.")
+endif()
+
 # don't use LTO, the MUMPS code is not compatible for GCC at least.
 # will give link failures when used in real programs.
 # include(CheckIPOSupported)
@@ -16,6 +21,7 @@ if(CMAKE_Fortran_COMPILER_ID STREQUAL GNU AND CMAKE_Fortran_COMPILER_VERSION VER
   set(_gcc10opts "-fallow-argument-mismatch -fallow-invalid-boz")
   message(STATUS " Enabled argument mismatch workaround flags for ${CMAKE_Fortran_COMPILER_ID} ${CMAKE_Fortran_COMPILER_VERSION}:  ${_gcc10opts}")
 endif()
+
 
 # typical projects set options too strict for MUMPS code style, so if
 # being used as external project, locally override MUMPS compile options
