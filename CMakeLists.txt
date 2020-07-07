@@ -54,8 +54,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/lapack.cmake)
 # -- Scalapack / MPI
 
 if(parallel)
-  find_package(MPI COMPONENTS Fortran C REQUIRED)
-
+  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/mpi.cmake)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/scalapack.cmake)
 
   set(NUMERIC_INCDIRS)

@@ -19,7 +19,7 @@ set(CDEFS "Add_")
 set(_gcc10opts)
 if(CMAKE_Fortran_COMPILER_ID STREQUAL GNU AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL 10)
   set(_gcc10opts "-fallow-argument-mismatch -fallow-invalid-boz")
-  message(STATUS " Enabled argument mismatch workaround flags for ${CMAKE_Fortran_COMPILER_ID} ${CMAKE_Fortran_COMPILER_VERSION}:  ${_gcc10opts}")
+  message(VERBOSE " Enabled argument mismatch workaround flags for ${CMAKE_Fortran_COMPILER_ID} ${CMAKE_Fortran_COMPILER_VERSION}:  ${_gcc10opts}")
 endif()
 
 
