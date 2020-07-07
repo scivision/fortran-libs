@@ -31,12 +31,15 @@ include(CheckCSourceCompiles)
 
 if(NOT DEFINED MPI_C_OK)
   check_c_source_compiles("
-  #include <mpi.h>
-  int main(void) {
-      MPI_Init(NULL, NULL);
-      MPI_Finalize();
-      return 0;}
-  " MPI_C_OK)
+#include <mpi.h>
+#ifndef NULL
+#define NULL 0
+#endif
+int main(void) {
+    MPI_Init(NULL, NULL);
+    MPI_Finalize();
+    return 0;}
+" MPI_C_OK)
 
   message(STATUS "C MPI:
   Libs: ${MPI_C_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT}
