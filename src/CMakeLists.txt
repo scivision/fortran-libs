@@ -27,24 +27,21 @@ mumps_numa.c mumps_thread.c mumps_save_restore_C.c mumps_config_file_C.c mumps_t
 tools_common.F sol_common.F
 )
 
-set(ORDERING_INCDIRS)
 set(ORDERING_LIBS)
 set(ORDERING_FLAGS -Dpord)
 if(scotch)
   find_package(Scotch COMPONENTS ESMUMPS REQUIRED)
   list(APPEND ORDERING_FLAGS -Dscotch)
   list(APPEND COMM_OTHER_SRC mumps_scotch.c mumps_scotch64.c mumps_scotch_int.c)
-  list(APPEND ORDERING_INCDIRS ${Scotch_INCLUDE_DIRS})
-  list(APPEND ORDERING_LIBS ${Scotch_LIBRARIES})
+  list(APPEND ORDERING_LIBS Scotch::Scotch)
 endif()
 if(metis)
   find_package(METIS REQUIRED)
   list(APPEND ORDERING_FLAGS -Dmetis)
   list(APPEND COMM_OTHER_SRC mumps_metis.c mumps_metis64.c mumps_metis_int.c)
-  list(APPEND ORDERING_INCDIRS ${METIS_INCLUDE_DIRS})
-  list(APPEND ORDERING_LIBS ${METIS_LIBRARIES})
+  list(APPEND ORDERING_LIBS METIS::METIS)
 endif()
-list(APPEND ORDERING_LIBS mumps::pord)
+list(APPEND ORDERING_LIBS MUMPS::PORD)
 
 # manually create directory to avoid race condition for FetchContent
 # else can get INTERFACE_INCLUDE_DIRECTORIES not found error
@@ -53,7 +50,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
 add_library(mumps_common ${COMM_SRC} ${COMM_OTHER_SRC})
 target_link_libraries(mumps_common PRIVATE ${ORDERING_LIBS} ${NUMERIC_LIBS})
 target_include_directories(mumps_common
-  PRIVATE ${PROJECT_SOURCE_DIR}/include ${NUMERIC_INCDIRS} ${ORDERING_INCDIRS}
+  PRIVATE ${PROJECT_SOURCE_DIR}/include ${NUMERIC_INCDIRS}
   INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
@@ -64,7 +61,7 @@ target_compile_definitions(mumps_common PRIVATE ${CDEFS} ${ORDERING_FLAGS})
 # endif()
 set_target_properties(mumps_common PROPERTIES
   Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
-add_library(mumps::common ALIAS mumps_common)
+add_library(MUMPS::common ALIAS mumps_common)
 
 install(TARGETS mumps_common
   EXPORT MUMPSTargets
@@ -78,7 +75,7 @@ set(_ifc_libs)
 
 foreach(a ${arith})
 
-list(APPEND _ifc_libs mumps::${a}mumps)
+list(APPEND _ifc_libs MUMPS::${a}mumps)
 
 set(SRC
 ${a}ana_aux.F ${a}ana_aux_par.F ${a}ana_lr.F ${a}fac_asm_master_ELT_m.F ${a}fac_asm_master_m.F
@@ -131,7 +128,7 @@ target_include_directories(${a}mumps PRIVATE ${PROJECT_SOURCE_DIR}/include ${NUM
 target_link_libraries(${a}mumps PRIVATE mumps_common ${NUMERIC_LIBS})
 set_target_properties(${a}mumps PROPERTIES
   Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
-add_library(mumps::${a}mumps ALIAS ${a}mumps)
+add_library(MUMPS::${a}mumps ALIAS ${a}mumps)
 
 install(TARGETS ${a}mumps
   EXPORT MUMPSTargets
@@ -157,8 +154,8 @@ install(FILES
 # We do not need the .mod files due to the way MUMPS is interfaced
 # install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include/ DESTINATION include)
 
-# mumps::mumps is the target most users will link to.
+# MUMPS::MUMPS is the target most users will link to.
 # It knows all the include directories.
-add_library(mumps::mumps INTERFACE IMPORTED GLOBAL)
-set_property(TARGET mumps::mumps PROPERTY
-  INTERFACE_LINK_LIBRARIES ${_ifc_libs} mumps::common mumps::pord)
+add_library(MUMPS::MUMPS INTERFACE IMPORTED GLOBAL)
+set_property(TARGET MUMPS::MUMPS PROPERTY
+  INTERFACE_LINK_LIBRARIES ${_ifc_libs} MUMPS::common MUMPS::PORD)

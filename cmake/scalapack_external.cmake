@@ -16,8 +16,7 @@ FetchContent_Declare(scalapack_proj
 
 FetchContent_MakeAvailable(scalapack_proj)
 
-set(SCALAPACK_INCLUDE_DIRS)  # blank intentionally
-set(SCALAPACK_LIBRARIES scalapack::scalapack)
-set(BLACS_LIBRARIES scalapack::blacs)
+add_library(SCALAPACK::SCALAPACK ALIAS scalapack::scalapack)
+add_library(SCALAPACK::BLAS ALIAS scalapack::blacs)
 set(SCALAPACK_FOUND true)
 set(BLACS_FOUND true)

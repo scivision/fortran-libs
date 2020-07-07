@@ -58,11 +58,8 @@ if(parallel)
 
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/scalapack.cmake)
 
-  set(NUMERIC_INCDIRS "") # to avoid uninitialized warning
-  if(SCALAPACK_INCLUDE_DIRS)
-    set(NUMERIC_INCDIRS ${SCALAPACK_INCLUDE_DIRS})
-  endif()
-  set(NUMERIC_LIBS ${SCALAPACK_LIBRARIES} MPI::MPI_Fortran MPI::MPI_C)
+  set(NUMERIC_INCDIRS)
+  set(NUMERIC_LIBS SCALAPACK::SCALAPACK MPI::MPI_Fortran MPI::MPI_C)
   if(openmp)
     find_package(OpenMP COMPONENTS C Fortran REQUIRED)
     list(APPEND NUMERIC_LIBS OpenMP::OpenMP_Fortran OpenMP::OpenMP_C)

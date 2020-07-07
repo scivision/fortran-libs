@@ -21,8 +21,7 @@ endif()
 
 # -- verify Scalapack links
 
-set(CMAKE_REQUIRED_INCLUDES ${SCALAPACK_INCLUDE_DIRS} ${LAPACK_INCLUDE_DIRS})
-set(CMAKE_REQUIRED_LIBRARIES ${SCALAPACK_LIBRARIES} ${LAPACK_LIBRARIES} MPI::MPI_Fortran)
+set(CMAKE_REQUIRED_LIBRARIES SCALAPACK::SCALAPACK LAPACK::LAPACK MPI::MPI_Fortran)
 # MPI needed for ifort
 
 if("s" IN_LIST arith)
@@ -67,6 +66,11 @@ if(NOT SCALAPACK_Compiles_OK)
   set(scalapack_external true CACHE BOOL "autobuild Scalapack")
 endif()
 
+# FIXME: figure out SCALAPACK_Runs_OK with non-default libgfortran.so
+# as this test fails in that case. Is it an issue with LD_LIBRARY_PATH?
+# if so, may be able to pass via CMAKE_REQUIRED_LINK_OPTIONS of check_fortran_source_runs()
+# to underlying try_run() link_options. This would have to be tested on a system where
+# this check currently fails, such as one using a non-default Gfortran.
 include(CheckFortranSourceRuns)
 check_fortran_source_runs(${_code} SCALAPACK_Runs_OK SRC_EXT f90)
 if(NOT SCALAPACK_Runs_OK)

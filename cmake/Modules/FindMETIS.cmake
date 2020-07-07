@@ -22,6 +22,7 @@ METIS_INCLUDE_DIRS
 
 find_library(METIS_LIBRARY
              NAMES parmetis metis
+             NAMES_PER_DIR
              PATH_SUFFIXES METIS lib libmetis)
 
 find_path(METIS_INCLUDE_DIR
@@ -35,5 +36,13 @@ find_package_handle_standard_args(METIS
 
 set(METIS_LIBRARIES ${METIS_LIBRARY})
 set(METIS_INCLUDE_DIRS ${METIS_INCLUDE_DIR})
+
+if(NOT TARGET METIS::METIS)
+  add_library(METIS::METIS INTERFACE IMPORTED)
+  set_target_properties(METIS::METIS PROPERTIES
+                        INTERFACE_LINK_LIBRARIES "${METIS_LIBRARY}"
+                        INTERFACE_INCLUDE_DIRECTORIES "${METIS_INCLUDE_DIR}"
+                      )
+endif()
 
 mark_as_advanced(METIS_INCLUDE_DIR METIS_LIBRARY)

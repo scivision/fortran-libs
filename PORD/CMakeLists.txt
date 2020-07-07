@@ -3,7 +3,7 @@ target_include_directories(pord PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
   INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-add_library(mumps::pord ALIAS pord)
+add_library(MUMPS::PORD ALIAS pord)
 
 install(TARGETS pord
   EXPORT MUMPSTargets
