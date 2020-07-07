@@ -97,4 +97,6 @@ else()
   message(STATUS "SKIP: ctest_test(): returncode: ${return_code}; CMake error code: ${cmake_err}")
 endif()
 
-ctest_submit()
+if(NOT DEFINED ENV{CI})
+  ctest_submit()
+endif()

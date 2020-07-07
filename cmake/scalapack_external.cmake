@@ -10,13 +10,11 @@ include(FetchContent)
 
 FetchContent_Declare(scalapack_proj
   GIT_REPOSITORY https://github.com/scivision/scalapack.git
-  GIT_TAG v2.1.0.7
+  GIT_TAG v2.1.0.8
   CMAKE_ARGS "-Darith=${arith}"
 )
 
 FetchContent_MakeAvailable(scalapack_proj)
 
-add_library(SCALAPACK::SCALAPACK ALIAS scalapack::scalapack)
-add_library(SCALAPACK::BLAS ALIAS scalapack::blacs)
 set(SCALAPACK_FOUND true)
 set(BLACS_FOUND true)
