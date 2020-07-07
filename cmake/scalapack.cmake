@@ -9,9 +9,12 @@ find_package(SCALAPACK)
 if(NOT SCALAPACK_FOUND)
   include(${CMAKE_CURRENT_LIST_DIR}/scalapack_external.cmake)
   set(scalapack_external true CACHE BOOL "autobuild Scalapack")
+  return()
+else()
+  set(scalapack_external false CACHE BOOL "autobuild Scalapack")
 endif()
 
-if(scalapack_external OR lapack_external)
+if(lapack_external)
 # can't run prebuild test with external libraries not yet built.
   return()
 endif()

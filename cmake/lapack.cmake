@@ -9,12 +9,11 @@ find_package(LAPACK)
 if(NOT LAPACK_FOUND)
   include(${CMAKE_CURRENT_LIST_DIR}/lapack_external.cmake)
   set(lapack_external true CACHE BOOL "autobuild Lapack")
+  return()
+else()
+  set(lapack_external false CACHE BOOL "autobuild Lapack")
 endif()
 
-if(lapack_external)
-# can't run prebuild test with external libraries not yet built.
-  return()
-endif()
 # -- verify Lapack links
 
 set(CMAKE_REQUIRED_INCLUDES ${LAPACK_INCLUDE_DIRS})
