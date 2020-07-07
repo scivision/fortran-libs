@@ -34,6 +34,8 @@ include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(METIS
     REQUIRED_VARS METIS_LIBRARY METIS_INCLUDE_DIR)
 
+if(METIS_FOUND)
+# need if _FOUND guard to allow project to autobuild; can't overwrite imported target even if bad
 set(METIS_LIBRARIES ${METIS_LIBRARY})
 set(METIS_INCLUDE_DIRS ${METIS_INCLUDE_DIR})
 
@@ -44,5 +46,6 @@ if(NOT TARGET METIS::METIS)
                         INTERFACE_INCLUDE_DIRECTORIES "${METIS_INCLUDE_DIR}"
                       )
 endif()
+endif(METIS_FOUND)
 
 mark_as_advanced(METIS_INCLUDE_DIR METIS_LIBRARY)

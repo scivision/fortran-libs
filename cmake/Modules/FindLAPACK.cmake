@@ -443,19 +443,22 @@ set(BLAS_LIBRARIES ${BLAS_LIBRARY})
 set(LAPACK_LIBRARIES ${LAPACK_LIBRARY})
 set(LAPACK_INCLUDE_DIRS ${LAPACK_INCLUDE_DIR})
 
-if(NOT TARGET BLAS::BLAS)
-  add_library(BLAS::BLAS INTERFACE IMPORTED)
-  set_target_properties(BLAS::BLAS PROPERTIES
-                        INTERFACE_LINK_LIBRARIES "${BLAS_LIBRARY}"
-                      )
-endif()
+if(LAPACK_FOUND)
+# need if _FOUND guard to allow project to autobuild; can't overwrite imported target even if bad
+  if(NOT TARGET BLAS::BLAS)
+    add_library(BLAS::BLAS INTERFACE IMPORTED)
+    set_target_properties(BLAS::BLAS PROPERTIES
+                          INTERFACE_LINK_LIBRARIES "${BLAS_LIBRARY}"
+                        )
+  endif()
 
-if(NOT TARGET LAPACK::LAPACK)
-  add_library(LAPACK::LAPACK INTERFACE IMPORTED)
-  set_target_properties(LAPACK::LAPACK PROPERTIES
-                        INTERFACE_LINK_LIBRARIES "${LAPACK_LIBRARY}"
-                        INTERFACE_INCLUDE_DIRECTORIES "${LAPACK_INCLUDE_DIR}"
-                      )
+  if(NOT TARGET LAPACK::LAPACK)
+    add_library(LAPACK::LAPACK INTERFACE IMPORTED)
+    set_target_properties(LAPACK::LAPACK PROPERTIES
+                          INTERFACE_LINK_LIBRARIES "${LAPACK_LIBRARY}"
+                          INTERFACE_INCLUDE_DIRECTORIES "${LAPACK_INCLUDE_DIR}"
+                        )
+  endif()
 endif()
 
 mark_as_advanced(LAPACK_LIBRARY LAPACK_INCLUDE_DIR)

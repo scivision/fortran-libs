@@ -232,6 +232,8 @@ find_package_handle_standard_args(BLACS
   REQUIRED_VARS BLACS_LIBRARY
   HANDLE_COMPONENTS)
 
+if(BLACS_FOUND)
+# need if _FOUND guard to allow project to autobuild; can't overwrite imported target even if bad
 set(BLACS_INCLUDE_DIRS ${BLACS_INCLUDE_DIR})
 set(BLACS_LIBRARIES ${BLACS_LIBRARY})
 
@@ -242,5 +244,6 @@ if(NOT TARGET BLACS::BLACS)
                         INTERFACE_INCLUDE_DIRECTORIES "${BLACS_INCLUDE_DIR}"
                       )
 endif()
+endif(BLACS_FOUND)
 
 mark_as_advanced(BLACS_LIBRARY BLACS_INCLUDE_DIR)

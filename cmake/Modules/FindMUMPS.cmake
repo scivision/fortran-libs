@@ -83,6 +83,8 @@ find_package_handle_standard_args(MUMPS
   REQUIRED_VARS MUMPS_LIBRARY MUMPS_INCLUDE_DIR
   HANDLE_COMPONENTS)
 
+if(MUMPS_FOUND)
+# need if _FOUND guard to allow project to autobuild; can't overwrite imported target even if bad
 set(MUMPS_LIBRARIES ${MUMPS_LIBRARY})
 set(MUMPS_INCLUDE_DIRS ${MUMPS_INCLUDE_DIR})
 
@@ -93,5 +95,6 @@ if(NOT TARGET MUMPS::MUMPS)
                         INTERFACE_INCLUDE_DIRECTORIES "${MUMPS_INCLUDE_DIR}"
                       )
 endif()
+endif(MUMPS_FOUND)
 
 mark_as_advanced(MUMPS_INCLUDE_DIR MUMPS_LIBRARY)

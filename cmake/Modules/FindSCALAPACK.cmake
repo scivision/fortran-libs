@@ -193,6 +193,8 @@ find_package_handle_standard_args(SCALAPACK
   REQUIRED_VARS SCALAPACK_LIBRARY
   HANDLE_COMPONENTS)
 
+if(SCALAPACK_FOUND)
+# need if _FOUND guard to allow project to autobuild; can't overwrite imported target even if bad
 set(SCALAPACK_LIBRARIES ${SCALAPACK_LIBRARY})
 set(SCALAPACK_INCLUDE_DIRS ${SCALAPACK_INCLUDE_DIR})
 
@@ -214,5 +216,6 @@ if(NOT TARGET SCALAPACK::SCALAPACK)
                         INTERFACE_INCLUDE_DIRECTORIES "${SCALAPACK_INCLUDE_DIR}"
                       )
 endif()
+endif(SCALAPACK_FOUND)
 
 mark_as_advanced(SCALAPACK_LIBRARY SCALAPACK_INCLUDE_DIR)

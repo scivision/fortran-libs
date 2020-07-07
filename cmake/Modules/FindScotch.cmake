@@ -109,6 +109,8 @@ include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Scotch
           REQUIRED_VARS Scotch_LIBRARIES Scotch_INCLUDE_DIR)
 
+if(Scotch_FOUND)
+# need if _FOUND guard to allow project to autobuild; can't overwrite imported target even if bad
 set(Scotch_INCLUDE_DIRS ${Scotch_INCLUDE_DIR})
 
 if(NOT TARGET Scotch::Scotch)
@@ -118,5 +120,6 @@ if(NOT TARGET Scotch::Scotch)
                         INTERFACE_INCLUDE_DIRECTORIES "${Scotch_INCLUDE_DIR}"
                       )
 endif()
+endif(Scotch_FOUND)
 
 mark_as_advanced(Scotch_INCLUDE_DIR)
