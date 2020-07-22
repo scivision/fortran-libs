@@ -42,9 +42,6 @@ message(STATUS "CMake ${CMAKE_VERSION}")
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compilers.cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 
-# problems with MPI can cause tests to hang forever, so set a default timeout [seconds]
-set(CTEST_TEST_TIMEOUT 15)
-
 # --- dependencies
 find_package(Threads)
 

@@ -1,10 +1,4 @@
-if(NOT autobuild)
-  message(STATUS "NOT autobuilding Scalapack per user -Dautobuild=off")
-  return()
-endif()
-if(NOT SCALAPACK_FOUND)
-  message(STATUS "AUTOBUILD: SCALAPACK")
-endif()
+set(scalapack_external true CACHE BOOL "autobuild ScaLapack")
 
 include(FetchContent)
 
