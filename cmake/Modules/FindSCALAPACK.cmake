@@ -207,12 +207,14 @@ if(BLACS_FOUND)
                           INTERFACE_INCLUDE_DIRECTORIES "${BLACS_INCLUDE_DIR}"
                         )
   endif()
+else()
+  set(BLACS_LIBRARY)
 endif()
 
 if(NOT TARGET SCALAPACK::SCALAPACK)
   add_library(SCALAPACK::SCALAPACK INTERFACE IMPORTED)
   set_target_properties(SCALAPACK::SCALAPACK PROPERTIES
-                        INTERFACE_LINK_LIBRARIES "${SCALAPACK_LIBRARY}"
+                        INTERFACE_LINK_LIBRARIES "${SCALAPACK_LIBRARY};${BLACS_LIBRARY}"
                         INTERFACE_INCLUDE_DIRECTORIES "${SCALAPACK_INCLUDE_DIR}"
                       )
 endif()

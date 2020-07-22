@@ -40,6 +40,7 @@ implicit none
 integer :: ictxt, myid, nprocs
 real(real32) :: eps
 real(real32), external :: pslamch
+external :: blacs_pinfo, blacs_get, blacs_gridinit, blacs_gridexit, blacs_exit
 
 call blacs_pinfo(myid, nprocs)
 call blacs_get(-1, 0, ictxt)
@@ -71,6 +72,7 @@ implicit none
 integer :: ictxt, myid, nprocs
 real(real64) :: eps
 real(real64), external :: pdlamch
+external :: blacs_pinfo, blacs_get, blacs_gridinit, blacs_gridexit, blacs_exit
 
 call blacs_pinfo(myid, nprocs)
 call blacs_get(-1, 0, ictxt)

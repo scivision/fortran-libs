@@ -15,7 +15,7 @@ include(CTest)
 include(FeatureSummary)
 
 # --- user options
-option(autobuild "auto-build Lapack and/or Scalapack if missing or broken" ON)
+option(autobuild "auto-build Lapack and/or Scalapack if missing or broken" OFF)
 option(parallel "parallel or sequential (non-MPI, non-Scalapack)" ON)
 option(intsize64 "use 64-bit integers in C and Fortran" OFF)
 option(metis "use METIS" OFF)
