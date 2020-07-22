@@ -4,9 +4,8 @@ on:
   push:
     paths:
       - "**.cmake"
-      - "**.txt"
+      - "**/CMakeLists.txt"
       - ".github/workflows/ci_macos.yml"
-  pull_request:
 
 
 jobs:
@@ -16,7 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - run: brew install ninja lapack scalapack open-mpi
+    - run: brew install lapack scalapack open-mpi
 
     - run: ctest -S setup.cmake -VV
       env:

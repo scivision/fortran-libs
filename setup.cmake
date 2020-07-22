@@ -3,7 +3,7 @@
 
 # --- Project-specific -Doptions
 # these will be used if the project isn't already configured.
-set(_opts)
+set(_opts "-Dautobuild:BOOL=on")
 
 # --- boilerplate follows
 message(STATUS "CMake ${CMAKE_VERSION}")
@@ -14,9 +14,9 @@ endif()
 # we use presence of MPIEXEC as a weak assumption that MPI is OK.
 find_program(_mpiexec NAMES mpiexec)
 if(_mpiexec)
-  set(_opts -Dparallel:BOOL=on)
+  list(APPEND _opts "-Dparallel:BOOL=on")
 else()
-  set(_opts -Dparallel:BOOL=off)
+  list(APPEND _opts "-Dparallel:BOOL=off")
 endif(_mpiexec)
 
 # site is OS name

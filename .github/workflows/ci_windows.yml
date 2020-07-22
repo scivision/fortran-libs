@@ -1,19 +1,16 @@
 name: ci_windows
-env:
-  CMAKE_GENERATOR: Ninja
 
 on:
   push:
     paths:
       - "**.c"
+      - "**.f"
       - "**.F"
       - "**.f90"
       - "**.F90"
       - "**.cmake"
-      - "**.txt"
+      - "**/CMakeLists.txt"
       - ".github/workflows/ci_windows.yml"
-  pull_request:
-
 
 jobs:
 
@@ -21,11 +18,6 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/setup-python@v1
-      with:
-        python-version: '3.x'
-
-    - run: cinst -y ninja
 
     - run: ctest -S setup.cmake -VV
       env:

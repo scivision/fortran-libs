@@ -4,13 +4,13 @@ on:
   push:
     paths:
       - "**.c"
+      - "**.f"
       - "**.F"
       - "**.f90"
       - "**.F90"
       - "**.cmake"
       - "**.txt"
       - ".github/workflows/ci_linux.yml"
-  pull_request:
 
 
 jobs:
@@ -19,16 +19,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/setup-python@v1
-      with:
-        python-version: '3.x'
 
     - name: Install prereqs
       run: |
         sudo apt update -yq
         sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libmetis-dev libscotch-dev
 
-    - run: cmake --warn-uninitialized -B build -Dmetis=true -Dscotch=true
+    - run: cmake --warn-uninitialized -B build -Dmetis:BOOL=true -Dscotch:BOOL=true
     - run: ctest -S setup.cmake -VV
       env:
         FC: gfortran
