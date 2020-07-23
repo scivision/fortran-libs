@@ -134,7 +134,7 @@ find_package(PkgConfig QUIET)
 # some systems (Ubuntu 16.04) need BLACS explicitly, when it isn't statically compiled into libscalapack
 # other systems (homebrew, Ubuntu 18.04) link BLACS into libscalapack, and don't need BLACS as a separately linked library.
 if(NOT MKL IN_LIST SCALAPACK_FIND_COMPONENTS)
-  find_package(BLACS COMPONENTS ${SCALAPACK_FIND_COMPONENTS})
+  find_package(BLACS COMPONENTS ${SCALAPACK_FIND_COMPONENTS} QUIET)
 endif()
 
 if(MKL IN_LIST SCALAPACK_FIND_COMPONENTS)
