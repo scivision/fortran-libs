@@ -27,21 +27,12 @@ mumps_numa.c mumps_thread.c mumps_save_restore_C.c mumps_config_file_C.c mumps_t
 tools_common.F sol_common.F
 )
 
-set(ORDERING_LIBS)
-set(ORDERING_FLAGS -Dpord)
 if(scotch)
-  find_package(Scotch COMPONENTS ESMUMPS REQUIRED)
-  list(APPEND ORDERING_FLAGS -Dscotch)
   list(APPEND COMM_OTHER_SRC mumps_scotch.c mumps_scotch64.c mumps_scotch_int.c)
-  list(APPEND ORDERING_LIBS Scotch::Scotch)
 endif()
 if(metis)
-  find_package(METIS REQUIRED)
-  list(APPEND ORDERING_FLAGS -Dmetis)
   list(APPEND COMM_OTHER_SRC mumps_metis.c mumps_metis64.c mumps_metis_int.c)
-  list(APPEND ORDERING_LIBS METIS::METIS)
 endif()
-list(APPEND ORDERING_LIBS MUMPS::PORD)
 
 # manually create directory to avoid race condition for FetchContent
 # else can get INTERFACE_INCLUDE_DIRECTORIES not found error

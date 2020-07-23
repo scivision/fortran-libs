@@ -67,6 +67,22 @@ else(parallel)
 endif(parallel)
 list(APPEND NUMERIC_LIBS LAPACK::LAPACK ${CMAKE_THREAD_LIBS_INIT})
 
+# --- ordering libs
+
+set(ORDERING_LIBS)
+set(ORDERING_FLAGS -Dpord)
+if(scotch)
+  find_package(Scotch COMPONENTS ESMUMPS REQUIRED)
+  list(APPEND ORDERING_FLAGS -Dscotch)
+  list(APPEND ORDERING_LIBS Scotch::Scotch)
+endif()
+if(metis)
+  find_package(METIS REQUIRED)
+  list(APPEND ORDERING_FLAGS -Dmetis)
+  list(APPEND ORDERING_LIBS METIS::METIS)
+endif()
+list(APPEND ORDERING_LIBS MUMPS::PORD)
+
 # --- build MUMPS
 
 add_subdirectory(PORD)
