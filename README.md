@@ -33,8 +33,16 @@ cmake --build build --parallel
 ctest -S setup.cmake -VV
 ```
 
-NOTE: Intel compiler on Windows with CMake: we suggest using `cmake -G Ninja` or `cmake -G "MinGW Makefiles"` as the CMake Visual Studio backend requires additional 
+### MSYS2 MinGW MPI setup
+
+MinGW via MSYS2 on Windows works well with MUMPS and MS-MPI via this [procedure](https://www.scivision.dev/windows-mpi-msys2/).
+
+### Intel compiler on Windows
+
+For Intel compiler on Windows we suggest using `cmake -G Ninja` or `cmake -G "MinGW Makefiles"` as the CMake Visual Studio backend requires additional 
 [special configuration](https://software.intel.com/en-us/articles/configuring-visual-studio-for-mixed-language-applications).
+
+## Usage
 
 To use MUMPS as via CMake FetchContent, in the project add:
 
