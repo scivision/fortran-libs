@@ -63,7 +63,7 @@ if(parallel)
 else(parallel)
   add_subdirectory(libseq)
   set(NUMERIC_INCDIRS ${CMAKE_CURRENT_SOURCE_DIR}/libseq)
-  set(NUMERIC_LIBS mpiseq)
+  set(NUMERIC_LIBS mumps::mpiseq)
 endif(parallel)
 list(APPEND NUMERIC_LIBS LAPACK::LAPACK ${CMAKE_THREAD_LIBS_INIT})
 

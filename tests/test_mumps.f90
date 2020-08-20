@@ -1,12 +1,18 @@
-! we do "use mpi" to be compatible with Windows Intel 2019
+program test_mumps
 use, intrinsic:: iso_fortran_env, only: output_unit, error_unit
 
-implicit none @impext@
+implicit none
 
-external :: dmumps
-
+include 'mpif.h'
 include 'dmumps_struc.h'  ! per MUMPS manual
 type(DMUMPS_STRUC) :: mumps_par
+
+integer :: ierr
+
+call mpi_init(ierr)
+if (ierr /= 0) error stop 'MPI init error'
+
+mumps_par%COMM = mpi_comm_world
 
 mumps_par%JOB = -1
 mumps_par%SYM = 0
@@ -24,6 +30,9 @@ mumps_par%icntl(4) = 1           ! default is 2, this reduces verbosity
 if (.not. all(mumps_par%icntl(:4) == [error_unit, output_unit, output_unit, 1])) then
   error stop 'MUMPS parameters not correctly set'
 endif
+
+call mpi_finalize(ierr)
+if (ierr /= 0) error stop 'MPI finalize error'
 
 print *, 'MUMPS OK'
 
