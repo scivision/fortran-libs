@@ -41,7 +41,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
 add_library(mumps_common ${COMM_SRC} ${COMM_OTHER_SRC})
 target_link_libraries(mumps_common PRIVATE ${ORDERING_LIBS} ${NUMERIC_LIBS})
 target_include_directories(mumps_common
-  PRIVATE ${PROJECT_SOURCE_DIR}/include ${NUMERIC_INCDIRS}
+  PRIVATE ${PROJECT_SOURCE_DIR}/include
   INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
@@ -111,7 +111,7 @@ target_compile_definitions(${a}mumps PRIVATE MUMPS_ARITH=MUMPS_ARITH_${a} ${CDEF
 # if(WIN32)
 #   target_compile_definitions(${a}mumps PRIVATE MUMPS_WIN32)
 # endif()
-target_include_directories(${a}mumps PRIVATE ${PROJECT_SOURCE_DIR}/include ${NUMERIC_INCDIRS}
+target_include_directories(${a}mumps PRIVATE ${PROJECT_SOURCE_DIR}/include
   INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
@@ -148,5 +148,10 @@ install(FILES
 # MUMPS::MUMPS is the target most users will link to.
 # It knows all the include directories.
 add_library(MUMPS::MUMPS INTERFACE IMPORTED GLOBAL)
-set_property(TARGET MUMPS::MUMPS PROPERTY
-  INTERFACE_LINK_LIBRARIES ${_ifc_libs} MUMPS::common MUMPS::PORD)
+if(parallel)
+  set_property(TARGET MUMPS::MUMPS PROPERTY
+    INTERFACE_LINK_LIBRARIES ${_ifc_libs} MUMPS::common MUMPS::PORD)
+else()
+  set_property(TARGET MUMPS::MUMPS PROPERTY
+    INTERFACE_LINK_LIBRARIES ${_ifc_libs} MUMPS::common MUMPS::PORD MUMPS::mpiseq)
+endif()
