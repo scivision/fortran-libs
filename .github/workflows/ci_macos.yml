@@ -1,4 +1,7 @@
 name: ci_macos
+env:
+  FC: gfortran-10
+  CC: gcc-10
 
 on:
   push:
@@ -15,9 +18,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - run: brew install lapack scalapack open-mpi
+    - run: brew install gcc lapack scalapack open-mpi
 
     - run: ctest -S setup.cmake -VV
-      env:
-        FC: gfortran-9
-        CC: gcc-9

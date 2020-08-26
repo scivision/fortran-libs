@@ -1,4 +1,7 @@
 name: ci_windows
+env:
+  FC: gfortran
+  CC: gcc
 
 on:
   push:
@@ -20,6 +23,3 @@ jobs:
     - uses: actions/checkout@v2
 
     - run: ctest -S setup.cmake -VV
-      env:
-        FC: gfortran
-        CC: gcc

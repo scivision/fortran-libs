@@ -1,4 +1,7 @@
 name: ci_buildall
+env:
+  FC: gfortran
+  CC: gcc
 
 on:
   push:
@@ -21,6 +24,3 @@ jobs:
         sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin
 
     - run: ctest -S setup.cmake -VV
-      env:
-        FC: gfortran
-        CC: gcc

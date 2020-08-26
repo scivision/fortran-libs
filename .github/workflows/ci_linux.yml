@@ -1,4 +1,7 @@
 name: ci_linux
+env:
+  FC: gfortran
+  CC: gcc
 
 on:
   push:
@@ -27,6 +30,3 @@ jobs:
 
     - run: cmake --warn-uninitialized -B build -Dmetis:BOOL=true -Dscotch:BOOL=true
     - run: ctest -S setup.cmake -VV
-      env:
-        FC: gfortran
-        CC: gcc
