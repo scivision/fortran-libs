@@ -10,9 +10,7 @@ VERSION 5.3.3
 DESCRIPTION "Sparse direct parallel solver"
 HOMEPAGE_URL "http://mumps-solver.org/")
 
-enable_testing()
 include(CTest)
-include(FeatureSummary)
 
 # --- user options
 option(autobuild "auto-build Lapack and/or Scalapack if missing or broken" OFF)
@@ -23,6 +21,10 @@ option(scotch "use Scotch" OFF)
 option(openmp "use OpenMP" OFF)
 option(matlab "build optional Matlab interface" OFF)
 option(ClangTest "run test for C-language" ON)
+
+if(NOT DEFINED ${PROJECT_NAME}_BUILD_TESTING)
+  set(${PROJECT_NAME}_BUILD_TESTING ${BUILD_TESTING})
+endif()
 
 if(matlab)
   set(BUILD_SHARED_LIBS true)
@@ -86,6 +88,11 @@ list(APPEND ORDERING_LIBS MUMPS::PORD)
 add_subdirectory(PORD)
 add_subdirectory(src)
 
+if(${PROJECT_NAME}_BUILD_TESTING)
+  add_subdirectory(tests)
+  add_subdirectory(examples)
+endif()
+
 if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   # being used via FetchContent
   return()
@@ -96,7 +103,7 @@ if(matlab)
   add_subdirectory(MATLAB)
 endif()
 
-# --- examples (optional)
+# --- feature summary
 
 string(REGEX MATCH "^Visual Studio" vs_backend ${CMAKE_GENERATOR})
 if(vs_backend)
@@ -106,11 +113,7 @@ if(vs_backend)
   return()
 endif()
 
-add_subdirectory(tests)
-
-add_subdirectory(examples)
-
-# feature summary
+include(FeatureSummary)
 add_feature_info(MumpsParallel parallel "parallel MUMPS (using MPI and Scalapack)")
 add_feature_info(64-bit-integer intsize64 "use 64-bit integers in C and Fortran")
 add_feature_info(Metis metis "METIS graph partitioning http://glaros.dtc.umn.edu/gkhome/metis/metis/overview")
