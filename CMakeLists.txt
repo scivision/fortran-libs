@@ -26,6 +26,17 @@ if(NOT DEFINED ${PROJECT_NAME}_BUILD_TESTING)
   set(${PROJECT_NAME}_BUILD_TESTING ${BUILD_TESTING})
 endif()
 
+# --- Error if Visual Studio backend, as this does not work.
+# https://software.intel.com/en-us/articles/configuring-visual-studio-for-mixed-language-applications
+string(REGEX MATCH "^Visual Studio" vs_backend ${CMAKE_GENERATOR})
+if(vs_backend)
+  message(STATUS "Ninja is a small program available from:
+   https://github.com/ninja-build/ninja/releases")
+  message(FATAL_ERROR "Visual Studio does not work. Use Ninja backend 'cmake -G Ninja' instead.")
+endif()
+
+# --- other options
+
 if(matlab)
   set(BUILD_SHARED_LIBS true)
 endif()
@@ -104,14 +115,6 @@ if(matlab)
 endif()
 
 # --- feature summary
-
-string(REGEX MATCH "^Visual Studio" vs_backend ${CMAKE_GENERATOR})
-if(vs_backend)
-  message(STATUS "Visual Studio programs linking Fortran and C code require special configuration, see:")
-  message(STATUS "https://software.intel.com/en-us/articles/configuring-visual-studio-for-mixed-language-applications")
-  message(STATUS "Consider using Ninja backend instead of VS backend if possible for your project.")
-  return()
-endif()
 
 include(FeatureSummary)
 add_feature_info(MumpsParallel parallel "parallel MUMPS (using MPI and Scalapack)")

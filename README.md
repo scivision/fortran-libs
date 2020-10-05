@@ -37,10 +37,21 @@ ctest -S setup.cmake -VV
 
 MinGW via MSYS2 on Windows works well with MUMPS and MS-MPI via this [procedure](https://www.scivision.dev/windows-mpi-msys2/).
 
-### Intel compiler on Windows
+### Don't use Visual Studio
 
-For Intel compiler on Windows we suggest using `cmake -G Ninja` or `cmake -G "MinGW Makefiles"` as the CMake Visual Studio backend requires additional 
-[special configuration](https://software.intel.com/en-us/articles/configuring-visual-studio-for-mixed-language-applications).
+For Windows in general (including with Intel compiler) we suggest using [Ninja](https://github.com/ninja-build/ninja/releases):
+
+```sh
+cmake -G Ninja -B build
+```
+
+or GNU Make:
+
+```sh
+cmake -G "MinGW Makefiles" -B build
+```
+
+as the CMake Visual Studio backend *does not work*.
 
 ## Usage
 
