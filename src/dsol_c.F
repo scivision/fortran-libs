@@ -1,14 +1,15 @@
 C
-C  This file is part of MUMPS 5.3.3, released
-C  on Mon Jun 15 09:57:25 UTC 2020
+C  This file is part of MUMPS 5.3.4, released
+C  on Mon Sep 28 07:16:41 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
-C  released under the CeCILL-C license:
-C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  released under the CeCILL-C license 
+C  (see doc/CeCILL-C_V1-en.txt, doc/CeCILL-C_V1-fr.txt, and
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html)
 C
       SUBROUTINE DMUMPS_SOL_C(root, N, A, LA, IW, LIW, W, LWC, 
      & IWCB, LIWW, NRHS, NA, LNA, NE_STEPS, W2, MTYPE, ICNTL, FROM_PP,
@@ -452,7 +453,11 @@ C
       IF (DO_PRUN.AND.SWITCH_OFF_ES) THEN
          DO_PRUN          = .FALSE.
          Exploit_Sparsity = .FALSE.
-           IF ( allocated(TO_PROCESS)) DEALLOCATE (TO_PROCESS)
+           IF ( allocated(TO_PROCESS) .AND. SIZE_TO_PROCESS.NE.1 ) THEN
+             DEALLOCATE (TO_PROCESS)
+             SIZE_TO_PROCESS = 1
+             ALLOCATE(TO_PROCESS(SIZE_TO_PROCESS),stat=I)
+           ENDIF
       ENDIF
       IF ( DOBACKWARD .AND. DO_PRUN )  THEN
          nb_prun_leaves = 0

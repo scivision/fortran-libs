@@ -1,14 +1,15 @@
 C
-C  This file is part of MUMPS 5.3.3, released
-C  on Mon Jun 15 09:57:25 UTC 2020
+C  This file is part of MUMPS 5.3.4, released
+C  on Mon Sep 28 07:16:41 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
-C  released under the CeCILL-C license:
-C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  released under the CeCILL-C license 
+C  (see doc/CeCILL-C_V1-en.txt, doc/CeCILL-C_V1-fr.txt, and
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html)
 C
       MODULE DMUMPS_FAC_PAR_M
       CONTAINS
@@ -129,7 +130,7 @@ C
       INTEGER(8) :: ITMP8
       TYPE(IO_BLOCK) :: MonBloc
       INCLUDE 'mumps_headers.h'
-      INTEGER MPP
+      INTEGER MPA
       DOUBLE PRECISION  OPLAST_PRINTED
       INTEGER :: I
       ITLOC(1:N+KEEP(253)) =0
@@ -138,8 +139,8 @@ C
       LP = ICNTL(1)
       IWPOSCB = LIW
       OPLAST_PRINTED = DONE
-      MPP            = ICNTL(2)
-      IF (ICNTL(4).LT.2) MPP=0
+      MPA            = ICNTL(2)
+      IF (ICNTL(4).LT.2) MPA=0
       STACK_RIGHT_AUTHORIZED = .TRUE.
       CALL DMUMPS_ALLOC_CB( .FALSE., 0_8,
      &     .FALSE., .FALSE., MYID_NODES, N, KEEP, KEEP8, DKEEP,
@@ -200,11 +201,11 @@ C
      &               , LRGROUPS
      &       )
       CALL DMUMPS_LOAD_RECV_MSGS(COMM_LOAD)
-      IF (MPP.GT.0)
+      IF (MPA.GT.0)
      &   CALL MUMPS_PRINT_STILL_ACTIVE (MYID_NODES, KEEP, 
      &                        dble(DKEEP(17)), 
      &                        OPELI,
-     &                        OPLAST_PRINTED, MPP)
+     &                        OPLAST_PRINTED, MPA)
       IF (MESSAGE_RECEIVED) THEN
           IF ( INFO(1) .LT. 0 ) GO TO 640
           IF ( NBFIN .eq. 0 ) GOTO 640
@@ -290,11 +291,11 @@ C
      &        , LRGROUPS
      &             )
         IF ( INFO(1) .LT. 0 ) GOTO 640
-        IF (MPP.GT.0)
+        IF (MPA.GT.0)
      &   CALL MUMPS_PRINT_STILL_ACTIVE (MYID_NODES, KEEP, 
      &                        dble(DKEEP(17)), 
      &                        OPELI,
-     &                        OPLAST_PRINTED, MPP)
+     &                        OPLAST_PRINTED, MPA)
        ELSE
          CALL DMUMPS_FAC2_LDLT( COMM_LOAD, ASS_IRECV,
      &             N, INODE, FPERE, IW, LIW, A, LA, UU,
@@ -315,11 +316,11 @@ C
      &           , LRGROUPS
      &             )
         IF ( INFO(1) .LT. 0 ) GOTO 640
-        IF (MPP.GT.0)
+        IF (MPA.GT.0)
      &   CALL MUMPS_PRINT_STILL_ACTIVE (MYID_NODES, KEEP, 
      &                        dble(DKEEP(17)), 
      &                        OPELI,
-     &                        OPLAST_PRINTED, MPP)
+     &                        OPLAST_PRINTED, MPA)
         IF ( IW( PTLUST(STEP(INODE)) + KEEP(IXSZ) + 5 ) .GT. 1 ) THEN
              GOTO 20
         END IF
@@ -348,11 +349,11 @@ C
      &               , LRGROUPS
      &      )
          IF ( INFO(1) .LT. 0 ) GOTO 640
-         IF (MPP.GT.0)
+         IF (MPA.GT.0)
      &   CALL MUMPS_PRINT_STILL_ACTIVE (MYID_NODES, KEEP, 
      &                        dble(DKEEP(17)), 
      &                        OPELI,
-     &                        OPLAST_PRINTED, MPP)
+     &                        OPLAST_PRINTED, MPA)
         GOTO 20
       ENDIF
       TYPE = MUMPS_TYPENODE(PROCNODE_STEPS(STEP(INODE)),KEEP(199))
@@ -397,11 +398,11 @@ C
      &               , LRGROUPS
      &    )
         ENDIF
-        IF (MPP.GT.0)
+        IF (MPA.GT.0)
      &   CALL MUMPS_PRINT_STILL_ACTIVE (MYID_NODES, KEEP, 
      &                        dble(DKEEP(17)), 
      &                        OPELI,
-     &                        OPLAST_PRINTED, MPP)
+     &                        OPLAST_PRINTED, MPA)
        IF ( INFO(1) .LT. 0 ) GOTO 640
 #if ! defined(NO_XXNBPR)
         CALL CHECK_EQUAL(NBPROCFILS(STEP(INODE)),
@@ -452,11 +453,11 @@ C
      &               , LRGROUPS
      &     )
         END IF
-        IF (MPP.GT.0)
+        IF (MPA.GT.0)
      &   CALL MUMPS_PRINT_STILL_ACTIVE (MYID_NODES, KEEP, 
      &                        dble(DKEEP(17)), 
      &                        OPELI,
-     &                        OPLAST_PRINTED, MPP)
+     &                        OPLAST_PRINTED, MPA)
         IF (INFO(1).LT.0) GOTO 640
         GOTO 20
       ENDIF
@@ -529,11 +530,11 @@ C
      &               , LRGROUPS
      &         )
           ENDIF
-          IF (MPP.GT.0)
+          IF (MPA.GT.0)
      &    CALL MUMPS_PRINT_STILL_ACTIVE (MYID_NODES, KEEP, 
      &                        dble(DKEEP(17)), 
      &                        OPELI,
-     &                        OPLAST_PRINTED, MPP)
+     &                        OPLAST_PRINTED, MPA)
       IF (INFO(1).LT.0) GOTO 635
  130  CONTINUE
       TYPE  = MUMPS_TYPENODE(PROCNODE_STEPS(STEP(INODE)),KEEP(199))
@@ -558,11 +559,11 @@ C
      &       ISTEP_TO_INIV2, TAB_POS_IN_PERE
      &               , LRGROUPS
      &       )
-      IF (MPP.GT.0)
+      IF (MPA.GT.0)
      &   CALL MUMPS_PRINT_STILL_ACTIVE (MYID_NODES, KEEP, 
      &                        dble(DKEEP(17)), 
      &                        OPELI,
-     &                        OPLAST_PRINTED, MPP)
+     &                        OPLAST_PRINTED, MPA)
       IF (INFO(1).LT.0) GOTO 640
  200  CONTINUE
       IF ( INODE .eq. KEEP(38) ) THEN
@@ -684,7 +685,7 @@ C
                    IS_BUFRX_ALLOCATED = .FALSE.
                ENDIF
                CALL DMUMPS_FACTO_ROOT( 
-     &               MPP, MYID_NODES, MASTER_ROOT,
+     &               MPA, MYID_NODES, MASTER_ROOT,
      &               root, N, KEEP(38),
      &               COMM_NODES, IW, LIW, IWPOS + 1,
      &               A, LA, PTRAST, PTLUST, PTRFAC, STEP,

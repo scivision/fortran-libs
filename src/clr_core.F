@@ -1,15 +1,20 @@
 C
-C  This file is part of MUMPS 5.3.3, released
-C  on Mon Jun 15 09:57:25 UTC 2020
+C  This file is part of MUMPS 5.3.4, released
+C  on Mon Sep 28 07:16:41 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
-C  released under the CeCILL-C license:
-C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  released under the CeCILL-C license 
+C  (see doc/CeCILL-C_V1-en.txt, doc/CeCILL-C_V1-fr.txt, and
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html)
 C
+C
+C Note: the last routine of this file, xMUMPS_TRUNCATED_RRQR is derived from
+C the LAPACK package, for which BSD 3-clause license applies 
+C (see header of the routine).
       MODULE CMUMPS_LR_CORE
       USE MUMPS_LR_COMMON
       USE CMUMPS_LR_TYPE
@@ -1628,6 +1633,7 @@ C        Not reachable in case of error: set INFO1 to 0
         ENDIF
       END SUBROUTINE CMUMPS_BLR_ASM_NIV1
       END MODULE CMUMPS_LR_CORE
+C --------------------------------------------------------------------
       SUBROUTINE CMUMPS_TRUNCATED_RRQR( M, N, A, LDA, JPVT, TAU, WORK,
      &     LDW, RWORK, TOLEPS, TOL_OPT, RANK, MAXRANK, INFO)
 C     This routine computes a Rank-Revealing QR factorization of a dense
@@ -1643,12 +1649,50 @@ C     applying a minor modification to the outer factorization loop in
 C     order to stop computations as soon as possible when the required
 C     accuracy is reached.
 C
-C     The authors of the LAPACK library are:
-C     - Univ. of Tennessee 
-C     - Univ. of California Berkeley 
-C     - Univ. of Colorado Denver 
-C     - NAG Ltd. 
+C     Copyright (c) 1992-2017 The University of Tennessee and The 
+C     University of Tennessee Research Foundation.  All rights reserved.
+C     Copyright (c) 2000-2017 The University of California Berkeley. 
+C     All rights reserved.
+C     Copyright (c) 2006-2017 The University of Colorado Denver.  
+C     All rights reserved.
+C
+C     Redistribution and use in source and binary forms, with or without
+C     modification, are permitted provided that the following conditions
+C     are met:
+C
+C      - Redistributions of source code must retain the above copyright
+C        notice, this list of conditions and the following disclaimer.
+C
+C      - Redistributions in binary form must reproduce the above 
+C        copyright notice, this list of conditions and the following 
+C        disclaimer listed in this license in the documentation and/or 
+C        other materials provided with the distribution.
+C
+C      - Neither the name of the copyright holders nor the names of its
+C        contributors may be used to endorse or promote products derived from
+C        this software without specific prior written permission.
+C
+C      The copyright holders provide no reassurances that the source code
+C      provided does not infringe any patent, copyright, or any other
+C      intellectual property rights of third parties.  The copyright holders
+C      disclaim any liability to any recipient for claims brought against
+C      recipient by any third party for infringement of that parties
+C      intellectual property rights.
+C
+C      THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+C      "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+C      LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+C      A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+C      OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+C      SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+C      LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+C      DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+C      THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+C      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+C      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+C
       IMPLICIT NONE
+C
       INTEGER            ::  INFO, LDA, LDW, M, N, RANK, MAXRANK
 C     TOL_OPT controls the tolerance option used      
 C       >0 => use 2-norm (||.||_X = ||.||_2)
@@ -1827,7 +1871,8 @@ C              F( J, K ) = ZERO
                WORK( J, K+1 ) = ZERO
             END DO
 *     Incremental updating of F:
-*     F(1:N,K) := F(1:N-OFFSET,K) - tau(RK)*F(1:N,1:K-1)*A(RK:M,OFFSET+1:RK-1)**H*A(RK:M,RK).
+*     F(1:N,K) := F(1:N-OFFSET,K) - 
+*             tau(RK)*F(1:N,1:K-1)*A(RK:M,OFFSET+1:RK-1)**H*A(RK:M,RK).
             IF( K.GT.1 ) THEN
                CALL cgemv( 'Conjugate transpose', M-RK+1, K-1, -TAU(RK),
      &              A(RK,OFFSET+1), LDA, A(RK,RK), 1, ZERO,

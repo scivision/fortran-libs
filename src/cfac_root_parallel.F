@@ -1,17 +1,18 @@
 C
-C  This file is part of MUMPS 5.3.3, released
-C  on Mon Jun 15 09:57:25 UTC 2020
+C  This file is part of MUMPS 5.3.4, released
+C  on Mon Sep 28 07:16:41 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
-C  released under the CeCILL-C license:
-C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  released under the CeCILL-C license 
+C  (see doc/CeCILL-C_V1-en.txt, doc/CeCILL-C_V1-fr.txt, and
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html)
 C
       SUBROUTINE CMUMPS_FACTO_ROOT( 
-     &           MPP, MYID, MASTER_OF_ROOT,
+     &           MPA, MYID, MASTER_OF_ROOT,
      &           root, N, IROOT,
      &           COMM, IW, LIW, IFREE,
      &           A, LA, PTRAST, PTLUST_S, PTRFAC,
@@ -24,7 +25,7 @@ C
          IMPLICIT NONE
       INCLUDE 'mpif.h'
       TYPE ( CMUMPS_ROOT_STRUC ) :: root
-      INTEGER, INTENT(IN) :: MPP
+      INTEGER, INTENT(IN) :: MPA
       INTEGER N, IROOT, COMM, LIW, MYID, IFREE, MASTER_OF_ROOT
       INTEGER(8) :: LA
       INTEGER(8) :: LWK
@@ -50,12 +51,12 @@ C
       EXTERNAL numroc
       INTEGER numroc
         IF ( .NOT. root%yes ) RETURN
-        IF (MPP.GT.0) THEN
+        IF (MPA.GT.0) THEN
          IF (MYID.EQ.MASTER_OF_ROOT) THEN
            CALL  MUMPS_GET_FLOPS_COST
      &     (root%TOT_ROOT_SIZE, root%TOT_ROOT_SIZE, root%TOT_ROOT_SIZE,
      &      LDLT, 3, FLOPS_ROOT)
-           WRITE(6,'(A, A, 1PD10.3)')
+           WRITE(MPA,'(A, A, 1PD10.3)')
      &     " ... Start processing the root node with ScaLAPACK, ", 
      &     " remaining flops                = ", FLOPS_ROOT
          ENDIF

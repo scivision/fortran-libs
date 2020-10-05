@@ -1,10 +1,8 @@
 C =========================================================
-C This file includes various modifications of an original 
-C LGPL/ CeCILL-C compatible 
-C code implementing the Approximate Minimum Degree ordering
 C 
-C  The main reference for the approach used in routine
-C  MUMPS_ANA_H is
+C  This file includes various modifications of an original 
+C  routine MUMPS_ANA_H. The main reference for the approach 
+C  used in this routine is
 C   Patrick Amestoy, Timothy A. Davis, and Iain S. Duff,
 C    "An approximate minimum degree ordering algorithm,"
 C    SIAM J. Matrix Analysis  vol 17, pages=886--905 (1996)
@@ -13,21 +11,38 @@ C
 C    AMD, Copyright (c), 1996-2016, Timothy A. Davis,
 C    Patrick R. Amestoy, and Iain S. Duff.  All Rights Reserved.
 C    Used in MUMPS under the BSD 3-clause license.
-C    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND 
-C    CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, 
-C    BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND 
-C    FITNESS FOR A PARTICULAR PURPOSE
-C    ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR 
-C    ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
-C    DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-C    OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
-C    HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
-C    STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING 
-C    IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
-C    POSSIBILITY OF SUCH DAMAGE.
 C
 C All other routines are modifications of this original routine
-C done by MUMPS developers over the years (1996-2012).
+C done by MUMPS developers over the years (1996-2020) and are 
+C used in MUMPS under the BSD 3-clause license.
+C
+C BSD 3-clause licence:
+C Redistribution and use in source and binary forms, with or without
+C modification, are permitted provided that the following conditions 
+C are met:
+C  * Redistributions of source code must retain the above copyright
+C    notice, this list of conditions and the following disclaimer.
+C  * Redistributions in binary form must reproduce the above 
+C    copyright notice, this list of conditions and the following 
+C    disclaimer in the documentation and/or other materials provided 
+C    with the distribution.
+C  * Neither the name of the University of California, Berkeley nor 
+C    the names of its contributors may be used to endorse or promote 
+C    products derived from this software without specific prior 
+C    written permission.
+C    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND 
+C    CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, 
+C    INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
+C    MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+C    DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR 
+C    CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+C    SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT 
+C    NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; 
+C    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
+C    HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN 
+C    CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
+C    OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, 
+C    EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 C
 C   MUMPS_AMD_ELT is a modification 
 C   designed to handle amalgamated and compressed

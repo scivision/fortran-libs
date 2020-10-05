@@ -1,14 +1,15 @@
 C
-C  This file is part of MUMPS 5.3.3, released
-C  on Mon Jun 15 09:57:25 UTC 2020
+C  This file is part of MUMPS 5.3.4, released
+C  on Mon Sep 28 07:16:41 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
-C  released under the CeCILL-C license:
-C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  released under the CeCILL-C license 
+C  (see doc/CeCILL-C_V1-en.txt, doc/CeCILL-C_V1-fr.txt, and
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html)
 C
       SUBROUTINE MUMPS_ESTIM_FLOPS( INODE, N, PROCNODE_STEPS,
      &           KEEP199,
@@ -115,15 +116,15 @@ C
       RETURN
       END SUBROUTINE MUMPS_GET_FLOPS_COST
       SUBROUTINE MUMPS_PRINT_STILL_ACTIVE(MYID, KEEP, DKEEP17, OPELIW, 
-     &                        OPLAST_PRINTED, MPP)
+     &                        OPLAST_PRINTED, MPA)
       IMPLICIT NONE
-      INTEGER, intent(in)             :: KEEP (500), MYID, MPP
+      INTEGER, intent(in)             :: KEEP (500), MYID, MPA
       DOUBLE PRECISION                :: DKEEP17
       DOUBLE PRECISION, intent(in)    :: OPELIW
       DOUBLE PRECISION, intent(inout) :: OPLAST_PRINTED
-      IF (MPP.GT.0) THEN
+      IF (MPA.GT.0) THEN
         IF ( (OPELIW-OPLAST_PRINTED).GT. DKEEP17) THEN
-         WRITE(MPP,'(A,I6,A,A,1PD10.3)')
+         WRITE(MPA,'(A,I6,A,A,1PD10.3)')
      &   ' ... MPI process', MYID, 
      &   ': theoretical number of flops locally performed',
      &   ' so far        = ',

@@ -1,14 +1,15 @@
 C
-C  This file is part of MUMPS 5.3.3, released
-C  on Mon Jun 15 09:57:25 UTC 2020
+C  This file is part of MUMPS 5.3.4, released
+C  on Mon Sep 28 07:16:41 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
-C  released under the CeCILL-C license:
-C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  released under the CeCILL-C license 
+C  (see doc/CeCILL-C_V1-en.txt, doc/CeCILL-C_V1-fr.txt, and
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html)
 C
       RECURSIVE SUBROUTINE ZMUMPS_MAPLIG( COMM_LOAD, ASS_IRECV,
      &  BUFR, LBUFR, LBUFR_BYTES,
@@ -1201,7 +1202,7 @@ C
       USE ZMUMPS_FAC_LR, ONLY: ZMUMPS_DECOMPRESS_PANEL
       USE ZMUMPS_LOAD, ONLY : ZMUMPS_LOAD_POOL_UPD_NEW_POOL
       USE ZMUMPS_DYNAMIC_MEMORY_M, ONLY : ZMUMPS_DM_SET_DYNPTR
-     &                 , ZMUMPS_DM_FREE_BLOCK
+     &                 , ZMUMPS_DM_SET_PTR, ZMUMPS_DM_FREE_BLOCK
       INTEGER ICNTL(60)
       INTEGER, intent(in) :: I, PDEST, MYID, PDEST_MASTER, IFATH, ISON
       INTEGER, intent(in) :: N, SLAVEF
@@ -1252,6 +1253,7 @@ C
       INTEGER(8) :: IACHK
       INTEGER :: SON_XXS
       COMPLEX(kind=8), DIMENSION(:), POINTER :: SON_A
+      COMPLEX(kind=8), DIMENSION(:), POINTER :: SON_A_MASTER
       INTEGER(8) :: DYN_SIZE
       INTEGER    :: IERR, LP
       INTEGER INDICE_PERE_ARRAY_ARG(1)
@@ -1702,13 +1704,17 @@ C
                    PIMASTER(STEP( ISON )) = -99999999
                  ENDIF
                  CALL MUMPS_GETI8(DYN_SIZE, IW(ISTCHK_LOC+XXD))
+                 IF (DYN_SIZE .GT. 0_8) THEN
+                   CALL ZMUMPS_DM_SET_PTR( PAMASTER(STEP(ISON)),
+     &             DYN_SIZE, SON_A_MASTER )
+                 ENDIF
                  CALL ZMUMPS_FREE_BLOCK_CB_STATIC(.FALSE., MYID, N,
      &            ISTCHK_LOC,
      &            IW, LIW, LRLU, LRLUS, IPTRLU, IWPOSCB,
      &            LA, KEEP,KEEP8, .FALSE.
      &            )
                  IF (DYN_SIZE .GT. 0_8) THEN
-                   CALL ZMUMPS_DM_FREE_BLOCK( SON_A, DYN_SIZE,
+                   CALL ZMUMPS_DM_FREE_BLOCK( SON_A_MASTER, DYN_SIZE,
      &                                        KEEP(405).EQ.1, KEEP8 )
                  ENDIF
                ENDIF

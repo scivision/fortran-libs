@@ -1,8 +1,8 @@
 ===========================================
-MUMPS 5.3.3
+MUMPS 5.3.4
 ===========================================
 
-MUMPS 5.3.3 solves a sparse system of linear equations A x = b
+MUMPS 5.3.4 solves a sparse system of linear equations A x = b
 using Gaussian elimination. Please read this README file and
 the documentation (in ./doc/) for a complete list of
 functionalities. Documentation and publications related
@@ -14,14 +14,7 @@ MUMPS Users's mailing list.
 
 Please refer to INSTALL for installation instructions.
 
-
-  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-  Mumps Technologies, University of Bordeaux.
-
-  This version of MUMPS is provided to you free of charge. It is
-  released under the CeCILL-C license:
-  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
-
+Please refer to LICENSE for conditions of use the package.
 
 
 Contents of the distribution:
@@ -29,7 +22,7 @@ Contents of the distribution:
 
 ChangeLog  LICENSE    CREDITS    INSTALL    README     VERSION
 Makefile   Make.inc/  doc/       src/       lib/       include/
-ibseq/     examples/  PORD/      MATLAB/    SCILAB/
+libseq/    examples/  PORD/      MATLAB/    SCILAB/
 
 doc      contains the users' guide in pdf format.
 

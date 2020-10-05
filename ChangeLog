@@ -2,6 +2,14 @@
 = ChangeLog =
 -------------
 
+Changes from 5.3.3 to 5.3.4
+* Fixed a rare bug (segfault) related to dynamic storage management
+  on numerically difficult matrices
+* Fixed a rare deadlock in BLR for symmetric matrices
+* Fixed an uninitialized variable (which could lead to incorrect -19 error)
+* Minor fix in userguide (CNTL(1) vs. ICNTL(1) in ICNTL(36) description)
+* Fixed a possible runtime issue during solve, related to "TO_PROCESS" array
+
 Changes from 5.3.1 to 5.3.3
 * Assume ilp64 MPI interface only applies to Fortran in c_example.c
 * Note on gfortran-10 compilation added
@@ -634,6 +642,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.3.4            : September 2020
 Release 5.3.3            : June 2020
 Release 5.3.2[.x]        : May 2020, internal/experimental
 Release 5.3.1            : April 2020

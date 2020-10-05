@@ -1,14 +1,15 @@
 C
-C  This file is part of MUMPS 5.3.3, released
-C  on Mon Jun 15 09:57:25 UTC 2020
+C  This file is part of MUMPS 5.3.4, released
+C  on Mon Sep 28 07:16:41 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
-C  released under the CeCILL-C license:
-C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html
+C  released under the CeCILL-C license 
+C  (see doc/CeCILL-C_V1-en.txt, doc/CeCILL-C_V1-fr.txt, and
+C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html)
 C
       SUBROUTINE CMUMPS_COMPRESS_LU(SIZE_INPLACE,
      &MYID,N,IOLDPS,TYPE,IW, LIW, A, LA,
@@ -124,18 +125,65 @@ C
          DO WHILE ( IPS .NE. IWPOS )
            IPSIZE = IW(IPS+XXI)
            IPSSHIFT = IPS + KEEP(IXSZ)
+           IF ( IPSIZE .LE. 0 .OR. IPS .GT. IWPOS ) THEN
+             WRITE(*,*) " Internal error 1 CMUMPS_COMPRESS_LU"
+             WRITE(*,*) " IOLDPS, INTSIZ, IWPOS, LIW=",
+     &                    IOLDPS, INTSIZ, IWPOS, LIW
+             WRITE(*,*) " IWPOS, IPS, IPSIZE =", IWPOS, IPS, IPSIZE
+             WRITE(*,*) " Header at IOLDPS =",
+     &                  IW(IOLDPS:IOLDPS+KEEP(IXSZ)+5)
+             WRITE(*,*) " Header at IPS =",
+     &                  IW(IPS:IPS+KEEP(IXSZ)+5)
+             CALL MUMPS_ABORT()
+           ENDIF
+           IF (IPS+IPSIZE .GT. IWPOS) THEN
+             WRITE(*,*) " Internal error 2 CMUMPS_COMPRESS_LU"
+             WRITE(*,*) " IOLDPS, INTSIZ, IWPOS, LIW=",
+     &                    IOLDPS, INTSIZ, IWPOS, LIW
+             WRITE(*,*) " IWPOS, IPS, IPSIZE =", IWPOS, IPS, IPSIZE
+             WRITE(*,*) " Header at IOLDPS =",
+     &                  IW(IOLDPS:IOLDPS+KEEP(IXSZ)+5)
+             WRITE(*,*) " Header at IOLDPS+INTSIZ =",
+     &                  IW(IOLDPS+INTSIZ:IOLDPS+INTSIZ+KEEP(IXSZ)+5)
+             WRITE(*,*) " Header at IPS =",
+     &                  IW(IPS:IPS+KEEP(IXSZ)+5)
+             WRITE(*,*) " ========================== "
+             WRITE(*,*) " Headers starting at IOLDPS:"
+             IPS = IOLDPS
+             DO WHILE (IPS .LE. IWPOS)
+               WRITE(*,*) " -> new IW header at position" , IPS, ":",
+     &                  IW(IPS:IPS+KEEP(IXSZ)+5)
+               IPS = IPS + IW(IPS+XXI)
+             ENDDO
+             CALL MUMPS_ABORT()
+           ENDIF
            IF ( IW( IPSSHIFT + 2 ) < 0 ) THEN
              NFRONT = IW( IPSSHIFT )
+             IF (IW(IPSSHIFT+4) .LT. 0) THEN
+               WRITE(*,*) " Internal error 3 CMUMPS_COMPRESS_LU"
+               WRITE(*,*) " IPS,IPSSHIFT,IWPOS=" ,IPS,IPSSHIFT,IWPOS
+               WRITE(*,*) " Header at IPS =", IW(IPS:IPS+KEEP(IXSZ)+5)
+             ENDIF
              PTRFAC(IW(IPSSHIFT+4))=PTRFAC(IW(IPSSHIFT+4)) -
      &               SIZECB - SIZESHIFT
              MOVEPTRAST = .TRUE.
              PTRAST(IW(IPSSHIFT+4))=PTRAST(IW(IPSSHIFT+4))-SIZECB
      &               - SIZESHIFT
            ELSE IF ( IW( IPSSHIFT ) < 0 ) THEN
+             IF (IW(IPSSHIFT+3) .LT. 0) THEN
+               WRITE(*,*) " Internal error 4 CMUMPS_COMPRESS_LU"
+               WRITE(*,*) " IPS,IPSSHIFT,IWPOS=" ,IPS,IPSSHIFT,IWPOS
+               WRITE(*,*) " Header at IPS =", IW(IPS:IPS+KEEP(IXSZ)+5)
+             ENDIF
              PTRFAC(IW(IPSSHIFT+3)) = PTRFAC(IW(IPSSHIFT+3))
      &                                  -SIZECB-SIZESHIFT
            ELSE
              NFRONT = IW( IPSSHIFT ) + IW( IPSSHIFT + 3 )
+             IF (IW(IPSSHIFT+4) .LT. 0) THEN
+               WRITE(*,*) " Internal error 4 CMUMPS_COMPRESS_LU"
+               WRITE(*,*) " IPS,IPSSHIFT,IWPOS=" ,IPS,IPSSHIFT,IWPOS
+               WRITE(*,*) " Header at IPS =", IW(IPS:IPS+KEEP(IXSZ)+5)
+             ENDIF
              PTRFAC(IW( IPSSHIFT + 4 )) = 
      &           PTRFAC(IW( IPSSHIFT + 4 )) - SIZECB - SIZESHIFT
            END IF

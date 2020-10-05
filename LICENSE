@@ -3,14 +3,18 @@
   Mumps Technologies, University of Bordeaux.
 
   This version of MUMPS is provided to you free of charge. It is
-  released under the CeCILL-C license,
-  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html, 
-  except for the external and optional ordering PORD, 
-  in separate directory PORD, which is public domain (see PORD/README).
+  released under the CeCILL-C license
+  (see doc/CeCILL-C_V1-en.txt, doc/CeCILL-C_V1-fr.txt, and
+  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html), 
+  except for variants of AMD ordering distributed under BSD 3-clause 
+  license (see header of ana_orderings.F), 
+  and except for the external and optional ordering PORD
+  provided in a separate directory PORD which is public domain 
+  (see PORD/README)
 
-  You can acknowledge (using references [1] and [2]) the contribution of
-  this package in any scientific publication dependent upon the use of
-  the package. Please use reasonable endeavours to notify the authors
+  You can acknowledge (using references [1] and [2]) the contribution 
+  of this package in any scientific publication dependent upon the use 
+  of the package. Please use reasonable endeavours to notify the authors
   of the package of this publication.
 
    [1] P. R. Amestoy, I. S. Duff, J. Koster and  J.-Y. L'Excellent,
@@ -37,9 +41,9 @@
   therefore means  that it is reserved for developers  and  experienced
   professionals having in-depth computer knowledge. Users are therefore
   encouraged to load and test the software's suitability as regards their
-  requirements in conditions enabling the security of their systems and/or 
-  data to be ensured and,  more generally, to use and operate it in the 
-  same conditions as regards security. 
+  requirements in conditions enabling the security of their systems 
+  and/or data to be ensured and, more generally, to use and operate it 
+  in the same conditions as regards security. 
 
   The fact that you are presently reading this means that you have had
   knowledge of the CeCILL-C license and that you accept its terms.
