@@ -5,7 +5,9 @@
 ![ci_windows](https://github.com/scivision/mumps/workflows/ci_windows/badge.svg)
 [![CDash](./archive/cdash.png)](https://my.cdash.org/index.php?project=mumps)
 
-This is a mirror of [original MUMPS code](http://mumps.enseeiht.fr/), with build system enhancements to:
+This is a mirror of
+[original MUMPS code](http://mumps-solver.org),
+with build system enhancements to:
 
 * build MUMPS in parallel 10x faster than the Makefiles
 * allow easy reuse of MUMPS in external projects via CMake FetchContent
@@ -16,21 +18,26 @@ Many compilers and systems are supported by CMake build system on Windows, MacOS
 Please open a GitHub Issue if you have a problem building Mumps with CMake.
 Some compiler setups are not ABI compatible, that isn't a build system issue.
 
-The systems known to work with MUMPS and CMake include:
+The compiler platforms known to work with MUMPS and CMake include:
 
-* Windows: MSYS2 (GCC), Windows Subsystem for Linux (GCC), Intel compiler
-* MacOS: GCC (Homebrew)
-* Linux: GCC, Intel compiler, PGI compiler
+* Windows (use `-G Ninja` or `-G "MinGW Makefiles"`)
+  * MSYS2 (GCC)
+  * Windows Subsystem for Linux (GCC)
+  * Intel oneAPI
+* MacOS
+  * GCC (Homebrew)
+  * Intel oneAPI
+* Linux
+  * GCC
+  * Intel oneAPI
+  * NVIDIA HPC SDK
 
 ## Build
 
+After "git clone" this repo:
+
 ```sh
-cmake -B build
-
-cmake --build build --parallel
-
-# optional
-ctest -S setup.cmake -VV
+ctest -S mumps/setup.cmake -VV
 ```
 
 ### MSYS2 MinGW MPI setup
@@ -61,14 +68,14 @@ To use MUMPS as via CMake FetchContent, in the project add:
 include(FetchContent)
 FetchContent_Declare(MUMPS_proj
   GIT_REPOSITORY https://github.com/scivision/mumps.git
-  GIT_TAG v5.3.0.0
+  GIT_TAG v5.3.4.0
 )
 
 FetchContent_MakeAvailable(MUMPS_proj)
 
 # --- your code
 add_executable(foo foo.f90)
-target_link_libraries(foo mumps::mumps)
+target_link_libraries(foo MUMPS::MUMPS)
 ```
 
 ## Build options
