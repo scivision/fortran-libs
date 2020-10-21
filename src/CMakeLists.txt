@@ -8,7 +8,8 @@ if(intsize64)
 else()
   set(MUMPS_INTSIZE MUMPS_INTSIZE32)
 endif()
-configure_file(${PROJECT_SOURCE_DIR}/include/mumps_int_def.h.in ${PROJECT_SOURCE_DIR}/include/mumps_int_def.h)
+configure_file(${PROJECT_SOURCE_DIR}/include/mumps_int_def.h.in
+${PROJECT_SOURCE_DIR}/include/mumps_int_def.h @ONLY)
 
 # -- Mumps COMMMON
 set(COMM_SRC
