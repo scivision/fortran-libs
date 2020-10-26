@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.4, released
-C  on Mon Sep 28 07:16:41 UTC 2020
+C  This file is part of MUMPS 5.3.5, released
+C  on Thu Oct 22 09:29:08 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -444,9 +444,9 @@ C
      &       .or. 
      &        ( DEST .eq. -1 .and. KEEP( 46 ) .eq. 1 .AND.
      &         ( I_AM_CAND_LOC .OR. MASTER_NODE .EQ. 0 ) )
-     &       .or.  
+     &       .or. 
      &        ( T4MASTER.EQ.0 )
-     &       .or.  
+     &       .or. 
      &        ( DEST .EQ. -2 .AND. KEEP( 46 ) .EQ. 1 )
      &       ) THEN
             IARR = ISEND  

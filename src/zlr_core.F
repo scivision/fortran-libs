@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.4, released
-C  on Mon Sep 28 07:16:41 UTC 2020
+C  This file is part of MUMPS 5.3.5, released
+C  on Thu Oct 22 09:29:08 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -826,7 +826,6 @@ C       Alloc ok!!
         INTEGER :: INFO, RANK, MAXRANK, LWORK
         INTEGER :: I, J, M, N
         INTEGER :: allocok, MREQ
-        DOUBLE PRECISION :: LOC_RECOMPRESS_TIME
         COMPLEX(kind=8) :: ONE, MONE, ZERO
         PARAMETER (ONE=(1.0D0,0.0D0), MONE=(-1.0D0,0.0D0))
         PARAMETER (ZERO=(0.0D0,0.0D0))
@@ -912,7 +911,6 @@ C     Alloc NOT ok!!
         LOGICAL :: BUILDQ, BUILDQ1, BUILDQ2, SKIP1, SKIP2
         INTEGER :: I, J, M, N, K
         INTEGER :: allocok, MREQ
-        DOUBLE PRECISION :: LOC_RECOMPRESS_TIME
         COMPLEX(kind=8) :: ONE, MONE, ZERO
         PARAMETER (ONE=(1.0D0,0.0D0), MONE=(-1.0D0,0.0D0))
         PARAMETER (ZERO=(0.0D0,0.0D0))

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.4, released
-C  on Mon Sep 28 07:16:41 UTC 2020
+C  This file is part of MUMPS 5.3.5, released
+C  on Thu Oct 22 09:29:08 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -512,7 +512,7 @@ C
       SUBROUTINE UPD_FLOP_FRFRONTS(NFRONT, NPIV, NASS, SYM, 
      &                                        NIV)
           INTEGER, INTENT(IN) :: NFRONT, NPIV, NASS, SYM, NIV
-          DOUBLE PRECISION    :: FLOP_FAC, FLOP_SOLFWD
+          DOUBLE PRECISION    :: FLOP_FAC
           CALL MUMPS_GET_FLOPS_COST(NFRONT, NPIV, NASS, 
      &                              SYM, NIV, FLOP_FAC)
 !$OMP     ATOMIC UPDATE

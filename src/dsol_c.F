@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.4, released
-C  on Mon Sep 28 07:16:41 UTC 2020
+C  This file is part of MUMPS 5.3.5, released
+C  on Thu Oct 22 09:29:08 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -77,7 +77,6 @@ C
       INTEGER K,I,II
       INTEGER allocok
       INTEGER LPOOL,MYLEAF,MYROOT,NBROOT,LPANEL_POS
-      INTEGER MYLEAF_NOT_PRUNED
       INTEGER NSTK_S,IPOOL,IPANEL_POS,PTRICB
       INTEGER MTYPE_LOC
       INTEGER MODE_RHS_BOUNDS 
@@ -108,7 +107,7 @@ C
       INTEGER, DIMENSION(:), ALLOCATABLE ::  Pruned_SONS, Pruned_Roots
       INTEGER                            :: SIZE_TO_PROCESS
       LOGICAL, DIMENSION(:), ALLOCATABLE :: TO_PROCESS
-      INTEGER ISTEP, INODE_PRINC, INODE, ICHILD
+      INTEGER ISTEP, INODE_PRINC
       LOGICAL AM1, DO_PRUN
       LOGICAL Exploit_Sparsity
       LOGICAL DO_NBSPARSE_BWD, PRUN_BELOW_BWD

@@ -1,5 +1,5 @@
 ===========================================
-MUMPS 5.3.4 INSTALLATION
+MUMPS 5.3.5 INSTALLATION
 ===========================================
 
 Pre-requisites
@@ -35,8 +35,8 @@ Installation
 
 The following steps can be applied.
 
-% tar zxvf MUMPS_5.3.4.tar.gz
-% cd MUMPS_5.3.4
+% tar zxvf MUMPS_5.3.5.tar.gz
+% cd MUMPS_5.3.5
 
 You then need to build a file called Makefile.inc corresponding
 to your architecture. A few examples are available in the

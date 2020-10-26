@@ -2,6 +2,11 @@
 = ChangeLog =
 -------------
 
+Changes from 5.3.4 to 5.3.5
+* Fixed 2x2 pivots bug from 5.3.4 release in MPI LDLT factorization
+* Fixed ICNTL(8)=-2 option during analysis (code and documentation)
+* Include basic fix for make -j
+
 Changes from 5.3.3 to 5.3.4
 * Fixed a rare bug (segfault) related to dynamic storage management
   on numerically difficult matrices
@@ -642,6 +647,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.3.5            : October 2020
 Release 5.3.4            : September 2020
 Release 5.3.3            : June 2020
 Release 5.3.2[.x]        : May 2020, internal/experimental

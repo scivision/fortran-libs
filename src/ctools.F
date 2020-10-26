@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.4, released
-C  on Mon Sep 28 07:16:41 UTC 2020
+C  This file is part of MUMPS 5.3.5, released
+C  on Thu Oct 22 09:29:08 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -636,7 +636,7 @@ C
       INTEGER(8) :: OOC_NB_FILE_TYPE
       INTEGER(8) :: NSTEPS8, N8, NELT8
       INTEGER(8) :: I8OVERI
-      INTEGER(8) :: SUM_NRLADU_underL0, MIN_NRLADU_underL0,
+      INTEGER(8) :: SUM_NRLADU_underL0,
      &              SUM_NRLADU_if_LR_LU_underL0, 
      &              SUM_NRLADULR_UD_underL0, 
      &              SUM_NRLADULR_WC_underL0

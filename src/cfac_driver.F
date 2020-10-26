@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.4, released
-C  on Mon Sep 28 07:16:41 UTC 2020
+C  This file is part of MUMPS 5.3.5, released
+C  on Thu Oct 22 09:29:08 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -121,9 +121,7 @@ C     For S argument to arrowhead routines:
       INTEGER(8) :: MAXS_ARG
       COMPLEX, TARGET :: S_DUMMY_ARG(1)
       COMPLEX, POINTER, DIMENSION(:) :: S_PTR_ARG
-      DOUBLE PRECISION TIME, TIMEET, TIMEAVG, TIMEMAX, 
-     &                 FLOPAVG, FLOPMAX
-      REAL TMPTIME, TMPFLOP
+      DOUBLE PRECISION TIME, TIMEET
       REAL ZERO, ONE, MONE
       PARAMETER( ZERO = 0.0E0, ONE = 1.0E0, MONE = -1.0E0)
       COMPLEX CZERO

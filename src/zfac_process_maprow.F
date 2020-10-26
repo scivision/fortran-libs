@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.4, released
-C  on Mon Sep 28 07:16:41 UTC 2020
+C  This file is part of MUMPS 5.3.5, released
+C  on Thu Oct 22 09:29:08 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -687,7 +687,6 @@ C
       LOGICAL BLOCKING, SET_IRECV, MESSAGE_RECEIVED
       LOGICAL PACKED_CB
       LOGICAL :: CB_IS_LR
-      INTEGER T1, T2, COUNT_RATE
       INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR
       INTEGER :: NB_BLR_COLS, NB_BLR_ROWS,
      &           NB_BLR_SHIFT, PANEL2DECOMPRESS, 

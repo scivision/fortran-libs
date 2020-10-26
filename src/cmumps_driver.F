@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.4, released
-C  on Mon Sep 28 07:16:41 UTC 2020
+C  This file is part of MUMPS 5.3.5, released
+C  on Thu Oct 22 09:29:08 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -1320,35 +1320,93 @@ C       -----------------------------------------
           id%DKEEP(71)=0.0E0
           CALL MUMPS_SECDEB(TIMEG)
         END IF 
-C        -------------------------------------------
-C        Set scaling option for analysis in KEEP(52)
-C        -------------------------------------------
-        id%KEEP(52) = id%ICNTL(8)
+C       -------------------------------------------------
+C       Set scaling option for analysis in KEEP(52)
+C       (ICNTL(8) only defined on host at analysis phase)
+C       -------------------------------------------------
+        IF (id%MYID.EQ.MASTER) THEN
+C{
+         id%KEEP(52) = id%ICNTL(8)
 C        Out-of-range values => automatic choice
-        IF ( id%KEEP(52) .GT. 8 .OR. id%KEEP(52).LT.-2)
+         IF ( id%KEEP(52) .GT. 8 .OR. id%KEEP(52).LT.-2)
      &       id%KEEP(52) = 77
-        IF ( id%KEEP(52) .EQ. 2 .OR. id%KEEP(52).EQ.5 
+         IF ( id%KEEP(52) .EQ. 2 .OR. id%KEEP(52).EQ.5 
      &       .OR. id%KEEP(52) .EQ. 6 )
      &       id%KEEP(52) = 77
-        IF ((id%KEEP(52).EQ.77).AND.(id%KEEP(50).EQ.1)) THEN
-         ! for SPD matrices default is no scaling
-          id%KEEP(52) = 0
-        ENDIF
-        IF ( id%KEEP(52).EQ.77 .OR. id%KEEP(52).LE.-2) THEN 
+         IF ((id%KEEP(52).EQ.77).AND.(id%KEEP(50).EQ.1)) THEN
+          ! for SPD matrices default is no scaling
+           id%KEEP(52) = 0
+         ENDIF
+         IF ( id%KEEP(52).EQ.77 .OR. id%KEEP(52).LE.-2) THEN 
 C          -- suppress scaling computed during analysis 
 C          -- if centralized matrix is not associated
           IF (.not.associated(id%A)) id%KEEP(52) = 0
+         ENDIF
+C        deactivate analysis scaling if scaling given
+         IF(id%KEEP(52) .EQ. -1) id%KEEP(52) = 0
+C
+C        deactivate analysis scaling if 
+C        permutation to zero-free diagonal not requested
+         IF (id%ICNTL(6).EQ.0) id%KEEP(52) = 0
+C        deactivate analysis scaling for SPD matrices
+         IF (id%KEEP(50).EQ.1) id%KEEP(52) = 0
+C
+         IF (id%KEEP(52).EQ.-2) THEN
+C        deallocate scalings in case of ordering allocated/computed 
+C        during analysis. This is needed because in case of 
+C        KEEP(52)=-2 then one cannot be sure that 
+C        scaling will be effectivly computed during analysis
+C        Thus to test if scaling was effectively allocated/computed
+C        during analysis after CMUMPS_ANA_DRIVER one must
+C        be sure that scaling arrays are nullified.
+           IF ( associated(id%COLSCA)) THEN
+                DEALLOCATE( id%COLSCA )
+                NULLIFY(id%COLSCA)
+           ENDIF
+           IF ( associated(id%ROWSCA)) THEN
+                DEALLOCATE( id%ROWSCA )
+                NULLIFY(id%ROWSCA)
+           ENDIF
+         ENDIF
+C     
+C}
         ENDIF
-C deactivate analysis scaling if scaling given
-        IF(id%KEEP(52) .EQ. -1) id%KEEP(52) = 0
+C
+C       ANALYSIS PHASE:
         CALL CMUMPS_ANA_DRIVER( id )
-C Save scaling option in INFOG(33)
+C
+C Check and save scaling option in INFOG(33)
         IF (id%MYID .eq. MASTER) THEN
+C{
+          IF (id%KEEP(52).EQ.0) id%INFOG(33)=id%ICNTL(8)
+          IF (id%KEEP(52).EQ.-2) THEN
+C         Scaling should have been computed during
+           IF (.not.associated(id%COLSCA).OR.
+     &         .not.associated(id%ROWSCA)
+     &        ) THEN
+C            scaling was not computed reset KEEP(52)
+C            the user can then decide during factorization
+C            to activate scaling
+             id%KEEP(52) =0
+             id%INFOG(33)=0
+             IF ( MPG .GT. 0 ) THEN
+                WRITE(MPG,'(A)') 
+     &          ' Warning;  scaling was not computed during analysis'
+             ENDIF
+             IF ( associated(id%COLSCA)) THEN
+                  DEALLOCATE( id%COLSCA )
+                  NULLIFY(id%COLSCA)
+             ENDIF
+             IF ( associated(id%ROWSCA)) THEN
+                  DEALLOCATE( id%ROWSCA )
+                  NULLIFY(id%ROWSCA)
+             ENDIF
+           ENDIF
+          ENDIF
           IF (id%KEEP(52) .NE. 0) THEN
             id%INFOG(33)=id%KEEP(52)
-          ELSE
-            id%INFOG(33)=id%ICNTL(8)
           ENDIF
+C}
         ENDIF
 C       return value of ICNTL(12) effectively used
 C       that was saved on the master in KEEP(95)
@@ -1519,17 +1577,10 @@ C         ----------------------
 C         ========================================
 C         Decode and set scaling options for facto
 C         ========================================
-          IF( id%KEEP(52) .EQ. -2 .AND. id%ICNTL(8) .NE. -2 .AND.
-     &        id%ICNTL(8).NE. 77 ) THEN
-             IF ( MPG .GT. 0 ) THEN
-                WRITE(MPG,'(A)') ' ** WARNING : SCALING'
-                WRITE(MPG,'(A)') 
-     &               ' ** scaling already computed during analysis'
-                WRITE(MPG,'(A)') 
-     &               ' ** keeping the scaling from the analysis'
-             ENDIF
-          ENDIF
-          IF (id%KEEP(52) .NE. -2) THEN
+          IF (.NOT. ((id%KEEP(52).EQ.-2).AND.(id%ICNTL(8).EQ.77)) ) 
+     &    THEN
+C           if scaling was computed during analysis and automatic
+C           choice of scaling then we do not recompute scaling
             id%KEEP(52)=id%ICNTL(8)
           ENDIF
           IF ( id%KEEP(52) .GT. 8 .OR. id%KEEP(52).LT.-2)
@@ -1646,6 +1697,9 @@ C  Allocate -- if required,
 C  ROWSCA and COLSCA on the master
 C
 C  Allocation of scaling arrays.
+C  IF (KEEP(52)==-2 then scaling should have been allocated
+C  and computed during analysis
+C
 C  If ICNTL(8) == -1, ROWSCA and COLSCA must have been associated and
 C  filled by the user. If ICNTL(8) is >0 and <= 8, the scaling is
 C  computed at the beginning of CMUMPS_FAC_DRIVER and is allocated now.

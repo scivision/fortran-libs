@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.4, released
-C  on Mon Sep 28 07:16:41 UTC 2020
+C  This file is part of MUMPS 5.3.5, released
+C  on Thu Oct 22 09:29:08 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -132,7 +132,6 @@ C
       INCLUDE 'mumps_headers.h'
       INTEGER MPA
       DOUBLE PRECISION  OPLAST_PRINTED
-      INTEGER :: I
       ITLOC(1:N+KEEP(253)) =0
       ASS_IRECV = MPI_REQUEST_NULL
       MP = ICNTL(2)

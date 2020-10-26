@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.3.4, released
-C  on Mon Sep 28 07:16:41 UTC 2020
+C  This file is part of MUMPS 5.3.5, released
+C  on Thu Oct 22 09:29:08 UTC 2020
 C
 C
 C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -492,9 +492,9 @@ C
         DO
           IF(I .GT. NPIV) EXIT
           IF (DYNPIVBLFCT) THEN
-            PIVI = abs(PIVDYN(I))
+            PIVI = PIVDYN(I)
           ELSE
-            PIVI = abs(IW(IPIV+I-1))
+            PIVI = IW(IPIV+I-1)
           ENDIF
           IF(PIVI .GT. 0) THEN
           IF (DYNPIVBLFCT) THEN
