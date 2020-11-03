@@ -54,7 +54,50 @@ set(SCALAPACK_INCLUDE_DIR)
 
 #===== functions
 
-function(mkl_scala)
+function(scalapack_check)
+
+find_package(MPI COMPONENTS Fortran)
+find_package(LAPACK)
+if(NOT (MPI_Fortran_FOUND AND LAPACK_FOUND))
+  return()
+endif()
+
+set(CMAKE_REQUIRED_FLAGS)
+set(CMAKE_REQUIRED_LINK_OPTIONS)
+set(CMAKE_REQUIRED_INCLUDES ${SCALAPACK_INCLUDE_DIR})
+set(CMAKE_REQUIRED_LIBRARIES ${SCALAPACK_LIBRARY} LAPACK::LAPACK MPI::MPI_Fortran)
+# MPI needed for ifort
+include(CheckFortranSourceCompiles)
+
+set(SCALAPACK_links true)
+
+foreach(i s d c z)
+
+if("${i}" IN_LIST SCALAPACK_FIND_COMPONENTS)
+
+  check_fortran_source_compiles("
+  program test
+  implicit none (type, external)
+  external :: p${i}lamch
+  external :: blacs_pinfo, blacs_get, blacs_gridinit, blacs_gridexit, blacs_exit
+  end program"
+    SCALAPACK_${i}_links SRC_EXT f90)
+
+    if(SCALAPACK_${i}_links)
+      set(SCALAPACK_${i}_FOUND true PARENT_SCOPE)
+    else()
+      set(SCALAPACK_links false)
+    endif()
+endif()
+
+endforeach()
+
+set(SCALAPACK_links ${SCALAPACK_links} PARENT_SCOPE)
+
+endfunction(scalapack_check)
+
+
+function(scalapack_mkl)
 
 if(BUILD_SHARED_LIBS)
   set(_mkltype dynamic)
@@ -62,7 +105,7 @@ else()
   set(_mkltype static)
 endif()
 
-pkg_check_modules(pc_mkl mkl-${_mkltype}-lp64-iomp QUIET)
+pkg_check_modules(pc_mkl mkl-${_mkltype}-lp64-iomp)
 
 set(_mkl_libs ${ARGV})
 
@@ -106,13 +149,13 @@ if(NOT SCALAPACK_INCLUDE_DIR)
   return()
 endif()
 
-# list(APPEND SCALAPACK_INCLUDE_DIR ${pc_mkl_INCLUDE_DIRS})  # this is unnecessary, and on Windows injects breaking garbage
+# pc_mkl_INCLUDE_DIRS on Windows injects breaking garbage
 
 set(SCALAPACK_MKL_FOUND true PARENT_SCOPE)
 set(SCALAPACK_LIBRARY ${SCALAPACK_LIBRARY} PARENT_SCOPE)
 set(SCALAPACK_INCLUDE_DIR ${SCALAPACK_INCLUDE_DIR} PARENT_SCOPE)
 
-endfunction(mkl_scala)
+endfunction(scalapack_mkl)
 
 # === main
 
@@ -129,38 +172,44 @@ else()
 endif()
 endif()
 
-find_package(PkgConfig QUIET)
+find_package(PkgConfig)
 
 # some systems (Ubuntu 16.04) need BLACS explicitly, when it isn't statically compiled into libscalapack
 # other systems (homebrew, Ubuntu 18.04) link BLACS into libscalapack, and don't need BLACS as a separately linked library.
-if(NOT MKL IN_LIST SCALAPACK_FIND_COMPONENTS)
-  find_package(BLACS COMPONENTS ${SCALAPACK_FIND_COMPONENTS} QUIET)
-endif()
+# if(NOT MKL IN_LIST SCALAPACK_FIND_COMPONENTS)
+#   find_package(BLACS COMPONENTS ${SCALAPACK_FIND_COMPONENTS})
+#   if(NOT BLACS_FOUND)
+#     set(BLACS_LIBRARY)
+#     set(BLACS_INCLUDE_DIR)
+#   endif()
+# endif()
 
 if(MKL IN_LIST SCALAPACK_FIND_COMPONENTS)
   # we have to sanitize MKLROOT if it has Windows backslashes (\) otherwise it will break at build time
   # double-quotes are necessary per CMake to_cmake_path docs.
   file(TO_CMAKE_PATH "$ENV{MKLROOT}" MKLROOT)
 
+  list(APPEND CMAKE_PREFIX_PATH ${MKLROOT}/tools/pkgconfig)
+
   if(OpenMPI IN_LIST SCALAPACK_FIND_COMPONENTS)
-    mkl_scala(mkl_scalapack_lp64 mkl_blacs_openmpi_lp64)
+    scalapack_mkl(mkl_scalapack_lp64 mkl_blacs_openmpi_lp64)
     set(SCALAPACK_OpenMPI_FOUND ${SCALAPACK_MKL_FOUND})
   elseif(MPICH IN_LIST SCALAPACK_FIND_COMPONENTS)
     if(APPLE)
-      mkl_scala(mkl_scalapack_lp64 mkl_blacs_mpich_lp64)
+      scalapack_mkl(mkl_scalapack_lp64 mkl_blacs_mpich_lp64)
     elseif(WIN32)
-      mkl_scala(mkl_scalapack_lp64 mkl_blacs_mpich2_lp64.lib mpi.lib fmpich2.lib)
+      scalapack_mkl(mkl_scalapack_lp64 mkl_blacs_mpich2_lp64.lib mpi.lib fmpich2.lib)
     else()  # MPICH linux is just like IntelMPI
-      mkl_scala(mkl_scalapack_lp64 mkl_blacs_intelmpi_lp64)
+      scalapack_mkl(mkl_scalapack_lp64 mkl_blacs_intelmpi_lp64)
     endif()
     set(SCALAPACK_MPICH_FOUND ${SCALAPACK_MKL_FOUND})
   else()
-    mkl_scala(mkl_scalapack_lp64 mkl_blacs_intelmpi_lp64)
+    scalapack_mkl(mkl_scalapack_lp64 mkl_blacs_intelmpi_lp64)
   endif()
 
 elseif(OpenMPI IN_LIST SCALAPACK_FIND_COMPONENTS)
 
-  pkg_check_modules(pc_scalapack scalapack-openmpi QUIET)
+  pkg_search_module(pc_scalapack scalapack-openmpi scalapack)
 
   find_library(SCALAPACK_LIBRARY
                 NAMES scalapack-openmpi scalapack
@@ -173,7 +222,7 @@ elseif(OpenMPI IN_LIST SCALAPACK_FIND_COMPONENTS)
 
 elseif(MPICH IN_LIST SCALAPACK_FIND_COMPONENTS)
 
-  pkg_check_modules(pc_scalapack scalapack-mpich QUIET)
+  pkg_search_module(pc_scalapack scalapack-mpich scalapack)
 
   find_library(SCALAPACK_LIBRARY
                 NAMES scalapack-mpich scalapack-mpich2
@@ -186,11 +235,17 @@ elseif(MPICH IN_LIST SCALAPACK_FIND_COMPONENTS)
 
 endif()
 
+# --- Check that Scalapack links
+
+if(SCALAPACK_LIBRARY)
+  scalapack_check()
+endif()
+
 # --- Finalize
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(SCALAPACK
-  REQUIRED_VARS SCALAPACK_LIBRARY
+  REQUIRED_VARS SCALAPACK_LIBRARY SCALAPACK_links
   HANDLE_COMPONENTS)
 
 if(SCALAPACK_FOUND)
@@ -198,23 +253,21 @@ if(SCALAPACK_FOUND)
 set(SCALAPACK_LIBRARIES ${SCALAPACK_LIBRARY})
 set(SCALAPACK_INCLUDE_DIRS ${SCALAPACK_INCLUDE_DIR})
 
-if(BLACS_FOUND)
-  list(APPEND SCALAPACK_LIBRARIES ${BLACS_LIBRARIES})
-  if(NOT TARGET SCALAPACK::BLACS)
-    add_library(SCALAPACK::BLACS INTERFACE IMPORTED)
-    set_target_properties(SCALAPACK::BLACS PROPERTIES
-                          INTERFACE_LINK_LIBRARIES "${BLACS_LIBRARY}"
-                          INTERFACE_INCLUDE_DIRECTORIES "${BLACS_INCLUDE_DIR}"
-                        )
-  endif()
-else()
-  set(BLACS_LIBRARY)
-endif()
+# if(BLACS_FOUND)
+#   list(APPEND SCALAPACK_LIBRARIES ${BLACS_LIBRARIES})
+#   if(NOT TARGET SCALAPACK::BLACS)
+#     add_library(SCALAPACK::BLACS INTERFACE IMPORTED)
+#     set_target_properties(SCALAPACK::BLACS PROPERTIES
+#                           INTERFACE_LINK_LIBRARIES "${BLACS_LIBRARY}"
+#                           INTERFACE_INCLUDE_DIRECTORIES "${BLACS_INCLUDE_DIR}"
+#                         )
+#   endif()
+# endif()
 
 if(NOT TARGET SCALAPACK::SCALAPACK)
   add_library(SCALAPACK::SCALAPACK INTERFACE IMPORTED)
   set_target_properties(SCALAPACK::SCALAPACK PROPERTIES
-                        INTERFACE_LINK_LIBRARIES "${SCALAPACK_LIBRARY};${BLACS_LIBRARY}"
+                        INTERFACE_LINK_LIBRARIES "${SCALAPACK_LIBRARY}"
                         INTERFACE_INCLUDE_DIRECTORIES "${SCALAPACK_INCLUDE_DIR}"
                       )
 endif()

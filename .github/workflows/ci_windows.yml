@@ -1,16 +1,8 @@
 name: ci_windows
-env:
-  FC: gfortran
-  CC: gcc
 
 on:
   push:
     paths:
-      - "**.c"
-      - "**.f"
-      - "**.F"
-      - "**.f90"
-      - "**.F90"
       - "**.cmake"
       - "**/CMakeLists.txt"
       - ".github/workflows/ci_windows.yml"

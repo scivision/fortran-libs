@@ -1,7 +1,4 @@
 name: ci_macos
-env:
-  FC: gfortran-10
-  CC: gcc-10
 
 on:
   push:

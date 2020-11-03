@@ -1,7 +1,4 @@
 name: ci_linux
-env:
-  FC: gfortran
-  CC: gcc
 
 on:
   push:
