@@ -20,4 +20,4 @@ if(NOT SCALAPACK_FOUND)
   FetchContent_MakeAvailable(scalapack_proj)
 endif()
 
-target_link_libraries(SCALAPACK::SCALAPACK INTERFACE LAPACK::LAPACK)
+# not linking LAPACK to SCALAPACK here because it fails on Mac when used as subproject

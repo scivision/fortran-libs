@@ -34,7 +34,7 @@ if(parallel)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/mpi.cmake)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/scalapack.cmake)
 
-  set(NUMERIC_LIBS SCALAPACK::SCALAPACK MPI::MPI_Fortran MPI::MPI_C)
+  set(NUMERIC_LIBS SCALAPACK::SCALAPACK LAPACK::LAPACK MPI::MPI_Fortran MPI::MPI_C)
   if(openmp)
     find_package(OpenMP COMPONENTS C Fortran REQUIRED)
     list(APPEND NUMERIC_LIBS OpenMP::OpenMP_Fortran OpenMP::OpenMP_C)
