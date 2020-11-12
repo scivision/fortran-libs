@@ -1,0 +1,43 @@
+name: ci_build
+
+on:
+  push:
+    paths:
+      - "**.cmake"
+      - "**/CMakeLists.txt"
+      - ".github/workflows/ci_build.yml"
+
+
+jobs:
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install prereqs
+      run: |
+        sudo apt update -yq
+        sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin
+
+    - run: ctest -S setup.cmake -VV
+
+
+  mac:
+    needs: linux
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: brew install gcc lapack scalapack open-mpi
+
+    - run: ctest -S setup.cmake -VV
+
+
+  windows:
+    needs: linux
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: ctest -S setup.cmake -VV

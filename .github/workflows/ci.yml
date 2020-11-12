@@ -1,4 +1,4 @@
-name: ci_linux
+name: ci
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
       - "**.F90"
       - "**.cmake"
       - "**.txt"
-      - ".github/workflows/ci_linux.yml"
+      - ".github/workflows/ci.yml"
 
 
 jobs:
