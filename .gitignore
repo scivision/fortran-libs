@@ -1,7 +1,7 @@
 .mypy_cache/
 Makefile
-subprojects/
-!subprojects/*.wrap
+/subprojects/*
+!/subprojects/*.wrap
 build*/
 
 include/mumps_int_def.h
