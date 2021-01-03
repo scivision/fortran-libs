@@ -17,6 +17,7 @@ endif()
 
 # --- user options
 include(cmake/options.cmake)
+include(cmake/libraries.cmake)
 
 # --- compiler setup
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
@@ -27,13 +28,13 @@ include(cmake/compilers.cmake)
 find_package(Threads)
 
 # -- Lapack
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/lapack.cmake)
+include(cmake/lapack.cmake)
 
 # -- Scalapack / MPI
 
 if(parallel)
-  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/mpi.cmake)
-  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/scalapack.cmake)
+  include(cmake/mpi.cmake)
+  include(cmake/scalapack.cmake)
 
   set(NUMERIC_LIBS SCALAPACK::SCALAPACK LAPACK::LAPACK MPI::MPI_Fortran MPI::MPI_C)
   if(openmp)
@@ -91,6 +92,6 @@ add_feature_info(Metis metis "METIS graph partitioning http://glaros.dtc.umn.edu
 add_feature_info(Scotch scotch "Scotch graph partitioning https://www.labri.fr/perso/pelegrin/scotch/")
 add_feature_info(Openmp openmp "OpenMP API https://www.openmp.org/")
 add_feature_info(Matlab matlab "MUMPS Matlab interface")
-add_feature_info(AutoScalapack scalapack_external "auto-build Scalapack")
-add_feature_info(AutoLapack lapack_external "auto-build Lapack")
-feature_summary(WHAT ALL)
+add_feature_info(BuildScalapack scalapack_external "auto-build Scalapack")
+add_feature_info(BuildLapack lapack_external "auto-build Lapack")
+feature_summary(WHAT ENABLED_FEATURES PACKAGES_FOUND)

@@ -1,4 +1,4 @@
-option(autobuild "auto-build Lapack and/or Scalapack if missing or broken" OFF)
+option(autobuild "auto-build Lapack and/or Scalapack if missing or broken" true)
 option(parallel "parallel or sequential (non-MPI, non-Scalapack)" ON)
 option(intsize64 "use 64-bit integers in C and Fortran" OFF)
 option(metis "use METIS" OFF)

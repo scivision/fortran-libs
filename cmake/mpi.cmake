@@ -9,7 +9,6 @@ set(CMAKE_REQUIRED_FLAGS)
 set(CMAKE_REQUIRED_LIBRARIES MPI::MPI_Fortran Threads::Threads)
 include(CheckFortranSourceCompiles)
 
-# Windows Intel 2019 MPI doesn't yet have mpi_f08
 check_fortran_source_compiles("use mpi; end" MPI_Fortran_OK SRC_EXT F90)
 
 if(NOT DEFINED MPI_Fortran_OK)

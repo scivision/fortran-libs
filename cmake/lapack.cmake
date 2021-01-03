@@ -12,8 +12,10 @@ if(NOT LAPACK_FOUND)
   include(FetchContent)
 
   FetchContent_Declare(lapack_proj
-    GIT_REPOSITORY https://github.com/scivision/lapack.git
-    GIT_TAG v3.9.0.2
+    GIT_REPOSITORY ${lapack_url}
+    GIT_TAG ${lapack_tag}
+    GIT_SHALLOW true
+    UPDATE_DISCONNECTED true
     CMAKE_ARGS "-Darith=${arith}"
   )
 

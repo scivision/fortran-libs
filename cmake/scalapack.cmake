@@ -12,8 +12,10 @@ if(NOT SCALAPACK_FOUND)
   include(FetchContent)
 
   FetchContent_Declare(scalapack_proj
-    GIT_REPOSITORY https://github.com/scivision/scalapack.git
-    GIT_TAG v2.1.0.11
+    GIT_REPOSITORY ${scalapack_url}
+    GIT_TAG ${scalapack_tag}
+    GIT_SHALLOW true
+    UPDATE_DISCONNECTED true
     CMAKE_ARGS "-Darith=${arith}"
   )
 
