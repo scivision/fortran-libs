@@ -1,4 +1,8 @@
 option(autobuild "auto-build Lapack and/or Scalapack if missing or broken" true)
+option(lapack_external "build Lapack instead of finding")
+option(scalapack_external "build ScaLapack instead of finding")
+option(mumps_external "build MUMPS instead of finding")
+
 option(dev "MUMPS developer mode")
 option(parallel "parallel or sequential (non-MPI, non-Scalapack)" ON)
 option(intsize64 "use 64-bit integers in C and Fortran" OFF)
