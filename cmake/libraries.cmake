@@ -16,8 +16,8 @@ endif()
 # preferred method CMake >= 3.19
 file(READ ${CMAKE_CURRENT_LIST_DIR}/libraries.json _libj)
 
-string(JSON lapack_url GET ${_libj} "lapack" "url")
-string(JSON lapack_tag GET ${_libj} "lapack" "tag")
+string(JSON lapack_url GET ${_libj} lapack url)
+string(JSON lapack_tag GET ${_libj} lapack tag)
 
-string(JSON scalapack_url GET ${_libj} "scalapack" "url")
-string(JSON scalapack_tag GET ${_libj} "scalapack" "tag")
+string(JSON scalapack_url GET ${_libj} scalapack url)
+string(JSON scalapack_tag GET ${_libj} scalapack tag)
