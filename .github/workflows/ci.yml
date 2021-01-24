@@ -26,4 +26,8 @@ jobs:
         sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libmetis-dev libscotch-dev
 
     - run: cmake --warn-uninitialized -B build -Dmetis:BOOL=true -Dscotch:BOOL=true
-    - run: ctest -S setup.cmake -VV
+
+    - run: cmake --build build --parallel
+
+    - run: ctest -V
+      working-directory: build
