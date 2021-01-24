@@ -29,5 +29,5 @@ jobs:
 
     - run: cmake --build build --parallel
 
-    - run: ctest -V
+    - run: ctest --parallel 2 --output-on-failure
       working-directory: build

@@ -23,12 +23,11 @@ jobs:
     - run: cmake -B build
     - run: cmake --build build --parallel
 
-    - run: ctest -V
+    - run: ctest  -parallel 2 --output-on-failure
       working-directory: build
 
 
   mac:
-    needs: linux
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
@@ -38,14 +37,17 @@ jobs:
     - run: cmake -B build
     - run: cmake --build build --parallel
 
-    - run: ctest -V
+    - run: ctest --parallel 2 --output-on-failure
       working-directory: build
 
 
   windows:
-    needs: linux
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
 
-    - run: ctest -S setup.cmake -VV
+    - run: cmake -B build
+    - run: cmake --build build --parallel
+
+    - run: ctest --parallel 2 --output-on-failure
+      working-directory: build
