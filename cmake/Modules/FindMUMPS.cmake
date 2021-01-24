@@ -31,8 +31,12 @@ set(MUMPS_LIBRARY)  # don't endlessly append
 function(mumps_check)
 
 if(NOT mpiseq IN_LIST MUMPS_FIND_COMPONENTS)
-  find_package(MPI COMPONENTS Fortran)
-  find_package(SCALAPACK COMPONENTS ${MUMPS_FIND_COMPONENTS})
+  if(NOT TARGET MPI::MPI_Fortran)
+    find_package(MPI COMPONENTS Fortran)
+  endif()
+  if(NOT TARGET SCALAPACK::SCALAPACK)
+    find_package(SCALAPACK)
+  endif()
 endif()
 
 find_package(LAPACK)
@@ -71,44 +75,49 @@ endfunction(mumps_check)
 
 function(mumps_libs)
 
-find_path(MUMPS_INCLUDE_DIR
-          NAMES mumps_compat.h
-          DOC "MUMPS common header")
+if(DEFINED ENV{MKLROOT})
+  find_path(MUMPS_INCLUDE_DIR NAMES mumps_compat.h NO_DEFAULT_PATH DOC "MUMPS common header")
+else()
+  find_path(MUMPS_INCLUDE_DIR NAMES mumps_compat.h DOC "MUMPS common header")
+endif()
 if(NOT MUMPS_INCLUDE_DIR)
   return()
 endif()
 
-find_library(MUMPS_COMMON
-             NAMES mumps_common
-             NAMES_PER_DIR
-             DOC "MUMPS common libraries")
+if(DEFINED ENV{MKLROOT})
+  find_library(MUMPS_COMMON NAMES mumps_common NO_DEFAULT_PATH DOC "MUMPS common libraries")
+else()
+  find_library(MUMPS_COMMON NAMES mumps_common DOC "MUMPS common libraries")
+endif()
 if(NOT MUMPS_COMMON)
   return()
 endif()
 
-find_library(PORD
-             NAMES pord
-             NAMES_PER_DIR
-             DOC "simplest MUMPS ordering library")
+if(DEFINED ENV{MKLROOT})
+  find_library(PORD NAMES pord NO_DEFAULT_PATH DOC "simplest MUMPS ordering library")
+else()
+  find_library(PORD NAMES pord DOC "simplest MUMPS ordering library")
+endif()
 if(NOT PORD)
   return()
 endif()
 
 if(mpiseq IN_LIST MUMPS_FIND_COMPONENTS)
-  find_library(MUMPS_mpiseq_LIB
-               NAMES mpiseq
-               NAMES_PER_DIR
-               DOC "No-MPI stub library")
+  if(DEFINED ENV{MKLROOT})
+    find_library(MUMPS_mpiseq_LIB NAMES mpiseq NO_DEFAULT_PATH DOC "No-MPI stub library")
+  else()
+    find_library(MUMPS_mpiseq_LIB NAMES mpiseq DOC "No-MPI stub library")
+  endif()
   if(NOT MUMPS_mpiseq_LIB)
-    message(WARNING "MUMPS mpiseq not found")
     return()
   endif()
 
-  find_path(MUMPS_mpiseq_INC
-            NAMES mpif.h
-            DOC "MUMPS mpiseq header")
+  if(DEFINED ENV{MKLROOT})
+    find_path(MUMPS_mpiseq_INC NAMES mpif.h NO_DEFAULT_PATH DOC "MUMPS mpiseq header")
+  else()
+    find_path(MUMPS_mpiseq_INC NAMES mpif.h DOC "MUMPS mpiseq header")
+  endif()
   if(NOT MUMPS_mpiseq_INC)
-    message(WARNING "MUMPS mpiseq mpif.h not found")
     return()
   endif()
 
@@ -123,9 +132,11 @@ foreach(comp ${MUMPS_FIND_COMPONENTS})
     continue()
   endif()
 
-  find_library(MUMPS_${comp}_lib
-               NAMES ${comp}mumps
-               NAMES_PER_DIR)
+  if(DEFINED ENV{MKLROOT})
+    find_library(MUMPS_${comp}_lib NAMES ${comp}mumps NO_DEFAULT_PATH)
+  else()
+    find_library(MUMPS_${comp}_lib NAMES ${comp}mumps)
+  endif()
 
   if(NOT MUMPS_${comp}_lib)
     message(WARNING "MUMPS ${comp} not found")
