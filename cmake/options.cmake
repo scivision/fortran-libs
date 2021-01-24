@@ -1,4 +1,5 @@
 option(autobuild "auto-build Lapack and/or Scalapack if missing or broken" true)
+option(dev "MUMPS developer mode")
 option(parallel "parallel or sequential (non-MPI, non-Scalapack)" ON)
 option(intsize64 "use 64-bit integers in C and Fortran" OFF)
 option(metis "use METIS" OFF)
@@ -30,4 +31,9 @@ if(intsize64)
   add_compile_definitions(INTSIZE64)
 endif()
 
-message(STATUS "CMake ${CMAKE_VERSION}")
+if(dev)
+
+else()
+  set(FETCHCONTENT_UPDATES_DISCONNECTED_LAPACK true)
+  set(FETCHCONTENT_UPDATES_DISCONNECTED_SCALAPACK true)
+endif()
