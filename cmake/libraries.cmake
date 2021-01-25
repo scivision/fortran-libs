@@ -8,7 +8,7 @@ if(CMAKE_VERSION VERSION_LESS 3.19)
   set(lapack_tag v3.9.0.2)
 
   set(scalapack_url https://github.com/scivision/scalapack.git)
-  set(scalapack_tag v2.1.0.11)
+  set(scalapack_tag v2.1.0.12)
 
   return()
 endif()

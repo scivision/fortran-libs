@@ -1,4 +1,4 @@
 {
 "lapack": {"url": "https://github.com/scivision/lapack.git", "tag": "v3.9.0.2"},
-"scalapack": {"url": "https://github.com/scivision/scalapack.git", "tag": "v2.1.0.11"}
+"scalapack": {"url": "https://github.com/scivision/scalapack.git", "tag": "v2.1.0.12"}
 }
