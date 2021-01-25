@@ -1,3 +1,13 @@
+# If MPIEXEC is not present, no need to link MPI.
+if(NOT DEFINED parallel)
+  find_program(_mpiexec NAMES mpiexec)
+  if(_mpiexec)
+    set(parallel on)
+  else()
+    set(parallel off)
+  endif(_mpiexec)
+endif()
+
 option(autobuild "auto-build Lapack and/or Scalapack if missing or broken" true)
 option(lapack_external "build Lapack instead of finding")
 option(scalapack_external "build ScaLapack instead of finding")
