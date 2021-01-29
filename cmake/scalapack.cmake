@@ -1,11 +1,25 @@
 # Finds Scalapack, tests, and if not found or broken, autobuild scalapack
 include(FetchContent)
 
+if(intsize64)
+  if(MKL IN_LIST SCALAPACK_COMPONENTS)
+    list(APPEND SCALAPACK_COMPONENTS MKL64)
+  else()
+    if(NOT (OpenMPI IN_LIST SCALAPACK_COMPONENTS
+        OR MPICH IN_LIST SCALAPACK_COMPONENTS
+        OR MKL IN_LIST SCALAPACK_COMPONENTS))
+      if(DEFINED ENV{MKLROOT})
+        list(APPEND SCALAPACK_COMPONENTS MKL MKL64)
+      endif()
+    endif()
+  endif()
+endif()
+
 if(NOT scalapack_external)
   if(autobuild)
-    find_package(SCALAPACK)
+    find_package(SCALAPACK COMPONENTS ${SCALAPACK_COMPONENTS})
   else()
-    find_package(SCALAPACK REQUIRED)
+    find_package(SCALAPACK REQUIRED COMPONENTS ${SCALAPACK_COMPONENTS})
   endif()
 endif()
 
