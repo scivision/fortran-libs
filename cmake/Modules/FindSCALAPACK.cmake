@@ -20,7 +20,7 @@ Parameters
 ``MKL``
   Intel MKL for MSVC, ICL, ICC, GCC and PGCC. Working with IntelMPI (default Window, Linux), MPICH (default Mac) or OpenMPI (Linux only).
 
-``MKL``
+``MKL64``
   MKL only: 64-bit integers  (default is 32-bit integers)
 
 ``OpenMPI``

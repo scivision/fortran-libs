@@ -51,6 +51,7 @@ COMPONENTS default to Netlib LAPACK / LapackE, otherwise:
 ``LAPACK95``
   get Lapack95 interfaces for MKL or Netlib (must also specify one of MKL, Netlib)
 
+
 Result Variables
 ^^^^^^^^^^^^^^^^
 
