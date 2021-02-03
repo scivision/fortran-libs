@@ -19,7 +19,7 @@
       "description": "Build all external libraries (except MPI) without searching for existing libraries.",
       "cacheVariables": {
         "lapack_external": "on",
-        "scalapack_external": "on",
+        "scalapack_external": "on"
       }
     },
     {
