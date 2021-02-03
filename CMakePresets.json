@@ -68,12 +68,14 @@
       "inherits": "build",
       "displayName": "Intel oneAPI compiler: Linux/MacOS",
       "description": "build with Intel oneAPI on Linux/MacOS",
+      "cacheVariables": {
+        "lapack_external": "off",
+        "scalapack_external": "off"
+      },
       "environment": {
         "CC": "icc",
         "FC": "ifort",
         "CXX": "icpc",
-        "lapack_external": "off",
-        "scalapack_external": "off",
         "LAPACK_ROOT": "$env{MKLROOT}",
         "SCLAPACK_ROOT": "$env{MKLROOT}",
         "MPI_ROOT": "$env{I_MPI_ROOT}"
@@ -81,12 +83,20 @@
     },
     {
       "name": "intelwin",
-      "inherits": ["intel", "build"],
+      "inherits": "default",
       "displayName": "Intel oneAPI compiler: Windows",
       "description": "build with Intel oneAPI on Windows",
+      "cacheVariables": {
+        "lapack_external": "off",
+        "scalapack_external": "off"
+      },
       "environment": {
         "CC": "icl",
-        "CXX": "icl"
+        "FC": "ifort",
+        "CXX": "icl",
+        "LAPACK_ROOT": "$env{ONEAPI_ROOT}mkl/latest",
+        "SCLAPACK_ROOT": "$env{ONEAPI_ROOT}mkl/latest",
+        "MPI_ROOT": "$env{ONEAPI_ROOT}mpi/latest"
       }
     },
     {
