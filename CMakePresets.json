@@ -10,7 +10,10 @@
       "name": "default",
       "hidden": true,
       "binaryDir": "${sourceDir}/build",
-      "generator": "Ninja"
+      "generator": "Ninja",
+      "cacheVariables": {
+        "parallel": "off"
+      }
     },
     {
       "name": "build",

@@ -31,7 +31,7 @@ find_package(Threads)
 include(cmake/lapack.cmake)
 
 # -- Scalapack / MPI
-
+set(parallel off CACHE BOOL "Enable MPI")
 if(parallel)
   include(cmake/mpi.cmake)
   include(cmake/scalapack.cmake)
