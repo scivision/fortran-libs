@@ -8,4 +8,4 @@ add_feature_info(Matlab matlab "MUMPS Matlab interface")
 add_feature_info(BuildScalapack scalapack_external "auto-build Scalapack")
 add_feature_info(BuildLapack lapack_external "auto-build Lapack")
 
-feature_summary(WHAT ENABLED_FEATURES PACKAGES_FOUND)
+feature_summary(WHAT ENABLED_FEATURES DISABLED_FEATURES)
