@@ -89,7 +89,7 @@ The `-Dautobuild=true` CMake default will download and build a local copy of Lap
 ### MPI / non-MPI
 
 For systems where MPI, BLACS and SCALAPACK are not available, or where non-parallel execution is suitable,
-the default parallel can be disabled at CMake configure time by option `-Dparallel=false`.
+the default parallel=on can be disabled at CMake configure time by option `-Dparallel=false`.
 
 ### Precision
 

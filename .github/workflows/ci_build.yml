@@ -48,7 +48,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - run: cmake -B build -G "MinGW Makefiles"
+    - run: cmake -B build -G "MinGW Makefiles" -Dparallel:BOOL=off
 
     - run: cmake --build build --parallel
 
