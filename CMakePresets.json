@@ -19,7 +19,7 @@
       "description": "Build all external libraries (except MPI) without searching for existing libraries.",
       "cacheVariables": {
         "lapack_external": "on",
-        "scalapack_external": "on",
+        "scalapack_external": "on"
       }
     },
     {
@@ -65,12 +65,14 @@
       "inherits": "build",
       "displayName": "Intel oneAPI compiler: Linux/MacOS",
       "description": "build with Intel oneAPI on Linux/MacOS",
+      "cacheVariables": {
+        "lapack_external": "off",
+        "scalapack_external": "off"
+      },
       "environment": {
         "CC": "icc",
         "FC": "ifort",
         "CXX": "icpc",
-        "lapack_external": "off",
-        "scalapack_external": "off",
         "LAPACK_ROOT": "$env{MKLROOT}",
         "SCLAPACK_ROOT": "$env{MKLROOT}",
         "MPI_ROOT": "$env{I_MPI_ROOT}"
@@ -83,7 +85,8 @@
       "description": "build with Intel oneAPI on Windows",
       "environment": {
         "CC": "icl",
-        "CXX": "icl"
+        "CXX": "icl",
+        "FC": "ifort"
       }
     },
     {
