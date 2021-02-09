@@ -1,5 +1,4 @@
 add_library(mpiseq elapse.c mpi.f mpic.c)
-target_compile_definitions(mpiseq PRIVATE ${CDEFS})
 target_include_directories(mpiseq
   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/include
   INTERFACE

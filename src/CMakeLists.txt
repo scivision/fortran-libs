@@ -47,7 +47,7 @@ target_include_directories(mumps_common
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_definitions(mumps_common PRIVATE ${CDEFS} ${ORDERING_FLAGS})
+target_compile_definitions(mumps_common PRIVATE ${ORDERING_FLAGS})
 # if(WIN32)
 #   target_compile_definitions(mumps_common PRIVATE MUMPS_WIN32)
 # endif()

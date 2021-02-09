@@ -3,7 +3,7 @@ message(WARNING "C compiler ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION} !
 Set environment variables CC and FC to control compiler selection in general.")
 endif()
 
-set(CDEFS "Add_")
+add_compile_definitions(CDEFS "Add_")
 # "Add_" works for all modern compilers we tried.
 
 set(_gcc10opts)
