@@ -12,34 +12,45 @@ configure_file(${PROJECT_SOURCE_DIR}/include/mumps_int_def.h.in
 ${PROJECT_SOURCE_DIR}/include/mumps_int_def.h @ONLY)
 
 # -- Mumps COMMMON
-set(COMM_SRC
+add_library(comm OBJECT
 ana_omp_m.F ana_blk_m.F ana_orderings_wrappers_m.F double_linked_list.F
 fac_asm_build_sort_index_ELT_m.F fac_asm_build_sort_index_m.F fac_descband_data_m.F
 fac_future_niv2_mod.F fac_ibct_data_m.F fac_maprow_data_m.F front_data_mgt_m.F lr_common.F
-mumps_comm_ibcast.F mumps_l0_omp_m.F mumps_memory_mod.F mumps_mpitoomp_m.F mumps_ooc_common.F mumps_static_mapping.F omp_tps_common_m.F
-)
+mumps_comm_ibcast.F mumps_l0_omp_m.F mumps_memory_mod.F mumps_mpitoomp_m.F mumps_ooc_common.F mumps_static_mapping.F omp_tps_common_m.F)
+target_link_libraries(comm PRIVATE MPI::MPI_Fortran)
+set_target_properties(comm PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
+target_include_directories(comm
+  PRIVATE
+  ${CMAKE_CURRENT_BINARY_DIR}/include
+  INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
 
-set(COMM_OTHER_SRC
+add_library(comm_other_f OBJECT
 ana_blk.F ana_orderings.F ana_set_ordering.F ana_AMDMF.F bcast_errors.F estim_flops.F
 mumps_type_size.F mumps_type2_blocking.F mumps_version.F mumps_print_defined.F
-mumps_pord.c
+tools_common.F sol_common.F)
+target_compile_definitions(comm_other_f PRIVATE ${ORDERING_FLAGS})
+target_link_libraries(comm_other_f PRIVATE ${ORDERING_LIBS} ${NUMERIC_LIBS} MPI::MPI_Fortran)
+
+add_library(comm_other_c OBJECT mumps_pord.c
 mumps_common.c mumps_size.c mumps_io.c mumps_io_basic.c mumps_io_thread.c mumps_io_err.c
-mumps_numa.c mumps_thread.c mumps_save_restore_C.c mumps_config_file_C.c mumps_thread_affinity.c
-tools_common.F sol_common.F
-)
+mumps_numa.c mumps_thread.c mumps_save_restore_C.c mumps_config_file_C.c mumps_thread_affinity.c)
+target_compile_definitions(comm_other_c PRIVATE ${ORDERING_FLAGS})
+target_link_libraries(comm_other_c PRIVATE ${ORDERING_LIBS} ${NUMERIC_LIBS} MPI::MPI_C)
 
 if(scotch)
-  list(APPEND COMM_OTHER_SRC mumps_scotch.c mumps_scotch64.c mumps_scotch_int.c)
+  target_sources(comm_other_c PRIVATE mumps_scotch.c mumps_scotch64.c mumps_scotch_int.c)
 endif()
 if(metis)
-  list(APPEND COMM_OTHER_SRC mumps_metis.c mumps_metis64.c mumps_metis_int.c)
+  target_sources(comm_other_c PRIVATE mumps_metis.c mumps_metis64.c mumps_metis_int.c)
 endif()
 
 # manually create directory to avoid race condition for FetchContent
 # else can get INTERFACE_INCLUDE_DIRECTORIES not found error
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
 
-add_library(mumps_common ${COMM_SRC} ${COMM_OTHER_SRC})
+add_library(mumps_common $<TARGET_OBJECTS:comm> $<TARGET_OBJECTS:comm_other_f> $<TARGET_OBJECTS:comm_other_c>)
 target_link_libraries(mumps_common PRIVATE ${ORDERING_LIBS} ${NUMERIC_LIBS})
 target_include_directories(mumps_common
   PRIVATE ${PROJECT_SOURCE_DIR}/include
@@ -47,12 +58,11 @@ target_include_directories(mumps_common
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_definitions(mumps_common PRIVATE ${CDEFS} ${ORDERING_FLAGS})
+target_compile_definitions(mumps_common PRIVATE ${ORDERING_FLAGS})
 # if(WIN32)
 #   target_compile_definitions(mumps_common PRIVATE MUMPS_WIN32)
 # endif()
-set_target_properties(mumps_common PROPERTIES
-  Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
+set_target_properties(mumps_common PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
 add_library(MUMPS::common ALIAS mumps_common)
 
 install(TARGETS mumps_common
@@ -79,8 +89,7 @@ ${a}lr_core.F ${a}lr_stats.F ${a}lr_type.F
 ${a}mumps_comm_buffer.F ${a}mumps_config_file.F ${a}mumps_load.F ${a}mumps_lr_data_m.F
 ${a}mumps_ooc_buffer.F ${a}mumps_ooc.F ${a}mumps_sol_es.F
 ${a}mumps_save_restore.F ${a}mumps_save_restore_files.F
-${a}mumps_struc_def.F ${a}omp_tps_m.F ${a}sol_lr.F ${a}sol_omp_m.F ${a}static_ptr_m.F
-)
+${a}mumps_struc_def.F ${a}omp_tps_m.F ${a}sol_lr.F ${a}sol_omp_m.F ${a}static_ptr_m.F)
 
 set(SRC_OTHER
 ${a}ini_driver.F ${a}ana_driver.F ${a}fac_driver.F ${a}sol_driver.F ${a}sol_distrhs.F
@@ -96,19 +105,32 @@ ${a}fac_process_maprow.F ${a}fac_process_master2.F ${a}fac_process_message.F
 ${a}fac_process_root2slave.F ${a}fac_process_root2son.F ${a}fac_process_rtnelind.F ${a}fac_root_parallel.F
 ${a}fac_scalings.F ${a}fac_determinant.F ${a}fac_scalings_simScaleAbs.F ${a}fac_scalings_simScale_util.F
 ${a}fac_sol_pool.F ${a}fac_type3_symmetrize.F ${a}ini_defaults.F
-${a}mumps_driver.F ${a}mumps_f77.F ${a}mumps_gpu.c ${a}mumps_iXamax.F
+${a}mumps_driver.F ${a}mumps_f77.F  ${a}mumps_iXamax.F
 ${a}ana_mtrans.F ${a}ooc_panel_piv.F ${a}rank_revealing.F
 ${a}sol_aux.F ${a}sol_bwd_aux.F ${a}sol_bwd.F ${a}sol_c.F ${a}sol_fwd_aux.F ${a}sol_fwd.F ${a}sol_matvec.F
-${a}sol_root_parallel.F ${a}tools.F ${a}type3_root.F
-)
+${a}sol_root_parallel.F ${a}tools.F ${a}type3_root.F)
 
-set(CINT_SRC mumps_c.c)
+add_library(${a}mumps_f OBJECT ${SRC} ${SRC_OTHER})
+target_link_libraries(${a}mumps_f PRIVATE mumps_common MPI::MPI_Fortran)
+set_target_properties(${a}mumps_f PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
+target_include_directories(${a}mumps_f
+  PRIVATE
+  ${CMAKE_CURRENT_BINARY_DIR}/include
+  ${PROJECT_SOURCE_DIR}/include
+  INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
 
-add_library(${a}mumps ${CINT_SRC} ${SRC} ${SRC_OTHER})
+
+add_library(${a}mumps_c OBJECT mumps_c.c ${a}mumps_gpu.c)
+target_compile_definitions(${a}mumps_c PRIVATE MUMPS_ARITH=MUMPS_ARITH_${a})
+
+add_library(${a}mumps $<TARGET_OBJECTS:${a}mumps_c> $<TARGET_OBJECTS:${a}mumps_f>)
 if(_memfree LESS 1000)  # < 1GB RAM free
   set_target_properties(${a}mumps PROPERTIES JOB_POOL_COMPILE Njobs)
 endif()
-target_compile_definitions(${a}mumps PRIVATE MUMPS_ARITH=MUMPS_ARITH_${a} ${CDEFS} ${ORDERING_FLAGS})
+target_compile_definitions(${a}mumps PRIVATE MUMPS_ARITH=MUMPS_ARITH_${a} ${ORDERING_FLAGS})
 # if(WIN32)
 #   target_compile_definitions(${a}mumps PRIVATE MUMPS_WIN32)
 # endif()
@@ -117,7 +139,6 @@ target_include_directories(${a}mumps PRIVATE ${PROJECT_SOURCE_DIR}/include
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_link_libraries(${a}mumps PRIVATE mumps_common ${NUMERIC_LIBS})
 set_target_properties(${a}mumps PROPERTIES
   Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
 add_library(MUMPS::${a}mumps ALIAS ${a}mumps)
