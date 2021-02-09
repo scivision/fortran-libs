@@ -2,7 +2,7 @@
 
 if("d" IN_LIST arith)
   add_executable(mumpscfg test_mumps.f90)
-  target_link_libraries(mumpscfg PRIVATE dmumps MUMPS::MUMPS ${NUMERIC_LIBS})
+  target_link_libraries(mumpscfg PRIVATE MUMPS::MUMPS ${NUMERIC_LIBS})
 
   if(parallel)
     add_test(NAME mumps:config COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:mumpscfg>)
@@ -14,7 +14,7 @@ endif()
 
 if("s" IN_LIST arith)
   add_executable(s_simple s_simple.f90)
-  target_link_libraries(s_simple PRIVATE smumps MUMPS::MUMPS ${NUMERIC_LIBS})
+  target_link_libraries(s_simple PRIVATE MUMPS::MUMPS ${NUMERIC_LIBS})
 
   if(parallel)
     add_test(NAME mumps:simpleReal32 COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:s_simple>)
@@ -26,7 +26,7 @@ endif()
 
 if("d" IN_LIST arith)
   add_executable(d_simple d_simple.f90)
-  target_link_libraries(d_simple PRIVATE dmumps MUMPS::MUMPS ${NUMERIC_LIBS})
+  target_link_libraries(d_simple PRIVATE MUMPS::MUMPS ${NUMERIC_LIBS})
 
   if(parallel)
     add_test(NAME mumps:simpleReal64 COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:d_simple>)
@@ -40,7 +40,7 @@ if("d" IN_LIST arith)
   endif()
 
   add_executable(Csimple simple.c)
-  target_link_libraries(Csimple PRIVATE dmumps MUMPS::MUMPS ${NUMERIC_LIBS})
+  target_link_libraries(Csimple PRIVATE MUMPS::MUMPS ${NUMERIC_LIBS})
 
   if(parallel)
     add_test(NAME mumps:CsimpleReal64 COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:Csimple>)

@@ -107,7 +107,7 @@ add_library(${a}mumps ${CINT_SRC} ${SRC} ${SRC_OTHER})
 if(_memfree LESS 1000)  # < 1GB RAM free
   set_target_properties(${a}mumps PROPERTIES JOB_POOL_COMPILE Njobs)
 endif()
-target_compile_definitions(${a}mumps PRIVATE MUMPS_ARITH=MUMPS_ARITH_${a} ${CDEFS} ${ORDERING_FLAGS})
+target_compile_definitions(${a}mumps PRIVATE MUMPS_ARITH=MUMPS_ARITH_${a} ${ORDERING_FLAGS})
 # if(WIN32)
 #   target_compile_definitions(${a}mumps PRIVATE MUMPS_WIN32)
 # endif()
@@ -116,7 +116,7 @@ target_include_directories(${a}mumps PRIVATE ${PROJECT_SOURCE_DIR}/include
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_link_libraries(${a}mumps PRIVATE mumps_common ${NUMERIC_LIBS})
+target_link_libraries(${a}mumps PRIVATE mumps_common ${ORDERING_LIBS} ${NUMERIC_LIBS})
 set_target_properties(${a}mumps PROPERTIES
   Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
 
