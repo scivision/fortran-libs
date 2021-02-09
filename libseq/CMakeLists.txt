@@ -9,8 +9,6 @@ target_include_directories(mpiseq
   )
 set_target_properties(mpiseq PROPERTIES
   Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
-add_library(MUMPS::mpiseq ALIAS mpiseq)
-
 
 install(TARGETS mpiseq
   EXPORT MUMPSTargets

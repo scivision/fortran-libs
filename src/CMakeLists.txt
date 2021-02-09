@@ -53,7 +53,6 @@ target_compile_definitions(mumps_common PRIVATE ${CDEFS} ${ORDERING_FLAGS})
 # endif()
 set_target_properties(mumps_common PROPERTIES
   Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
-add_library(MUMPS::common ALIAS mumps_common)
 
 install(TARGETS mumps_common
   EXPORT MUMPSTargets
@@ -67,7 +66,7 @@ set(_ifc_libs)
 
 foreach(a ${arith})
 
-list(APPEND _ifc_libs MUMPS::${a}mumps)
+list(APPEND _ifc_libs ${a}mumps)
 
 set(SRC
 ${a}ana_aux.F ${a}ana_aux_par.F ${a}ana_lr.F ${a}fac_asm_master_ELT_m.F ${a}fac_asm_master_m.F
@@ -120,7 +119,7 @@ target_include_directories(${a}mumps PRIVATE ${PROJECT_SOURCE_DIR}/include
 target_link_libraries(${a}mumps PRIVATE mumps_common ${NUMERIC_LIBS})
 set_target_properties(${a}mumps PROPERTIES
   Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
-add_library(MUMPS::${a}mumps ALIAS ${a}mumps)
+
 
 install(TARGETS ${a}mumps
   EXPORT MUMPSTargets
@@ -146,13 +145,22 @@ install(FILES
 # We do not need the .mod files due to the way MUMPS is interfaced
 # install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include/ DESTINATION include)
 
+# --- MUMPS::MUMPS exported target
 # MUMPS::MUMPS is the target most users will link to.
 # It knows all the include directories.
-add_library(MUMPS::MUMPS INTERFACE IMPORTED GLOBAL)
+add_library(MUMPS INTERFACE)
 if(parallel)
-  set_property(TARGET MUMPS::MUMPS PROPERTY
-    INTERFACE_LINK_LIBRARIES ${_ifc_libs} MUMPS::common MUMPS::PORD)
+  set_property(TARGET MUMPS PROPERTY
+    INTERFACE_LINK_LIBRARIES ${_ifc_libs} mumps_common pord)
 else()
-  set_property(TARGET MUMPS::MUMPS PROPERTY
-    INTERFACE_LINK_LIBRARIES ${_ifc_libs} MUMPS::common MUMPS::PORD MUMPS::mpiseq)
+  set_property(TARGET MUMPS PROPERTY
+    INTERFACE_LINK_LIBRARIES ${_ifc_libs} mumps_common pord mpiseq)
 endif()
+add_library(MUMPS::MUMPS ALIAS MUMPS)
+
+install(TARGETS MUMPS
+  EXPORT MUMPSTargets
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include)

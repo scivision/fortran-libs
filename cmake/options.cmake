@@ -10,7 +10,6 @@ option(metis "use METIS" OFF)
 option(scotch "use Scotch" OFF)
 option(openmp "use OpenMP" OFF)
 option(matlab "build optional Matlab interface" OFF)
-option(ClangTest "run test for C-language" ON)
 
 # --- Error if Visual Studio backend, as this does not work.
 # https://software.intel.com/en-us/articles/configuring-visual-studio-for-mixed-language-applications

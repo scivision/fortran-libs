@@ -43,7 +43,7 @@ if(parallel)
   endif()
 else(parallel)
   add_subdirectory(libseq)
-  set(NUMERIC_LIBS MUMPS::mpiseq)
+  set(NUMERIC_LIBS mpiseq)
 endif(parallel)
 list(APPEND NUMERIC_LIBS LAPACK::LAPACK ${CMAKE_THREAD_LIBS_INIT})
 
@@ -61,7 +61,7 @@ if(metis)
   list(APPEND ORDERING_FLAGS -Dmetis)
   list(APPEND ORDERING_LIBS METIS::METIS)
 endif()
-list(APPEND ORDERING_LIBS MUMPS::PORD)
+list(APPEND ORDERING_LIBS pord)
 
 # --- build MUMPS
 
@@ -70,7 +70,6 @@ add_subdirectory(src)
 
 if(${PROJECT_NAME}_BUILD_TESTING)
   add_subdirectory(tests)
-  add_subdirectory(examples)
 endif()
 
 if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
@@ -86,3 +85,5 @@ endif()
 # --- feature summary
 
 include(cmake/summary.cmake)
+
+include(cmake/install.cmake)

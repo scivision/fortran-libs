@@ -46,3 +46,12 @@ endif()
 
 add_library(LAPACK::LAPACK ALIAS lapack)
 add_library(BLAS::BLAS ALIAS blas)
+
+
+# --- workaround since we didn't export targets from our CMake-enhanced Lapack
+
+install(TARGETS lapack
+  EXPORT MUMPSTargets)
+
+install(TARGETS blas
+  EXPORT MUMPSTargets)

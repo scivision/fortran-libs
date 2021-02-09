@@ -100,7 +100,6 @@ The build-time parameter
 cmake -Darith="s;d"
 ```
 
-
 may be optionally specified:
 
 ```sh
@@ -112,7 +111,9 @@ may be optionally specified:
 
 More than one precision may be specified simultaneously like:
 
-* CMake: `"-Darith=s;d"`
+```sh
+cmake -Darith="s;d;c;z" -B build
+```
 
 ### ordering
 
@@ -139,6 +140,10 @@ CMake:
 
 ```sh
 cmake -B build -DCMAKE_INSTALL_PREFIX=~/mylibs/mumps/
+
+cmake --build build
+
+cmake --install build
 ```
 
 ### other
@@ -155,6 +160,22 @@ If you need to specify MPI compiler wrappers, do like:
 
 ```sh
 FC=~/lib_gcc/openmpi-3.1.4/bin/mpif90 CC=~/lib_gcc/openmpi-3.1.4/bin/mpicc cmake -B build -DMPI_ROOT=~/lib_gcc/openmpi-3.1.4
+```
+
+## Example
+
+To test your newly install Mumps:
+
+```sh
+cd examples
+
+cmake -B build
+
+cmake --build build
+
+cd build
+
+ctest
 ```
 
 ## prebuilt
