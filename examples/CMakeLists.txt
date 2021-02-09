@@ -30,8 +30,17 @@ endif()
 
 find_package(MPI COMPONENTS C Fortran REQUIRED)
 find_package(SCALAPACK REQUIRED)
-# echo_target_properties(SCALAPACK::SCALAPACK)
 find_package(LAPACK REQUIRED)
+
+get_target_property(ifc_libs MUMPS::mumps_common INTERFACE_LINK_LIBRARIES)
+string(FIND "${ifc_libs}" "METIS::METIS" needs_metis)
+if(needs_metis GREATER 0)
+  find_package(METIS REQUIRED)
+endif()
+string(FIND "${ifc_libs}" "Scotch::Scotch" needs_scotch)
+if(needs_scotch GREATER 0)
+  find_package(Scotch REQUIRED COMPONENTS ESMUMPS)
+endif()
 
 set(_sfilename input_simpletest_real)
 set(_dfilename input_simpletest_real)
