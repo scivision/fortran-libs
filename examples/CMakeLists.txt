@@ -20,7 +20,20 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules)
 find_package(MUMPS CONFIG)
 
 if(MUMPS_FOUND)
+  # include in this order
+  if(EXISTS ${MUMPS_DIR}/../LAPACK/LAPACKTargets.cmake)
+    include(${MUMPS_DIR}/../LAPACK/LAPACKTargets.cmake)
+  endif()
+
+  if(EXISTS ${MUMPS_DIR}/../SCALAPACK/SCALAPACKTargets.cmake)
+    include(${MUMPS_DIR}/../SCALAPACK/SCALAPACKTargets.cmake)
+    # Not ALIAS for CMAKE_REQUIRED_LIBRARIES
+    add_library(SCALAPACK::SCALAPACK INTERFACE IMPORTED)
+    target_link_libraries(SCALAPACK::SCALAPACK INTERFACE SCALAPACK::scalapack)
+  endif()
+
   include(${MUMPS_DIR}/MUMPSTargets.cmake)
+
 else()
   find_package(MUMPS REQUIRED)
 endif()
@@ -29,7 +42,9 @@ endif()
 # echo_target_properties(MUMPS::MUMPS)
 
 find_package(MPI COMPONENTS C Fortran REQUIRED)
-find_package(SCALAPACK REQUIRED)
+if(NOT TARGET SCALAPACK::SCALAPACK)
+  find_package(SCALAPACK REQUIRED)
+endif()
 find_package(LAPACK REQUIRED)
 
 get_target_property(ifc_libs MUMPS::mumps_common INTERFACE_LINK_LIBRARIES)
