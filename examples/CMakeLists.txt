@@ -41,11 +41,16 @@ endif()
 # include(${PROJECT_SOURCE_DIR}/../../cmakeutils/echo_target_properties.cmake)
 # echo_target_properties(MUMPS::MUMPS)
 
+# --- determine what libraries need to be loaded
 find_package(MPI COMPONENTS C Fortran REQUIRED)
+
 if(NOT TARGET SCALAPACK::SCALAPACK)
   find_package(SCALAPACK REQUIRED)
 endif()
-find_package(LAPACK REQUIRED)
+
+if(NOT TARGET LAPACK::LAPACK)
+  find_package(LAPACK REQUIRED)
+endif()
 
 get_target_property(ifc_libs MUMPS::mumps_common INTERFACE_LINK_LIBRARIES)
 string(FIND "${ifc_libs}" "METIS::METIS" needs_metis)
@@ -56,6 +61,8 @@ string(FIND "${ifc_libs}" "Scotch::Scotch" needs_scotch)
 if(needs_scotch GREATER 0)
   find_package(Scotch REQUIRED COMPONENTS ESMUMPS)
 endif()
+
+# --- build examples
 
 set(_sfilename input_simpletest_real)
 set(_dfilename input_simpletest_real)
