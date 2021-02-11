@@ -23,19 +23,22 @@ if(NOT scalapack_external)
   endif()
 endif()
 
-if(NOT SCALAPACK_FOUND)
-  set(scalapack_external true CACHE BOOL "build ScaLapack")
+if(SCALAPACK_FOUND OR TARGET SCALAPACK::SCALAPACK)
+# in a stack of FetchContent libraries where MUMPS is invoked later, SCALAPACK could have been built first in the stack
+  return()
+endif()
 
-  FetchContent_Declare(SCALAPACK
-    GIT_REPOSITORY ${scalapack_git}
-    GIT_TAG ${scalapack_tag}
-    CMAKE_ARGS -Darith=${arith})
 
-  if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.14)
-    FetchContent_MakeAvailable(SCALAPACK)
-  elseif(NOT scalapack_POPULATED)
-    FetchContent_Populate(SCALAPACK)
-    add_subdirectory(${scalapack_SOURCE_DIR} ${scalapack_BINARY_DIR})
-  endif()
+set(scalapack_external true CACHE BOOL "build ScaLapack")
 
+FetchContent_Declare(SCALAPACK
+  GIT_REPOSITORY ${scalapack_git}
+  GIT_TAG ${scalapack_tag}
+  CMAKE_ARGS -Darith=${arith})
+
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.14)
+  FetchContent_MakeAvailable(SCALAPACK)
+elseif(NOT scalapack_POPULATED)
+  FetchContent_Populate(SCALAPACK)
+  add_subdirectory(${scalapack_SOURCE_DIR} ${scalapack_BINARY_DIR})
 endif()

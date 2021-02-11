@@ -24,7 +24,8 @@ if(NOT lapack_external)
   endif()
 endif()
 
-if(LAPACK_FOUND)
+if(LAPACK_FOUND OR TARGET LAPACK::LAPACK)
+# in a stack of FetchContent libraries where Scalapack is invoked later, LAPACK could have been built first in the stack
   return()
 endif()
 

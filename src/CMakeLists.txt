@@ -156,7 +156,12 @@ else()
   set_property(TARGET MUMPS PROPERTY
     INTERFACE_LINK_LIBRARIES ${_ifc_libs} mumps_common pord mpiseq)
 endif()
-add_library(MUMPS::MUMPS ALIAS MUMPS)
+
+# target most users will link to.
+# this must NOT be an ALIAS or linking in other packages breaks.
+add_library(MUMPS::MUMPS INTERFACE IMPORTED GLOBAL)
+target_link_libraries(MUMPS::MUMPS INTERFACE MUMPS)
+
 
 install(TARGETS MUMPS
   EXPORT MUMPSTargets
