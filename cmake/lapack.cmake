@@ -42,3 +42,7 @@ elseif(NOT lapack_POPULATED)
   FetchContent_Populate(LAPACK)
   add_subdirectory(${lapack_SOURCE_DIR} ${lapack_BINARY_DIR})
 endif()
+
+# this must NOT be an ALIAS or linking breaks.
+add_library(LAPACK::LAPACK INTERFACE IMPORTED GLOBAL)
+target_link_libraries(LAPACK::LAPACK INTERFACE lapack)
