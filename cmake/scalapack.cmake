@@ -29,7 +29,7 @@ if(NOT SCALAPACK_FOUND)
   FetchContent_Declare(SCALAPACK
     GIT_REPOSITORY ${scalapack_git}
     GIT_TAG ${scalapack_tag}
-    CMAKE_ARGS "-Darith=${arith}")
+    CMAKE_ARGS -Darith=${arith})
 
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.14)
     FetchContent_MakeAvailable(SCALAPACK)
@@ -39,5 +39,3 @@ if(NOT SCALAPACK_FOUND)
   endif()
 
 endif()
-
-# not linking LAPACK to SCALAPACK here because it fails on Mac when used as subproject

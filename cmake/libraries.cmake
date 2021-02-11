@@ -1,18 +1,30 @@
-if(CMAKE_VERSION VERSION_LESS 3.19)
-  set(lapack_git https://github.com/scivision/lapack.git)
-  set(lapack_tag v3.9.0.3)
+set(names lapack scalapack)
 
-  set(scalapack_git https://github.com/scivision/scalapack.git)
-  set(scalapack_tag v2.1.0.15)
+if(CMAKE_VERSION VERSION_LESS 3.19)
+
+file(READ ${CMAKE_CURRENT_LIST_DIR}/libraries.txt _libj)
+
+foreach(n ${names})
+  foreach(t git tag zip sha1)
+    string(REGEX MATCH "${n}_${t} ([^ \t\r\n]*)" m ${_libj})
+    if(m)
+      set(${n}_${t} ${CMAKE_MATCH_1})
+    endif()
+  endforeach()
+endforeach()
 
 else()
+# CMake >= 3.19
 
-  # CMake >= 3.19
-  file(READ ${CMAKE_CURRENT_LIST_DIR}/libraries.json _libj)
+file(READ ${CMAKE_CURRENT_LIST_DIR}/libraries.json _libj)
 
-  string(JSON lapack_git GET ${_libj} lapack git)
-  string(JSON lapack_tag GET ${_libj} lapack tag)
+foreach(n ${names})
+  foreach(t git tag zip sha1)
+    string(JSON m ERROR_VARIABLE e GET ${_libj} ${n} ${t})
+    if(m)
+      set(${n}_${t} ${m})
+    endif()
+  endforeach()
+endforeach()
 
-  string(JSON scalapack_git GET ${_libj} scalapack git)
-  string(JSON scalapack_tag GET ${_libj} scalapack tag)
 endif()

@@ -1,7 +1,7 @@
 # NOTE: if you build MUMPS with auto-build scalapack and/or lapack, to use those, you must
 # config like:
 #
-# cmake -B build -DMUMPS_ROOT=/path/to/mumps -DSCALAPACK_ROOT=/path/to/mumps -DLAPACK_ROOT=/path/to/mumps
+# cmake -B build -DMUMPS_ROOT=/path/to/mumps
 
 cmake_minimum_required(VERSION 3.13)
 
@@ -23,11 +23,14 @@ if(MUMPS_FOUND)
   # include in this order
   if(EXISTS ${MUMPS_DIR}/../LAPACK/LAPACKTargets.cmake)
     include(${MUMPS_DIR}/../LAPACK/LAPACKTargets.cmake)
+    # Not ALIAS
+    add_library(LAPACK::LAPACK INTERFACE IMPORTED)
+    target_link_libraries(LAPACK::LAPACK INTERFACE LAPACK::lapack)
   endif()
 
   if(EXISTS ${MUMPS_DIR}/../SCALAPACK/SCALAPACKTargets.cmake)
     include(${MUMPS_DIR}/../SCALAPACK/SCALAPACKTargets.cmake)
-    # Not ALIAS for CMAKE_REQUIRED_LIBRARIES
+    # Not ALIAS
     add_library(SCALAPACK::SCALAPACK INTERFACE IMPORTED)
     target_link_libraries(SCALAPACK::SCALAPACK INTERFACE SCALAPACK::scalapack)
   endif()
@@ -60,6 +63,13 @@ endif()
 string(FIND "${ifc_libs}" "Scotch::Scotch" needs_scotch)
 if(needs_scotch GREATER 0)
   find_package(Scotch REQUIRED COMPONENTS ESMUMPS)
+endif()
+
+if(CMAKE_Fortran_COMPILER_ID STREQUAL GNU AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL 10)
+  string(APPEND CMAKE_Fortran_FLAGS "-fallow-argument-mismatch -fallow-invalid-boz")
+  if(MINGW)
+    add_compile_options(-w)
+  endif()
 endif()
 
 # --- build examples
