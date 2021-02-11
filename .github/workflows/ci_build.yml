@@ -13,22 +13,22 @@ on:
 jobs:
 
   linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
 
     - name: Install prereqs
       run: |
         sudo apt update -yq
-        sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin
+        sudo apt install -yq --no-install-recommends ninja-build gfortran libopenmpi-dev openmpi-bin
 
-    - run: cmake -B build -DCMAKE_INSTALL_PREFIX=~/mumps
+    - run: cmake --preset=build -DCMAKE_INSTALL_PREFIX=~/mumps
     - run: cmake --build build --parallel
     - run: cmake --install build
     - run: ctest  -parallel 2 --output-on-failure
       working-directory: build
 
-    - run: cmake -S examples -B examples/build -DMUMPS_ROOT=~/mumps -DSCALAPACK_ROOT=~/mumps -DLAPACK_ROOT=~/mumps
+    - run: cmake -S examples -B examples/build -DMUMPS_ROOT=~/mumps
     - run: cmake --build examples/build --parallel
     - run: ctest  -parallel 2 --output-on-failure
       working-directory: examples/build
@@ -39,9 +39,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - run: brew install gcc lapack scalapack open-mpi
+    - run: brew install gcc lapack scalapack open-mpi ninja
 
-    - run: cmake -B build -DCMAKE_INSTALL_PREFIX=~/mumps
+    - run: cmake --preset=buildmac -DCMAKE_INSTALL_PREFIX=~/mumps
     - run: cmake --build build --parallel
     - run: cmake --install build
     - run: ctest --parallel 2 --output-on-failure
@@ -58,7 +58,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - run: cmake -B build -G "MinGW Makefiles" -Dparallel:BOOL=off
+    - run: cmake --preset=makewin -Dparallel:BOOL=off
     - run: cmake --build build --parallel
     - run: ctest --parallel 2 --output-on-failure
       working-directory: build
