@@ -36,7 +36,8 @@ The compiler platforms known to work with MUMPS and CMake include:
 After "git clone" this repo:
 
 ```sh
-ctest -S mumps/setup.cmake -VV
+cmake --preset=ninja
+cmake --build build
 ```
 
 ### MSYS2 MinGW MPI setup

@@ -1,9 +1,5 @@
 cmake_minimum_required(VERSION 3.13)
 
-include(cmake/policy.cmake)
-include(cmake/compiler_find.cmake)
-find_c_fortran()
-
 project(MUMPS
 LANGUAGES C Fortran
 VERSION 5.3.5
@@ -17,6 +13,7 @@ endif()
 
 # --- user options
 include(cmake/options.cmake)
+include(cmake/policy.cmake)
 include(cmake/libraries.cmake)
 
 # --- compiler setup
