@@ -41,6 +41,8 @@ endif()
 
 # --- build examples
 
+find_program(PWSH NAMES pwsh powershell)
+
 set(_sfilename input_simpletest_real)
 set(_dfilename input_simpletest_real)
 set(_cfilename input_simpletest_cmplx)
@@ -55,17 +57,25 @@ foreach(a s d)
 
   add_executable(${a}simpletest ${a}simpletest.F)
   target_link_libraries(${a}simpletest PRIVATE MUMPS::MUMPS MPI::MPI_Fortran)
-  if(UNIX)
+  if(PWSH)
+    add_test(NAME mumps:example_${a} COMMAND ${PWSH} -c \"Get-Content ${CMAKE_CURRENT_SOURCE_DIR}/${_${a}filename} | ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${a}simpletest>\")
+  elseif(UNIX)
     add_test(NAME mumps:example_${a} COMMAND sh -c "${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${a}simpletest> < ${CMAKE_CURRENT_SOURCE_DIR}/${_${a}filename}")
+  endif()
+  if(TEST mumps:example_${a})
     set_tests_properties(mumps:example_${a} PROPERTIES RESOURCE_LOCK cpu_mpi)
   endif()
 
   add_executable(${a}simpletest_save_restore ${a}simpletest_save_restore.F)
   target_link_libraries(${a}simpletest_save_restore PRIVATE MUMPS::MUMPS MPI::MPI_Fortran)
-  if(UNIX)
-    add_test(NAME mumps:saveRestore_${a} COMMAND sh -c "${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${a}simpletest_save_restore> < ${CMAKE_CURRENT_SOURCE_DIR}/${_${a}filename}")
+  if(PWSH)
+    add_test(NAME mumps:saveRestore_${a} COMMAND ${PWSH} -c \"Get-Content ${CMAKE_CURRENT_SOURCE_DIR}/${_${a}filename} | ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${a}simpletest_save_restore>\")
+  elseif(UNIX)
+    add_test(NAME mumps:saveRestore_${a} COMMAND ${SHELL} -c "${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${a}simpletest_save_restore> < ${CMAKE_CURRENT_SOURCE_DIR}/${_${a}filename}")
+  endif()
+  if(TEST)
     set_tests_properties(mumps:saveRestore_${a} PROPERTIES RESOURCE_LOCK cpu_mpi)
- endif()
+  endif()
 endforeach()
 
 if(TARGET MUMPS::DMUMPS)
