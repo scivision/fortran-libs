@@ -28,7 +28,7 @@ jobs:
     - run: ctest  -parallel 2 --output-on-failure
       working-directory: build
 
-    - run: cmake -S examples -B examples/build -DMUMPS_ROOT=~/mumps
+    - run: cmake -S examples -B examples/build -DMUMPS_ROOT=~/mumps -DSCALAPACK_ROOT=~/mumps
     - run: cmake --build examples/build --parallel
     - run: ctest  -parallel 2 --output-on-failure
       working-directory: examples/build
