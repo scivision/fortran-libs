@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.13...3.20)
 
 project(MUMPS
 LANGUAGES C Fortran
@@ -13,7 +13,6 @@ endif()
 
 # --- user options
 include(cmake/options.cmake)
-include(cmake/policy.cmake)
 include(cmake/libraries.cmake)
 
 # --- compiler setup
@@ -69,13 +68,8 @@ if(${PROJECT_NAME}_BUILD_TESTING)
   add_subdirectory(tests)
 endif()
 
-if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  # being used via FetchContent
-  return()
-endif()
-
 # --- matlab (optional)
-if(matlab)
+if(mumps_matlab)
   add_subdirectory(MATLAB)
 endif()
 

@@ -3,11 +3,7 @@
 #
 # cmake -B build -DMUMPS_ROOT=/path/to/mumps
 
-cmake_minimum_required(VERSION 3.13)
-
-include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/policy.cmake)
-include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/compiler_find.cmake)
-find_c_fortran()
+cmake_minimum_required(VERSION 3.13...3.20)
 
 project(MUMPS_examples
 LANGUAGES C Fortran)
@@ -16,46 +12,17 @@ include(CTest)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules)
 
+find_package(MPI COMPONENTS C Fortran REQUIRED)
+find_package(LAPACK REQUIRED)
+find_package(SCALAPACK REQUIRED)
+# Not PREFER_CONFIG as system libraries have broken config, if user didn't build their own
 
-find_package(MUMPS CONFIG)
-
-if(MUMPS_FOUND)
-  # include in this order
-  if(EXISTS ${MUMPS_DIR}/../LAPACK/LAPACKTargets.cmake)
-    include(${MUMPS_DIR}/../LAPACK/LAPACKTargets.cmake)
-    # Not ALIAS
-    add_library(LAPACK::LAPACK INTERFACE IMPORTED)
-    target_link_libraries(LAPACK::LAPACK INTERFACE LAPACK::lapack)
-  endif()
-
-  if(EXISTS ${MUMPS_DIR}/../SCALAPACK/SCALAPACKTargets.cmake)
-    include(${MUMPS_DIR}/../SCALAPACK/SCALAPACKTargets.cmake)
-    # Not ALIAS
-    add_library(SCALAPACK::SCALAPACK INTERFACE IMPORTED)
-    target_link_libraries(SCALAPACK::SCALAPACK INTERFACE SCALAPACK::scalapack)
-  endif()
-
-  include(${MUMPS_DIR}/MUMPSTargets.cmake)
-
-else()
-  find_package(MUMPS REQUIRED)
-endif()
-
-# include(${PROJECT_SOURCE_DIR}/../../cmakeutils/echo_target_properties.cmake)
-# echo_target_properties(MUMPS::MUMPS)
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG true)
+find_package(MUMPS REQUIRED)
 
 # --- determine what libraries need to be loaded
-find_package(MPI COMPONENTS C Fortran REQUIRED)
 
-if(NOT TARGET SCALAPACK::SCALAPACK)
-  find_package(SCALAPACK REQUIRED)
-endif()
-
-if(NOT TARGET LAPACK::LAPACK)
-  find_package(LAPACK REQUIRED)
-endif()
-
-get_target_property(ifc_libs MUMPS::mumps_common INTERFACE_LINK_LIBRARIES)
+get_target_property(ifc_libs MUMPS::COMMON INTERFACE_LINK_LIBRARIES)
 string(FIND "${ifc_libs}" "METIS::METIS" needs_metis)
 if(needs_metis GREATER 0)
   find_package(METIS REQUIRED)
@@ -81,7 +48,8 @@ set(_zfilename input_simpletest_cmplx)
 
 foreach(a s d)
   # echo_target_properties(MUMPS::${a}mumps)
-  if(NOT TARGET MUMPS::${a}mumps)
+  string(TOUPPER ${a} aup)
+  if(NOT TARGET MUMPS::${aup}MUMPS)
     continue()
   endif()
 
@@ -100,7 +68,7 @@ foreach(a s d)
  endif()
 endforeach()
 
-if(TARGET MUMPS::dmumps)
+if(TARGET MUMPS::DMUMPS)
   add_executable(c_example c_example.c)
   target_link_libraries(c_example PRIVATE MUMPS::MUMPS MPI::MPI_C)
   add_test(NAME mumps:example_C COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:c_example>)

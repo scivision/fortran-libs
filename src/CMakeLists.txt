@@ -52,10 +52,14 @@ target_compile_definitions(mumps_common PRIVATE ${ORDERING_FLAGS})
 #   target_compile_definitions(mumps_common PRIVATE MUMPS_WIN32)
 # endif()
 set_target_properties(mumps_common PROPERTIES
-  Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
+  Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include
+  LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+  ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+  EXPORT_NAME COMMON
+  VERSION ${MUMPS_VERSION})
 
 install(TARGETS mumps_common
-  EXPORT MUMPSTargets
+  EXPORT ${PROJECT_NAME}Targets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -117,12 +121,18 @@ target_include_directories(${a}mumps PRIVATE ${PROJECT_SOURCE_DIR}/include
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 target_link_libraries(${a}mumps PRIVATE mumps_common ${ORDERING_LIBS} ${NUMERIC_LIBS})
-set_target_properties(${a}mumps PROPERTIES
-  Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
 
+string(TOUPPER ${a} aup)
+
+set_target_properties(${a}mumps PROPERTIES
+  Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include
+  LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+  ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+  EXPORT_NAME ${aup}MUMPS
+  VERSION ${MUMPS_VERSION})
 
 install(TARGETS ${a}mumps
-  EXPORT MUMPSTargets
+  EXPORT ${PROJECT_NAME}Targets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -148,24 +158,22 @@ install(FILES
 # --- MUMPS::MUMPS exported target
 # MUMPS::MUMPS is the target most users will link to.
 # It knows all the include directories.
+
 add_library(MUMPS INTERFACE)
 if(parallel)
-  set_property(TARGET MUMPS PROPERTY
-    INTERFACE_LINK_LIBRARIES ${_ifc_libs} mumps_common pord)
+  target_link_libraries(MUMPS INTERFACE ${_ifc_libs} mumps_common pord)
 else()
-  set_property(TARGET MUMPS PROPERTY
-    INTERFACE_LINK_LIBRARIES ${_ifc_libs} mumps_common pord mpiseq)
+  target_link_libraries(MUMPS INTERFACE ${_ifc_libs} mumps_common pord mpiseq)
 endif()
 
-# target most users will link to.
-# this must NOT be an ALIAS or linking in other packages breaks.
-add_library(MUMPS::MUMPS INTERFACE IMPORTED GLOBAL)
-target_link_libraries(MUMPS::MUMPS INTERFACE MUMPS)
-
-
 install(TARGETS MUMPS
-  EXPORT MUMPSTargets
+  EXPORT ${PROJECT_NAME}Targets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
   INCLUDES DESTINATION include)
+
+# target for FetchContent
+# this must NOT be an ALIAS or linking in other packages breaks.
+add_library(MUMPS::MUMPS INTERFACE IMPORTED GLOBAL)
+target_link_libraries(MUMPS::MUMPS INTERFACE MUMPS)

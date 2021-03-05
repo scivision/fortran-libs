@@ -7,10 +7,11 @@ target_include_directories(mpiseq
   $<INSTALL_INTERFACE:include>
   )
 set_target_properties(mpiseq PROPERTIES
-  Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include)
+  Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include
+  EXPORT_NAME MPISEQ)
 
 install(TARGETS mpiseq
-  EXPORT MUMPSTargets
+  EXPORT ${PROJECT_NAME}Targets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin

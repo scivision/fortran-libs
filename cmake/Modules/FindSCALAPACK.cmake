@@ -223,7 +223,7 @@ if(MKL IN_LIST SCALAPACK_FIND_COMPONENTS)
   else()
     scalapack_mkl(mkl_scalapack_${_mkl_bitflag}lp64 mkl_blacs_intelmpi_${_mkl_bitflag}lp64)
   endif()
-  
+
   if(MKL64 IN_LIST SCALAPACK_FIND_COMPONENTS)
     set(SCALAPACK_MKL64_FOUND ${SCALAPACK_MKL_FOUND})
   endif()

@@ -1,10 +1,11 @@
 {
 "version": 1,
 "cmakeMinimumRequired": {
-"major": 3,
-"minor": 19,
-"patch": 0
+  "major": 3,
+  "minor": 19,
+  "patch": 0
 },
+
 "configurePresets": [
 {
   "name": "_default", "hidden": true,
@@ -14,7 +15,7 @@
 {
   "name": "ninja", "inherits": "_default",
   "displayName": "build with Ninja",
-  "description": "Ninja is faster and more reliable than Make",
+  "description": "Ninja is a faster alternative to Make",
   "generator": "Ninja"
 },
 {
@@ -37,9 +38,14 @@
   }
 },
 {
+  "name": "buildgcc10",
+  "inherits": ["gcc10", "build"],
+  "displayName": "build all libraries: GCC10",
+  "description": "build all libraries, specifying GCC version to avoid Clang /usr/bin/gcc"
+},
+{
   "name": "make", "inherits": "_default",
-  "displayName": "build with GNU Make: Linux/MacOS",
-  "description": "build with GNU Make on Linux/MacOS",
+  "displayName": "build with GNU Make",
   "generator": "Unix Makefiles"
 },
 {
@@ -48,15 +54,8 @@
   "description": "build with GNU Make and GCC -- useful for MacOS"
 },
 {
-  "name": "buildgcc10",
-  "inherits": ["gcc10", "build"],
-  "displayName": "build all libraries: GCC10",
-  "description": "build all libraries with GCC10 to avoid Clang /usr/bin/gcc"
-},
-{
   "name": "makewin", "inherits": "_default",
   "displayName": "build with GNU Make: Windows",
-  "description": "build with GNU Make on Windows",
   "generator": "MinGW Makefiles"
 },
 {
