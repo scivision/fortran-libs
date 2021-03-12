@@ -10,6 +10,11 @@ set_target_properties(mpiseq PROPERTIES
   Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include
   EXPORT_NAME MPISEQ)
 
+# target for FetchContent
+# this must NOT be an ALIAS or linking in other packages breaks.
+add_library(MUMPS::MPISEQ INTERFACE IMPORTED GLOBAL)
+target_link_libraries(MUMPS::MPISEQ INTERFACE mpiseq)
+
 install(TARGETS mpiseq
   EXPORT ${PROJECT_NAME}Targets
   ARCHIVE DESTINATION lib
