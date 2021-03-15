@@ -1,6 +1,7 @@
 name: ci_build
 env:
    HOMEBREW_NO_INSTALL_CLEANUP: 1
+   CTEST_MUMPS_ARGS: -Darith=d
 
 on:
   push:
@@ -14,6 +15,9 @@ jobs:
 
   linux:
     runs-on: ubuntu-20.04
+    env:
+      CTEST_SITE: GitHub_Ubuntu
+
     steps:
     - uses: actions/checkout@v2
 
@@ -26,7 +30,7 @@ jobs:
     - name: CDash
       run: ctest -S ci.cmake -VV
 
-    - run: cmake --preset=ninja -DCMAKE_INSTALL_PREFIX=~/mumps
+    - run: cmake -B build -DCMAKE_INSTALL_PREFIX=~/mumps
     - run: cmake --install build
     - run: cmake -S examples -B examples/build -DMUMPS_ROOT=~/mumps -DSCALAPACK_ROOT=~/mumps
     - run: cmake --build examples/build --parallel
@@ -36,23 +40,41 @@ jobs:
 
   mac:
     runs-on: macos-latest
+    env:
+      CC: gcc-10
+      FC: gfortran-10
+      CTEST_SITE: GitHub_MacOS
+
     steps:
     - uses: actions/checkout@v2
 
     - run: brew install gcc lapack scalapack open-mpi ninja
 
-    - run: cmake --preset=buildgcc10 -Darith=d -DCMAKE_INSTALL_PREFIX=~/mumps
-    - run: cmake --build build --parallel
+    - name: CDash
+      run: ctest -S ci.cmake -VV
+
+    - run: cmake -B build -DCMAKE_INSTALL_PREFIX=~/mumps
     - run: cmake --install build
-    - run: ctest --parallel 2 --output-on-failure
-      working-directory: build
+    - run: cmake -S examples -B examples/build -DMUMPS_ROOT=~/mumps
+    - run: cmake --build examples/build --parallel
+    - run: ctest  -parallel 2 --output-on-failure
+      working-directory: examples/build
+
 
   windows:
     runs-on: windows-latest
+    env:
+      CTEST_SITE: GitHub_Windows
+
     steps:
     - uses: actions/checkout@v2
 
-    - run: cmake --preset=makewin -Darith=d -Dparallel:BOOL=off
-    - run: cmake --build build --parallel
-    - run: ctest --parallel 2 --output-on-failure
-      working-directory: build
+    - name: CDash
+      run: ctest -S ci.cmake -VV
+
+    - run: cmake -B build -DCMAKE_INSTALL_PREFIX=~/mumps
+    - run: cmake --install build
+    - run: cmake -S examples -B examples/build -DMUMPS_ROOT=~/mumps
+    - run: cmake --build examples/build --parallel
+    - run: ctest  -parallel 2 --output-on-failure
+      working-directory: examples/build
