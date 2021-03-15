@@ -1,8 +1,3 @@
-# NOTE: if you build MUMPS with auto-build scalapack and/or lapack, to use those, you must
-# config like:
-#
-# cmake -B build -DMUMPS_ROOT=/path/to/mumps
-
 cmake_minimum_required(VERSION 3.13...3.20)
 
 project(MUMPS_examples
@@ -10,27 +5,11 @@ LANGUAGES C Fortran)
 
 include(CTest)
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules)
+if(NOT MUMPS_ROOT AND NOT DEFINED ENV{MUMPS_ROOT})
+  set(MUMPS_ROOT ${PROJECT_SOURCE_DIR}/../build)
+endif()
 
-find_package(MPI COMPONENTS C Fortran REQUIRED)
-find_package(LAPACK REQUIRED)
-find_package(SCALAPACK REQUIRED)
-# Not PREFER_CONFIG as system libraries have broken config, if user didn't build their own
-
-set(CMAKE_FIND_PACKAGE_PREFER_CONFIG true)
 find_package(MUMPS REQUIRED)
-
-# --- determine what libraries need to be loaded
-
-get_target_property(ifc_libs MUMPS::COMMON INTERFACE_LINK_LIBRARIES)
-string(FIND "${ifc_libs}" "METIS::METIS" needs_metis)
-if(needs_metis GREATER 0)
-  find_package(METIS REQUIRED)
-endif()
-string(FIND "${ifc_libs}" "Scotch::Scotch" needs_scotch)
-if(needs_scotch GREATER 0)
-  find_package(Scotch REQUIRED COMPONENTS ESMUMPS)
-endif()
 
 if(CMAKE_Fortran_COMPILER_ID STREQUAL GNU AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL 10)
   string(APPEND CMAKE_Fortran_FLAGS "-fallow-argument-mismatch -fallow-invalid-boz")
