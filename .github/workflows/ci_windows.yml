@@ -25,7 +25,7 @@ jobs:
       run: ctest -S ci.cmake -VV
 
     - run: cmake --install build
-    - run: cmake -S examples -B examples/build
+    - run: cmake -G "MinGW Makefiles" -S examples -B examples/build
     - run: cmake --build examples/build --parallel
     - run: ctest  -parallel 2 --output-on-failure
       working-directory: examples/build
