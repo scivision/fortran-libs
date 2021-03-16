@@ -16,16 +16,16 @@ on:
 jobs:
 
   cmakeScotchMetis:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
 
     - name: Install prereqs
       run: |
         sudo apt update -yq
-        sudo apt install -yq --no-install-recommends gfortran libopenmpi-dev openmpi-bin liblapack-dev libblacs-mpi-dev libscalapack-mpi-dev libmetis-dev libscotch-dev
+        sudo apt install -yq --no-install-recommends ninja-build gfortran libopenmpi-dev openmpi-bin liblapack-dev libscalapack-mpi-dev libmetis-dev libscotch-dev
 
-    - run: cmake --preset=make -Darith=d -Dmetis:BOOL=true -Dscotch:BOOL=true -DCMAKE_INSTALL_PREFIX:PATH=~/mumps
+    - run: cmake --preset=ninja -Darith=d -Dmetis:BOOL=true -Dscotch:BOOL=true -DCMAKE_INSTALL_PREFIX:PATH=~/mumps
     - run: cmake --build build --parallel
     - run: cmake --install build
     - run: ctest --parallel 2 --output-on-failure
