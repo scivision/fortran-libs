@@ -1,4 +1,4 @@
-name: ci_build
+name: ci_windows
 env:
   CTEST_MUMPS_ARGS: "-Darith=d;-DCMAKE_INSTALL_PREFIX:PATH=~/mumps"
   CTEST_SITE: GitHub_Windows
@@ -10,7 +10,7 @@ on:
     paths:
       - "**.cmake"
       - "**/CMakeLists.txt"
-      - ".github/workflows/ci_build.yml"
+      - ".github/workflows/ci_windows.yml"
 
 
 jobs:
