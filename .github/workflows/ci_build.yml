@@ -1,6 +1,9 @@
 name: ci_build
 env:
-   CTEST_MUMPS_ARGS: -Darith=d
+  CTEST_SITE: GitHub_Ubuntu
+  CTEST_MUMPS_ARGS: "-Darith=d;-DCMAKE_INSTALL_PREFIX:PATH=~/mumps"
+  MUMPS_ROOT: ~/mumps
+  SCALAPACK_ROOT: ~/mumps
 
 on:
   push:
@@ -14,8 +17,6 @@ jobs:
 
   linux:
     runs-on: ubuntu-20.04
-    env:
-      CTEST_SITE: GitHub_Ubuntu
 
     steps:
     - uses: actions/checkout@v2
@@ -29,28 +30,8 @@ jobs:
     - name: CDash
       run: ctest -S ci.cmake -VV
 
-    - run: cmake -B build -DCMAKE_INSTALL_PREFIX=~/mumps
     - run: cmake --install build
-    - run: cmake -S examples -B examples/build -DMUMPS_ROOT=~/mumps -DSCALAPACK_ROOT=~/mumps
-    - run: cmake --build examples/build --parallel
-    - run: ctest  -parallel 2 --output-on-failure
-      working-directory: examples/build
-
-
-  windows:
-    runs-on: windows-latest
-    env:
-      CTEST_SITE: GitHub_Windows
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: CDash
-      run: ctest -S ci.cmake -VV
-
-    - run: cmake -B build -DCMAKE_INSTALL_PREFIX=~/mumps
-    - run: cmake --install build
-    - run: cmake -S examples -B examples/build -DMUMPS_ROOT=~/mumps
+    - run: cmake -S examples -B examples/build
     - run: cmake --build examples/build --parallel
     - run: ctest  -parallel 2 --output-on-failure
       working-directory: examples/build
