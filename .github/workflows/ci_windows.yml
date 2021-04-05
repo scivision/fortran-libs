@@ -1,9 +1,4 @@
 name: ci_windows
-env:
-  CTEST_MUMPS_ARGS: "-Darith=d;-DCMAKE_INSTALL_PREFIX:PATH=~/mumps"
-  CTEST_SITE: GitHub_Windows
-  MUMPS_ROOT: ~/mumps
-
 
 on:
   push:
@@ -23,9 +18,13 @@ jobs:
 
     - name: CDash
       run: ctest -S ci.cmake -VV
+      env:
+        CTEST_MUMPS_ARGS: "-Darith=d;-DCMAKE_INSTALL_PREFIX:PATH=${USERPROFILE}/mumps"
+        CTEST_SITE: GitHub_Windows
 
     - run: cmake --install build
-    - run: cmake -G "MinGW Makefiles" -S examples -B examples/build
+
+    - run: cmake -G "MinGW Makefiles" -S examples -B examples/build -DMUMPS_ROOT:PATH=${USERPROFILE}/mumps
     - run: cmake --build examples/build --parallel
     - run: ctest  -parallel 2 --output-on-failure
       working-directory: examples/build
