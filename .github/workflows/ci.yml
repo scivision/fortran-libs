@@ -1,6 +1,6 @@
 name: ci
 env:
-  MUMPS_ROOT: ~/mumps
+  MUMPS_ROOT: ~/local
 
 on:
   push:
@@ -27,11 +27,11 @@ jobs:
         sudo apt update -yq
         sudo apt install -yq --no-install-recommends ninja-build gfortran libopenmpi-dev openmpi-bin liblapack-dev libscalapack-mpi-dev libmetis-dev libscotch-dev
 
-    - run: cmake --preset=ninja -Darith=d -Dmetis:BOOL=true -Dscotch:BOOL=true -DCMAKE_INSTALL_PREFIX:PATH=~/mumps
-    - run: cmake --build build --parallel
+    - run: cmake --preset default -Darith=d -Dmetis:BOOL=true -Dscotch:BOOL=true
+    - run: cmake --build --preset default
+    - run: ctest --preset default
+
     - run: cmake --install build
-    - run: ctest --parallel 2 --output-on-failure
-      working-directory: build
 
     - run: cmake -S examples -B examples/build
     - run: cmake --build examples/build --parallel

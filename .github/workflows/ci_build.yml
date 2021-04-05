@@ -1,9 +1,8 @@
 name: ci_build
 env:
   CTEST_SITE: GitHub_Ubuntu
-  CTEST_MUMPS_ARGS: "-Darith=d;-DCMAKE_INSTALL_PREFIX:PATH=~/mumps"
-  MUMPS_ROOT: ~/mumps
-  SCALAPACK_ROOT: ~/mumps
+  MUMPS_ROOT: ~/local
+  SCALAPACK_ROOT: ~/local
 
 on:
   push:
@@ -27,10 +26,12 @@ jobs:
         sudo apt install -yq --no-install-recommends ninja-build gfortran libopenmpi-dev openmpi-bin
 
 
-    - name: CDash
-      run: ctest -S ci.cmake -VV
+    - run: cmake --preset default -Darith=d
+    - run: cmake --build --preset default
+    - run: ctest --preset default
 
     - run: cmake --install build
+
     - run: cmake -S examples -B examples/build
     - run: cmake --build examples/build --parallel
     - run: ctest  -parallel 2 --output-on-failure

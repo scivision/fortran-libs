@@ -16,15 +16,13 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: CDash
-      run: ctest -S ci.cmake -VV
-      env:
-        CTEST_MUMPS_ARGS: "-Darith=d;-DCMAKE_INSTALL_PREFIX:PATH=${USERPROFILE}/mumps"
-        CTEST_SITE: GitHub_Windows
+    - run: cmake --preset makewin -Darith=d -Dparallel:BOOL=false
+    - run: cmake --build --preset default
+    - run: ctest --preset default
 
     - run: cmake --install build
 
-    - run: cmake -G "MinGW Makefiles" -S examples -B examples/build -DMUMPS_ROOT:PATH=${USERPROFILE}/mumps
+    - run: cmake -G "MinGW Makefiles" -S examples -B examples/build
     - run: cmake --build examples/build --parallel
     - run: ctest  -parallel 2 --output-on-failure
       working-directory: examples/build
