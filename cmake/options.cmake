@@ -11,14 +11,7 @@ option(scotch "use Scotch" OFF)
 option(openmp "use OpenMP" OFF)
 option(mumps_matlab "build optional Matlab interface" OFF)
 
-# --- Error if Visual Studio backend, as this does not work.
-# https://software.intel.com/en-us/articles/configuring-visual-studio-for-mixed-language-applications
-string(REGEX MATCH "^Visual Studio" vs_backend ${CMAKE_GENERATOR})
-if(vs_backend)
-  message(STATUS "Ninja is a small program available from:
-   https://github.com/ninja-build/ninja/releases")
-  message(FATAL_ERROR "Visual Studio does not work. Use Ninja backend 'cmake -G Ninja' instead.")
-endif()
+
 
 # --- other options
 
@@ -38,8 +31,7 @@ endif()
 if(dev)
 
 else()
-  set(FETCHCONTENT_UPDATES_DISCONNECTED_LAPACK true)
-  set(FETCHCONTENT_UPDATES_DISCONNECTED_SCALAPACK true)
+  set(EP_UPDATE_DISCONNECTED true)
 endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)

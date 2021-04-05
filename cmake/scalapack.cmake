@@ -1,5 +1,5 @@
 # Finds Scalapack, tests, and if not found or broken, autobuild scalapack
-include(FetchContent)
+include(ExternalProject)
 
 if(intsize64)
   if(MKL IN_LIST SCALAPACK_COMPONENTS)
@@ -24,21 +24,37 @@ if(NOT scalapack_external)
 endif()
 
 if(SCALAPACK_FOUND OR TARGET SCALAPACK::SCALAPACK)
-# in a stack of FetchContent libraries where MUMPS is invoked later, SCALAPACK could have been built first in the stack
   return()
 endif()
 
 
 set(scalapack_external true CACHE BOOL "build ScaLapack")
 
-FetchContent_Declare(SCALAPACK
-  GIT_REPOSITORY ${scalapack_git}
-  GIT_TAG ${scalapack_tag}
-  CMAKE_ARGS -Darith=${arith})
-
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.14)
-  FetchContent_MakeAvailable(SCALAPACK)
-elseif(NOT scalapack_POPULATED)
-  FetchContent_Populate(SCALAPACK)
-  add_subdirectory(${scalapack_SOURCE_DIR} ${scalapack_BINARY_DIR})
+if(NOT DEFINED SCALAPACK_ROOT)
+  if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(SCALAPACK_ROOT ${PROJECT_BINARY_DIR}/scalapack)
+  else()
+    set(SCALAPACK_ROOT ${CMAKE_INSTALL_PREFIX})
+  endif()
 endif()
+
+set(SCALAPACK_LIBRARIES
+${SCALAPACK_ROOT}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}scalapack${CMAKE_STATIC_LIBRARY_SUFFIX}
+${SCALAPACK_ROOT}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}blacs${CMAKE_STATIC_LIBRARY_SUFFIX})
+
+
+ExternalProject_Add(SCALAPACK
+GIT_REPOSITORY ${scalapack_git}
+GIT_TAG ${scalapack_tag}
+CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${SCALAPACK_ROOT} -DLAPACK_ROOT:PATH=${LAPACK_ROOT} -DBUILD_SHARED_LIBS:BOOL=false -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING:BOOL=false
+CMAKE_CACHE_ARGS -Darith:STRING=${arith}
+BUILD_BYPRODUCTS ${SCALAPACK_LIBRARIES}
+INACTIVITY_TIMEOUT 30
+CONFIGURE_HANDLED_BY_BUILD ON
+)
+
+add_library(SCALAPACK::SCALAPACK INTERFACE IMPORTED)
+target_link_libraries(SCALAPACK::SCALAPACK INTERFACE "${SCALAPACK_LIBRARIES}")
+
+# race condition for linking without this
+add_dependencies(SCALAPACK::SCALAPACK SCALAPACK)
