@@ -1,10 +1,11 @@
+Replaced by [mumps](https://github.com/scivision/mumps) which is more efficient build.
+
 # MUMPS
 
 ![ci_build](https://github.com/scivision/mumps/workflows/ci_build/badge.svg)
 ![ci](https://github.com/scivision/mumps/workflows/ci/badge.svg)
 ![ci_mac](https://github.com/scivision/mumps/workflows/ci_mac/badge.svg)
 ![ci_windows](https://github.com/scivision/mumps/workflows/ci_windows/badge.svg)
-[![CDash](./.archive/cdash.png)](https://my.cdash.org/index.php?project=mumps)
 
 This is a mirror of
 [original MUMPS code](http://mumps-solver.org),
